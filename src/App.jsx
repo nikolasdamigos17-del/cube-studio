@@ -107,6 +107,7 @@ function AppContent() {
         <Route path="/Messages"    element={<MasterLayout><MasterMessages/></MasterLayout>}/>
         <Route path="/HevySync"    element={<MasterLayout><HevySync/></MasterLayout>}/>
         <Route path="/recipe"      element={<RecipePage/>}/>
+        <Route path="/live-training" element={<LiveTraining/>}/>
         <Route path="*" element={<Navigate to="/" replace/>}/>
       </Routes>
     </ThemeProvider>
