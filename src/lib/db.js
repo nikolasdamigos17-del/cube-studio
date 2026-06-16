@@ -58,11 +58,21 @@ export const db = {
   Group: createEntity('groups'),
   HevyWorkout: createEntity('hevy_workouts'),
   ClientReminder: createEntity('client_reminders'),
+  AppointmentRequest: createEntity('appointment_requests'),
+  WaterLog: createEntity('water_logs'),
+  SupplementLog: createEntity('supplement_logs'),
 };
 
 // ── AI CALL ───────────────────────────────────────────────────────────────────
 // Reads key from: .env file (VITE_ANTHROPIC_API_KEY) OR localStorage (studio_api_key)
+const GREEK_DIRECTIVE = `
+
+ΓΛΩΣΣΑ: Απάντησε στα ΕΛΛΗΝΙΚΑ. Όλο το αναγνώσιμο κείμενο (τίτλοι, περιγραφές, σημειώσεις, συμβουλές, αναλύσεις) πρέπει να είναι στα ελληνικά.
+ΕΞΑΙΡΕΣΕΙΣ: 1) Τα JSON keys μένουν ΠΑΝΤΑ στα αγγλικά. 2) Αν σου ζητείται να διαλέξεις στοιχεία από δοσμένη λίστα (π.χ. ονόματα ασκήσεων), επέστρεψέ τα ΑΚΡΙΒΩΣ όπως γράφονται στη λίστα, χωρίς μετάφραση.`;
+
 export async function callAI(prompt, systemPrompt) {
+  const lang = localStorage.getItem('cube_lang') || 'en';
+  if (lang === 'el') systemPrompt = (systemPrompt || '') + GREEK_DIRECTIVE;
   const API_KEY = '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';
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {

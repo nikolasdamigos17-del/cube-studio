@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Dumbbell, Eye, EyeOff, Loader2, Zap } from 'lucide-react';
 import { useAppContext } from '../lib/AppContext';
+import logo from '../assets/logo-cube.png';
+import { useLang } from '../lib/LangContext';
 import { db } from '../lib/db';
 
 const MASTER_EMAIL = 'nikolasdamigos17@gmail.com';
@@ -8,6 +10,7 @@ const MASTER_PASSWORD = 'neymarlol12';
 
 export default function LoginGate() {
   const { loginAsMaster, loginAsClient } = useAppContext();
+  const { lang, toggle: toggleLang, tr } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -73,13 +76,13 @@ export default function LoginGate() {
           <div className="w-9 h-9 rounded-xl bg-background/10 flex items-center justify-center">
             <Dumbbell className="w-5 h-5 text-background" strokeWidth={2.5} />
           </div>
-          <span className="font-semibold text-background" style={{ fontFamily: 'var(--font-display)', fontSize: 15 }}>Studio Manager</span>
+          <span className="font-semibold text-background" style={{ fontFamily: 'var(--font-display)', fontSize: 15 }}>Cube</span>
         </div>
 
         <div>
           <h1 className="text-4xl font-bold text-background leading-tight mb-4"
             style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
-            Your studio,<br />perfectly managed.
+            The Cube.<br />Personal Training Studio.
           </h1>
           <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
             Training plans, nutrition, client progress and payments — all in one workspace built for personal trainers.
@@ -94,7 +97,7 @@ export default function LoginGate() {
           </div>
         </div>
 
-        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>Personal Training Studio v2.0</p>
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>Personal Training Studio</p>
       </div>
 
       {/* Right — form */}
@@ -105,11 +108,11 @@ export default function LoginGate() {
             <div className="w-8 h-8 rounded-xl bg-foreground flex items-center justify-center">
               <Dumbbell className="w-4 h-4 text-background" strokeWidth={2.5} />
             </div>
-            <span className="font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>Studio Manager</span>
+            <span className="font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>Cube</span>
           </div>
 
-          <h2 className="text-2xl font-bold text-foreground mb-1" style={{ fontFamily: 'var(--font-display)' }}>Welcome back</h2>
-          <p className="text-sm text-muted-foreground mb-8">Sign in to your studio account</p>
+          <h2 className="text-2xl font-bold text-foreground mb-1" style={{ fontFamily: 'var(--font-display)' }}>{tr('login_welcome')}</h2>
+          <p className="text-sm text-muted-foreground mb-8">Sign in to your Cube account</p>
 
           <div className="space-y-4">
             <div>
@@ -157,7 +160,7 @@ export default function LoginGate() {
               className="btn btn-primary w-full py-3 mt-2"
               style={{ fontSize: 15 }}
             >
-              {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Signing in…</> : 'Sign In'}
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" />{tr('login_signing')}</> : tr('login_btn')}
             </button>
           </div>
 
