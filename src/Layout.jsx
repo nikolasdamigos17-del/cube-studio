@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
 import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, Zap, ChevronDown } from 'lucide-react';
@@ -32,73 +32,57 @@ function Clock({ visible }) {
   );
 }
 
-function ThemePicker({ open }) {
+function ThemePicker({ open: sidebarOpen }) {
   const { themeName, switchTheme, themes } = useTheme();
-  const [show, setShow] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setShow(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  const current = MASTER_THEMES[themeName] || { emoji:'⚪', name:'Theme' };
-
+  const [open, setOpen] = React.useState(false);
+  const dark = Object.entries(themes).filter(([,t])=>t.group==='dark');
+  const light = Object.entries(themes).filter(([,t])=>t.group==='light');
+  const cur = themes[themeName];
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setShow(s => !s)}
-        className="w-full flex items-center h-10 rounded-xl px-3 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors overflow-hidden"
-        title="Change theme"
-      >
-        <span className="text-base flex-shrink-0">{current?.emoji || '⚪'}</span>
-        {open && (
-          <span className="ml-3 text-sm font-medium whitespace-nowrap flex-1 text-left">
-            {current?.name || 'Theme'}
-          </span>
-        )}
-        {open && <ChevronDown className="w-3.5 h-3.5 flex-shrink-0 ml-auto" />}
+    <div style={{position:'relative'}}>
+      <button onClick={()=>setOpen(v=>!v)}
+        className="flex items-center h-10 w-full rounded-xl px-3 text-muted-foreground hover:bg-muted hover:text-foreground overflow-hidden transition-colors gap-3">
+        <span className="text-base flex-shrink-0">{cur?.emoji||'🎨'}</span>
+        <span className="text-sm font-medium whitespace-nowrap"
+          style={{opacity:(open||sidebarOpen)?1:0,transition:'opacity 0.15s ease'}}>
+          {cur?.name||'Theme'}
+        </span>
       </button>
-      {show && (
-        <div
-          className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-2xl py-2 z-[100] overflow-hidden"
-          style={{ width: 180, boxShadow: 'var(--shadow-xl)' }}
-        >
-          <p className="px-3 pb-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Appearance</p>
-          {Object.entries(themes || {}).map(([key, t]) => (
-            <button
-              key={key}
-              onClick={() => { switchTheme(key); setShow(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors hover:bg-muted ${themeName === key ? 'text-foreground font-semibold' : 'text-muted-foreground'}`}
-            >
-              <span>{t.emoji}</span>
-              <span>{t.name}</span>
-              {themeName === key && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-foreground" />}
-            </button>
-          ))}
-        </div>
+      {open&&(
+        <>
+          <div onClick={()=>setOpen(false)} style={{position:'fixed',inset:0,zIndex:99}}/>
+          <div style={{position:'fixed',bottom:120,left:68,zIndex:100,background:'hsl(var(--card)/0.96)',
+            border:'1px solid hsl(var(--border))',borderRadius:16,padding:'14px',
+            boxShadow:'0 8px 40px rgba(0,0,0,0.5)',width:220,backdropFilter:'blur(20px)'}}>
+            <p style={{fontSize:9,letterSpacing:'0.16em',color:'hsl(var(--muted-foreground))',textTransform:'uppercase',margin:'0 0 8px 2px'}}>DARK</p>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5,marginBottom:12}}>
+              {dark.map(([k,t])=>(
+                <button key={k} onClick={()=>{switchTheme(k);setOpen(false);}} title={t.name}
+                  style={{height:34,borderRadius:8,border:themeName===k?'2px solid hsl(var(--primary))':'1px solid hsl(var(--border))',
+                    background:k==='dark'?'#1a1a2e':k==='obsidian'?'#1a1500':k==='ocean'?'#020f24':k==='forest'?'#051205':k==='slate'?'#0d1424':k==='aurora'?'#0d0820':k==='crimson'?'#1a0505':'#1a0e05',
+                    cursor:'pointer',fontSize:15,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {t.emoji}
+                </button>
+              ))}
+            </div>
+            <p style={{fontSize:9,letterSpacing:'0.16em',color:'hsl(var(--muted-foreground))',textTransform:'uppercase',margin:'0 0 8px 2px'}}>LIGHT</p>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5}}>
+              {light.map(([k,t])=>(
+                <button key={k} onClick={()=>{switchTheme(k);setOpen(false);}} title={t.name}
+                  style={{height:34,borderRadius:8,border:themeName===k?'2px solid hsl(var(--primary))':'1px solid rgba(0,0,0,0.12)',
+                    background:k==='light'?'#e8edf5':k==='sand'?'#e9e0cf':k==='rose'?'#f3dfe3':k==='arctic'?'#dbe8fa':k==='mint'?'#dcf2e6':k==='ivory'?'#f2ede4':k==='lavender'?'#ece8f5':'#e0f0fa',
+                    cursor:'pointer',fontSize:15,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {t.emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-
-function LangToggle({ open }) {
-  const { lang, toggle } = useLang();
-  return (
-    <button
-      onClick={toggle}
-      className="flex items-center h-10 w-full rounded-xl px-3 text-muted-foreground hover:bg-muted hover:text-foreground overflow-hidden transition-colors"
-      title={lang === 'en' ? 'Switch to Greek' : 'Αλλαγή σε Αγγλικά'}
-    >
-      <span className="text-base flex-shrink-0">{lang === 'en' ? '🇬🇧' : '🇬🇷'}</span>
-      <span className="ml-3 text-sm font-medium whitespace-nowrap"
-        style={{opacity: open ? 1 : 0, transition: 'opacity 0.15s ease'}}>
-        {lang === 'en' ? 'English' : 'Ελληνικά'}
-      </span>
-    </button>
-  );
-}
 
 export default function MasterLayout({ children }) {
   const [open, setOpen] = useState(false);

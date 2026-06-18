@@ -23,24 +23,42 @@ const PAGE_ANGLES = {
 // ── Theme palettes  [r,g,b] ───────────────────────────────────────────────────
 // line: bracket/edge lines · glow: light escaping · panelHi/panelLo: metallic faces · particle
 const PALETTES = {
-  // master
-  light:       { line:[105,115,135], glow:[140,155,190], panelHi:[175,185,205], panelLo:[90,100,120],  particle:[120,140,180], lightBg:true  },
-  dark:        { line:[150,160,200], glow:[129,140,248], panelHi:[120,128,185], panelLo:[28,30,52],    particle:[165,180,252], lightBg:false },
-  sand:        { line:[150,120,70],  glow:[225,190,120], panelHi:[190,160,105], panelLo:[70,56,32],    particle:[222,190,130], lightBg:true  },
-  obsidian:    { line:[185,155,95],  glow:[201,169,110], panelHi:[170,142,88],  panelLo:[38,32,20],    particle:[235,200,130], lightBg:false },
-  ocean:       { line:[95,150,235],  glow:[96,165,250],  panelHi:[80,130,210],  panelLo:[12,28,58],    particle:[125,211,252], lightBg:false },
-  forest:      { line:[95,180,105],  glow:[74,222,128],  panelHi:[78,160,90],   panelLo:[14,38,18],    particle:[134,239,172], lightBg:false },
-  rose:        { line:[175,65,95],   glow:[225,100,130], panelHi:[200,95,120],  panelLo:[70,24,36],    particle:[230,120,150], lightBg:true  },
-  slate:       { line:[125,158,201], glow:[147,197,253], panelHi:[110,145,190], panelLo:[22,32,48],    particle:[170,205,250], lightBg:false },
-  // client portal
-  cp_sand:     { line:[145,115,65],  glow:[215,180,115], panelHi:[185,155,100], panelLo:[68,54,30],    particle:[215,182,124], lightBg:true  },
-  cp_obsidian: { line:[185,155,95],  glow:[201,169,110], panelHi:[170,142,88],  panelLo:[38,32,20],    particle:[235,200,130], lightBg:false },
-  cp_ocean:    { line:[90,148,240],  glow:[96,165,250],  panelHi:[78,128,212],  panelLo:[10,26,56],    particle:[125,211,252], lightBg:false },
-  cp_forest:   { line:[95,180,105],  glow:[92,196,116],  panelHi:[78,160,90],   panelLo:[14,38,18],    particle:[134,239,172], lightBg:false },
-  cp_rose:     { line:[170,60,90],   glow:[215,95,125],  panelHi:[195,90,115],  panelLo:[66,22,34],    particle:[225,115,145], lightBg:true  },
-  cp_arctic:   { line:[55,105,210],  glow:[80,130,235],  panelHi:[95,140,225],  panelLo:[18,38,80],    particle:[110,160,240], lightBg:true  },
-  cp_carbon:   { line:[185,185,190], glow:[225,225,230], panelHi:[160,160,168], panelLo:[35,35,38],    particle:[210,210,215], lightBg:false },
-  cp_mint:     { line:[20,135,95],   glow:[35,165,120],  panelHi:[60,170,130],  panelLo:[10,52,36],    particle:[80,200,155],  lightBg:true  },
+  // ── Master dark ──────────────────────────────────────────────────────────
+  light:    { line:[105,115,135], glow:[140,155,190], panelHi:[175,185,205], panelLo:[90,100,120],  particle:[120,140,180], lightBg:true  },
+  dark:     { line:[150,160,200], glow:[129,140,248], panelHi:[120,128,185], panelLo:[28,30,52],    particle:[165,180,252], lightBg:false },
+  obsidian: { line:[185,155,95],  glow:[201,169,110], panelHi:[170,142,88],  panelLo:[38,32,20],    particle:[235,200,130], lightBg:false },
+  ocean:    { line:[95,150,235],  glow:[96,165,250],  panelHi:[80,130,210],  panelLo:[12,28,58],    particle:[125,211,252], lightBg:false },
+  forest:   { line:[95,180,105],  glow:[74,222,128],  panelHi:[78,160,90],   panelLo:[14,38,18],    particle:[134,239,172], lightBg:false },
+  slate:    { line:[125,158,201], glow:[147,197,253], panelHi:[110,145,190], panelLo:[22,32,48],    particle:[170,205,250], lightBg:false },
+  aurora:   { line:[160,100,240], glow:[192,132,252], panelHi:[148,80,220],  panelLo:[30,15,55],    particle:[210,160,255], lightBg:false },
+  crimson:  { line:[210,80,80],   glow:[240,100,100], panelHi:[200,70,70],   panelLo:[50,12,12],    particle:[255,140,140], lightBg:false },
+  copper:   { line:[200,130,80],  glow:[224,160,100], panelHi:[190,120,70],  panelLo:[45,28,12],    particle:[240,180,120], lightBg:false },
+  // ── Master light ──────────────────────────────────────────────────────────
+  sand:     { line:[150,120,70],  glow:[225,190,120], panelHi:[190,160,105], panelLo:[70,56,32],    particle:[222,190,130], lightBg:true  },
+  rose:     { line:[175,65,95],   glow:[225,100,130], panelHi:[200,95,120],  panelLo:[70,24,36],    particle:[230,120,150], lightBg:true  },
+  arctic:   { line:[55,105,210],  glow:[80,130,235],  panelHi:[95,140,225],  panelLo:[18,38,80],    particle:[110,160,240], lightBg:true  },
+  mint:     { line:[20,135,95],   glow:[35,165,120],  panelHi:[60,170,130],  panelLo:[10,52,36],    particle:[80,200,155],  lightBg:true  },
+  ivory:    { line:[140,120,80],  glow:[180,160,110], panelHi:[175,155,105], panelLo:[80,65,40],    particle:[200,180,130], lightBg:true  },
+  lavender: { line:[130,90,210],  glow:[160,120,240], panelHi:[145,105,225], panelLo:[55,35,95],    particle:[190,150,255], lightBg:true  },
+  blush:    { line:[200,90,130],  glow:[230,110,155], panelHi:[215,95,140],  panelLo:[80,30,55],    particle:[245,140,175], lightBg:true  },
+  sky:      { line:[40,130,200],  glow:[60,160,225],  panelHi:[80,150,215],  panelLo:[15,50,85],    particle:[100,185,235], lightBg:true  },
+  // ── Client portal ─────────────────────────────────────────────────────────
+  cp_obsidian: { line:[185,155,95],  glow:[201,169,110], panelHi:[170,142,88],  panelLo:[38,32,20],  particle:[235,200,130], lightBg:false },
+  cp_night:    { line:[150,160,200], glow:[129,140,248], panelHi:[120,128,185], panelLo:[28,30,52],  particle:[165,180,252], lightBg:false },
+  cp_ocean:    { line:[90,148,240],  glow:[96,165,250],  panelHi:[78,128,212],  panelLo:[10,26,56],  particle:[125,211,252], lightBg:false },
+  cp_forest:   { line:[95,180,105],  glow:[92,196,116],  panelHi:[78,160,90],   panelLo:[14,38,18],  particle:[134,239,172], lightBg:false },
+  cp_carbon:   { line:[185,185,190], glow:[225,225,230], panelHi:[160,160,168], panelLo:[35,35,38],  particle:[210,210,215], lightBg:false },
+  cp_crimson:  { line:[210,80,80],   glow:[240,100,100], panelHi:[200,70,70],   panelLo:[50,12,12],  particle:[255,140,140], lightBg:false },
+  cp_aurora:   { line:[160,100,240], glow:[192,132,252], panelHi:[148,80,220],  panelLo:[30,15,55],  particle:[210,160,255], lightBg:false },
+  cp_copper:   { line:[200,130,80],  glow:[224,160,100], panelHi:[190,120,70],  panelLo:[45,28,12],  particle:[240,180,120], lightBg:false },
+  cp_sand:     { line:[145,115,65],  glow:[215,180,115], panelHi:[185,155,100], panelLo:[68,54,30],  particle:[215,182,124], lightBg:true  },
+  cp_arctic:   { line:[55,105,210],  glow:[80,130,235],  panelHi:[95,140,225],  panelLo:[18,38,80],  particle:[110,160,240], lightBg:true  },
+  cp_mint:     { line:[20,135,95],   glow:[35,165,120],  panelHi:[60,170,130],  panelLo:[10,52,36],  particle:[80,200,155],  lightBg:true  },
+  cp_rose:     { line:[170,60,90],   glow:[215,95,125],  panelHi:[195,90,115],  panelLo:[66,22,34],  particle:[225,115,145], lightBg:true  },
+  cp_ivory:    { line:[140,120,80],  glow:[180,160,110], panelHi:[175,155,105], panelLo:[80,65,40],  particle:[200,180,130], lightBg:true  },
+  cp_lavender: { line:[130,90,210],  glow:[160,120,240], panelHi:[145,105,225], panelLo:[55,35,95],  particle:[190,150,255], lightBg:true  },
+  cp_blush:    { line:[200,90,130],  glow:[230,110,155], panelHi:[215,95,140],  panelLo:[80,30,55],  particle:[245,140,175], lightBg:true  },
+  cp_sky:      { line:[40,130,200],  glow:[60,160,225],  panelHi:[80,150,215],  panelLo:[15,50,85],  particle:[100,185,235], lightBg:true  },
 };
 
 const easeInOutCubic = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;

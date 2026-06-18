@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, Dumbbell, Salad, BarChart2, CreditCard, MessageCircle, LogOut, Sun, Moon, ChevronDown, Check } from 'lucide-react';
 import { useAppContext } from '../../lib/AppContext';
@@ -36,63 +36,51 @@ function LangToggleClient() {
 }
 
 function ThemePicker() {
-  const { themeName, switchTheme } = useTheme();
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  const current = CLIENT_THEMES[themeName] || CLIENT_THEMES.sand;
-  const isDark = current.family === 'dark';
-
+  const { themeName, switchTheme, themes } = useTheme();
+  const [open, setOpen] = React.useState(false);
+  const dark = Object.entries(themes).filter(([,t])=>t.family==='dark');
+  const light = Object.entries(themes).filter(([,t])=>t.family==='light');
+  const cur = themes[themeName];
   return (
-    <div ref={ref} style={{ position:'relative' }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        title="Change theme"
-        style={{
-          width:36, height:36, borderRadius:10,
-          border:'1px solid var(--cp-border)',
-          backgroundColor:'var(--cp-accent-light)',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          cursor:'pointer', transition:'all 0.15s',
-        }}
-      >
-        {isDark
-          ? <Sun style={{ width:15, height:15, color:'var(--cp-accent)' }} />
-          : <Moon style={{ width:15, height:15, color:'var(--cp-accent)' }} />
-        }
+    <div style={{position:'relative'}}>
+      <button onClick={()=>setOpen(v=>!v)} title="Change theme"
+        style={{width:36,height:36,borderRadius:10,border:'1px solid var(--cp-border)',
+          backgroundColor:'var(--cp-accent-light)',display:'flex',alignItems:'center',
+          justifyContent:'center',cursor:'pointer',fontSize:16}}>
+        {cur?.emoji||'🎨'}
       </button>
-      {open && (
-        <div style={{
-          position:'absolute', bottom:'calc(100% + 8px)', left:0,
-          backgroundColor:'var(--cp-card-bg)', border:'1px solid var(--cp-border)',
-          borderRadius:16, padding:'8px 0', minWidth:160, zIndex:100,
-          boxShadow:'0 8px 32px rgba(0,0,0,0.25)',
-        }}>
-          <p style={{ fontSize:9, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', color:'var(--cp-text-dim)', padding:'0 12px 6px', margin:0 }}>Theme</p>
-          {Object.entries(CLIENT_THEMES).map(([key, t]) => (
-            <button key={key} onClick={() => { switchTheme(key); setOpen(false); }}
-              style={{
-                width:'100%', display:'flex', alignItems:'center', gap:10,
-                padding:'8px 12px', border:'none', backgroundColor:'transparent',
-                cursor:'pointer', textAlign:'left',
-                color: themeName===key ? 'var(--cp-accent)' : 'var(--cp-text)',
-                fontWeight: themeName===key ? 700 : 400,
-                fontSize:13,
-                transition:'background 0.1s',
-              }}
-            >
-              <span>{t.emoji}</span>
-              <span style={{ flex:1 }}>{t.name}</span>
-              <span style={{ fontSize:9, color:'var(--cp-text-dim)' }}>{t.family}</span>
-              {themeName===key && <Check style={{ width:12, height:12, color:'var(--cp-accent)' }} />}
-            </button>
-          ))}
-        </div>
+      {open&&(
+        <>
+          <div onClick={()=>setOpen(false)} style={{position:'fixed',inset:0,zIndex:99}}/>
+          <div style={{position:'fixed',bottom:60,left:8,zIndex:100,background:'var(--cp-card-bg)',
+            border:'1px solid var(--cp-border)',borderRadius:16,padding:'12px',
+            boxShadow:'0 8px 32px rgba(0,0,0,0.4)',width:200,backdropFilter:'blur(20px)'}}>
+            <p style={{fontSize:9,letterSpacing:'0.15em',color:'var(--cp-text-dim)',textTransform:'uppercase',margin:'0 0 8px 2px'}}>DARK</p>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5,marginBottom:10}}>
+              {dark.map(([k,t])=>(
+                <button key={k} onClick={()=>{switchTheme(k);setOpen(false);}}
+                  title={t.name}
+                  style={{height:32,borderRadius:8,border:themeName===k?'2px solid var(--cp-accent)':'1px solid var(--cp-border)',
+                    background:t.body,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',
+                    boxShadow:themeName===k?'0 0 0 1px var(--cp-accent)':'none'}}>
+                  {t.emoji}
+                </button>
+              ))}
+            </div>
+            <p style={{fontSize:9,letterSpacing:'0.15em',color:'var(--cp-text-dim)',textTransform:'uppercase',margin:'0 0 8px 2px'}}>LIGHT</p>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5}}>
+              {light.map(([k,t])=>(
+                <button key={k} onClick={()=>{switchTheme(k);setOpen(false);}}
+                  title={t.name}
+                  style={{height:32,borderRadius:8,border:themeName===k?'2px solid var(--cp-accent)':'1px solid rgba(0,0,0,0.15)',
+                    background:t.body,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',
+                    boxShadow:themeName===k?'0 0 0 1px #666':'none'}}>
+                  {t.emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
