@@ -84,6 +84,24 @@ function ThemePicker({ open: sidebarOpen }) {
 }
 
 
+
+function LangToggle({ open }) {
+  const { lang, toggle } = useLang();
+  return (
+    <button
+      onClick={toggle}
+      className="flex items-center h-10 w-full rounded-xl px-3 text-muted-foreground hover:bg-muted hover:text-foreground overflow-hidden transition-colors gap-3"
+      title={lang === 'en' ? 'Switch to Greek' : 'Αλλαγή σε Αγγλικά'}
+    >
+      <span className="text-base flex-shrink-0">{lang === 'en' ? '🇬🇧' : '🇬🇷'}</span>
+      <span className="text-sm font-medium whitespace-nowrap"
+        style={{ opacity: open ? 1 : 0, transition: 'opacity 0.15s ease' }}>
+        {lang === 'en' ? 'English' : 'Ελληνικά'}
+      </span>
+    </button>
+  );
+}
+
 export default function MasterLayout({ children }) {
   const [open, setOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
