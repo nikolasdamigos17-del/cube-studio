@@ -613,11 +613,15 @@ export default function LiveTraining(){
   return(
     <div style={{minHeight:'100vh',position:'relative',
       background:'transparent',overflowX:'hidden'}}>
-      {/* Cube background always visible */}
-      <CubeBackground/>
-      {/* Dark overlay — subtle, lets the cube show */}
+      {/* Cube background — scaled down, less intrusive */}
       <div style={{position:'fixed',inset:0,zIndex:0,
-        background:'rgba(0,0,0,0.45)',pointerEvents:'none'}}/>
+        transform:'scale(0.7)',transformOrigin:'center center',
+        opacity:0.6,pointerEvents:'none'}}>
+        <CubeBackground/>
+      </div>
+      {/* Dark overlay */}
+      <div style={{position:'fixed',inset:0,zIndex:0,
+        background:'rgba(0,0,0,0.55)',pointerEvents:'none'}}/>
       {/* Content */}
       {screen==='welcome'&&(
         <WelcomeScreen plan={plan} clientName={clientName}
