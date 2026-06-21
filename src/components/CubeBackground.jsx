@@ -112,7 +112,7 @@ export default function CubeBackground() {
     s.targetX = t.rotX; s.targetY = t.rotY;
     s.animDur = 1700;
     s.animating = true; s.animT = 0;
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 8; i++) {
       s.particles.push({
         x:(Math.random()-0.5)*1.4, y:(Math.random()-0.5)*1.4, z:(Math.random()-0.5)*1.4,
         vx:(Math.random()-0.5)*2.4, vy:(Math.random()-0.5)*2.4,
@@ -138,9 +138,13 @@ export default function CubeBackground() {
     resize();
     window.addEventListener('resize', resize);
 
+    // Track ambient particle count directly instead of filtering the array every tick
+    let ambientCount = 0;
+    const MAX_AMBIENT = 12; // fewer concurrent particles = fewer draw calls per frame
     const spawn = setInterval(() => {
-      const s = S.current;
-      if (s.particles.filter(p => p.type === 'ambient').length < 18) {
+      if (document.hidden) return; // don't spawn while tab is backgrounded
+      if (ambientCount < MAX_AMBIENT) {
+        const s = S.current;
         const a = Math.random()*Math.PI*2, r = 1.5+Math.random()*1.1;
         s.particles.push({
           x:Math.cos(a)*r, y:Math.sin(a)*r, z:(Math.random()-0.5)*r*1.2,
@@ -148,12 +152,14 @@ export default function CubeBackground() {
           life:0, maxLife:0.4+Math.random()*0.45, growing:true,
           decay:0.0028+Math.random()*0.003, size:0.7+Math.random()*1.7, type:'ambient',
         });
+        ambientCount++;
       }
-    }, 110);
+    }, 180);
 
     let lastFrameTime = 0;
-    const FRAME_INTERVAL = 1000 / 33; // cap at ~33fps — smooth but much lighter than 60fps
+    const FRAME_INTERVAL = 1000 / 30; // cap at 30fps — smooth but lighter than 60fps
     const draw = (ts) => {
+      if (document.hidden) { rafRef.current = requestAnimationFrame(draw); return; }
       if (ts - lastFrameTime < FRAME_INTERVAL) {
         rafRef.current = requestAnimationFrame(draw);
         return;
@@ -361,7 +367,10 @@ export default function CubeBackground() {
       ctx.beginPath(); ctx.arc(cx,cy,size*0.95,0,Math.PI*2); ctx.fill();
 
       // ── Particles ─────────────────────────────────────────────────────────
+      const before = s.particles.length;
       s.particles = s.particles.filter(p => p.life > 0);
+      const removed = before - s.particles.length;
+      if (removed) ambientCount = Math.max(0, ambientCount - removed);
       s.particles.forEach(p => {
         if (p.type === 'ambient') {
           if (p.growing) { p.life += p.decay*1.8; if (p.life >= p.maxLife) p.growing = false; }

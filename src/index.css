@@ -112,7 +112,7 @@
   /* Buttons */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl font-medium text-sm cursor-pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
     white-space: nowrap;
   }
   .btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -194,7 +194,7 @@
   /* Sidebar nav link */
   .nav-link {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
   }
   .nav-link:hover { @apply bg-muted text-foreground; }
   .nav-link.active { @apply bg-foreground text-background; }
@@ -203,7 +203,7 @@
   .tab-bar { @apply flex gap-0.5 bg-muted rounded-xl p-1; }
   .tab-btn {
     @apply flex-1 py-2 text-sm rounded-lg font-medium text-muted-foreground;
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   }
   .tab-btn.active { @apply bg-card text-foreground shadow-sm; }
 
@@ -463,31 +463,37 @@
 .bg-background, [class*="bg-background"] {
   background-color: hsl(var(--background) / 0.55) !important;
 }
+/* Cards: lighter blur + isolated compositing layer (contain) so each card's
+   blur doesn't force a full-page repaint cascade when the cube animates
+   behind it. This is the main fix for laggy scrolling/navigation. */
 .card, .bg-card {
-  background-color: hsl(var(--card) / 0.72) !important;
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
+  background-color: hsl(var(--card) / 0.78) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  contain: layout style paint;
+  transform: translateZ(0); /* promote to its own GPU layer once, not per-frame */
 }
 .bg-muted { background-color: hsl(var(--muted) / 0.6) !important; }
 .modal-box {
-  background-color: hsl(var(--card) / 0.92) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background-color: hsl(var(--card) / 0.94) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
-/* Sidebars — strong glass for readability */
+/* Sidebars — strong glass for readability (only ONE of these per page, so
+   the cost is acceptable even with a higher blur value) */
 aside.fixed, aside[class*="fixed"] {
-  background-color: hsl(var(--card) / 0.82) !important;
-  backdrop-filter: blur(11px) !important;
-  -webkit-backdrop-filter: blur(11px) !important;
+  background-color: hsl(var(--card) / 0.86) !important;
+  backdrop-filter: blur(9px) !important;
+  -webkit-backdrop-filter: blur(9px) !important;
 }
 
 /* Main content column transparent so the cube shows through page bodies */
 main.flex-1, main { background: transparent !important; }
 
 /* Client portal — vars are already rgba; just add blur to the big surfaces */
-aside[style] { backdrop-filter: blur(11px); -webkit-backdrop-filter: blur(11px); }
-header[style] { backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
+aside[style] { backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px); }
+header[style] { backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
 
 /* Per-master-theme harmony: tune card tint toward the cube colour */
 .dark .card { box-shadow: 0 8px 32px rgba(0,0,0,0.35); }
@@ -497,3 +503,21 @@ header[style] { backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); 
 .dark.theme-slate .card    { border-color: rgba(147,197,253,0.20) !important; }
 .theme-rose .card          { border-color: rgba(201,64,96,0.22) !important; }
 .theme-sand .card          { border-color: rgba(176,148,96,0.30) !important; }
+
+/* ── Performance & motion polish ──────────────────────────────────────────── */
+html { scroll-behavior: smooth; }
+
+/* Respect OS-level reduced motion preference — also a free performance win
+   for anyone who has it enabled, since it skips our custom animations too */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Avoid layout thrash from hover-triggered width/opacity changes on the
+   sidebar — promote it to its own compositing layer once, not every frame */
+aside.fixed, aside[class*="fixed"] { will-change: width; }
