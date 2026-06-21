@@ -54,7 +54,7 @@ function ThemePicker() {
           <div onClick={()=>setOpen(false)} style={{position:'fixed',inset:0,zIndex:99}}/>
           <div style={{position:'fixed',bottom:60,left:8,zIndex:100,background:'var(--cp-card-bg)',
             border:'1px solid var(--cp-border)',borderRadius:16,padding:'12px',
-            boxShadow:'0 8px 32px rgba(0,0,0,0.4)',width:200,backdropFilter:'blur(20px)'}}>
+            boxShadow:'0 8px 32px rgba(0,0,0,0.4)',width:200,backdropFilter:'blur(10px)'}}>
             <p style={{fontSize:9,letterSpacing:'0.15em',color:'var(--cp-text-dim)',textTransform:'uppercase',margin:'0 0 8px 2px'}}>DARK</p>
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5,marginBottom:10}}>
               {dark.map(([k,t])=>(
@@ -122,7 +122,7 @@ export default function ClientLayout({ children, title }) {
       )}
       {/* Mobile: backdrop closes the menu */}
       {isMobile && sidebarOpen && (
-        <div onClick={() => setSidebarOpen(false)} style={{ position:'fixed', inset:0, zIndex:49, background:'rgba(0,0,0,0.45)', backdropFilter:'blur(2px)' }}/>
+        <div onClick={() => setSidebarOpen(false)} style={{ position:'fixed', inset:0, zIndex:49, background:'rgba(0,0,0,0.45)', backdropFilter:'blur(4px)' }}/>
       )}
       <aside
         onMouseEnter={isMobile ? undefined : () => setSidebarOpen(true)}

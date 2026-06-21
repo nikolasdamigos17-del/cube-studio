@@ -465,29 +465,29 @@
 }
 .card, .bg-card {
   background-color: hsl(var(--card) / 0.72) !important;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
 }
 .bg-muted { background-color: hsl(var(--muted) / 0.6) !important; }
 .modal-box {
   background-color: hsl(var(--card) / 0.92) !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 /* Sidebars — strong glass for readability */
 aside.fixed, aside[class*="fixed"] {
   background-color: hsl(var(--card) / 0.82) !important;
-  backdrop-filter: blur(22px) !important;
-  -webkit-backdrop-filter: blur(22px) !important;
+  backdrop-filter: blur(11px) !important;
+  -webkit-backdrop-filter: blur(11px) !important;
 }
 
 /* Main content column transparent so the cube shows through page bodies */
 main.flex-1, main { background: transparent !important; }
 
 /* Client portal — vars are already rgba; just add blur to the big surfaces */
-aside[style] { backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); }
-header[style] { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+aside[style] { backdrop-filter: blur(11px); -webkit-backdrop-filter: blur(11px); }
+header[style] { backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
 
 /* Per-master-theme harmony: tune card tint toward the cube colour */
 .dark .card { box-shadow: 0 8px 32px rgba(0,0,0,0.35); }

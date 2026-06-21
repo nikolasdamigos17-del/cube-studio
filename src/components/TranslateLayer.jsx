@@ -2,15 +2,19 @@ import { useEffect } from 'react';
 import { useLang } from '../lib/LangContext';
 import { DICT, PLACEHOLDERS, PATTERNS } from '../lib/elDict';
 
-// Καθολικό DOM translation layer: μεταφράζει κάθε text node & placeholder
-// που ταιριάζει στο λεξικό, σε ΟΛΗ την εφαρμογή, και ό,τι εμφανίζεται δυναμικά.
+// Καθολικό DOM translation layer — βελτιστοποιημένο για performance:
+// debounced mutation handling, no observation of canvas/svg subtrees.
 export default function TranslateLayer() {
   const { lang } = useLang();
 
   useEffect(() => {
+    if (lang !== 'el') return; // nothing to do in English — avoid any observer overhead
+
     let applying = false;
-    const originals = new Map();     // TextNode -> original english
-    const phOriginals = new Map();   // Element -> original placeholder
+    let pending = new Set();
+    let rafId = null;
+    const originals = new Map();
+    const phOriginals = new Map();
 
     const translateText = (raw) => {
       const trimmed = raw.trim();
@@ -29,11 +33,25 @@ export default function TranslateLayer() {
     };
 
     const walk = (root) => {
-      if (!root) return;
-      applying = true;
+      if (!root || root.nodeType === Node.COMMENT_NODE) return;
+      // Skip canvas/svg subtrees entirely — they never contain translatable text
+      // and walking them on every animation frame update is the main perf cost.
+      if (root.nodeType === Node.ELEMENT_NODE &&
+          (root.tagName === 'CANVAS' || root.tagName === 'SVG' || root.tagName === 'SCRIPT' || root.tagName === 'STYLE')) {
+        return;
+      }
       const tw = document.createTreeWalker(
-        root.nodeType === Node.TEXT_NODE ? root.parentNode || document.body : root,
-        NodeFilter.SHOW_TEXT
+        root.nodeType === Node.TEXT_NODE ? (root.parentNode || document.body) : root,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode(node) {
+            const p = node.parentElement;
+            if (p && (p.tagName === 'CANVAS' || p.tagName === 'SVG' || p.tagName === 'SCRIPT' || p.tagName === 'STYLE')) {
+              return NodeFilter.FILTER_REJECT;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
       );
       let n;
       while ((n = tw.nextNode())) {
@@ -43,7 +61,6 @@ export default function TranslateLayer() {
           n.nodeValue = out;
         }
       }
-      // Placeholders
       const host = root.nodeType === Node.ELEMENT_NODE ? root : document.body;
       host.querySelectorAll?.('input[placeholder], textarea[placeholder]').forEach(el => {
         const ph = el.getAttribute('placeholder');
@@ -53,41 +70,58 @@ export default function TranslateLayer() {
           el.setAttribute('placeholder', out);
         }
       });
-      applying = false;
     };
 
     const restore = () => {
-      applying = true;
       originals.forEach((orig, node) => { if (node.isConnected) node.nodeValue = orig; });
       originals.clear();
       phOriginals.forEach((ph, el) => { if (el.isConnected) el.setAttribute('placeholder', ph); });
       phOriginals.clear();
+    };
+
+    // Process queued mutations once per animation frame instead of synchronously
+    // on every single DOM change — this is what prevents the cube's per-frame
+    // canvas updates (which can briefly touch the DOM via React state) from
+    // triggering full tree walks dozens of times a second.
+    const flush = () => {
+      rafId = null;
+      if (applying) return;
+      applying = true;
+      pending.forEach(node => walk(node));
+      pending.clear();
       applying = false;
     };
 
-    let observer = null;
-    if (lang === 'el') {
-      walk(document.body);
-      observer = new MutationObserver((muts) => {
-        if (applying) return;
-        for (const m of muts) {
-          if (m.type === 'childList') m.addedNodes.forEach(node => walk(node));
-          else if (m.type === 'characterData') {
-            const out = translateText(m.target.nodeValue);
-            if (out !== null && out !== m.target.nodeValue) {
-              applying = true;
-              if (!originals.has(m.target)) originals.set(m.target, m.target.nodeValue);
-              m.target.nodeValue = out;
-              applying = false;
+    const observer = new MutationObserver((muts) => {
+      if (applying) return;
+      for (const m of muts) {
+        if (m.type === 'childList') {
+          m.addedNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) {
+              pending.add(node);
             }
+          });
+        } else if (m.type === 'characterData') {
+          const out = translateText(m.target.nodeValue);
+          if (out !== null && out !== m.target.nodeValue) {
+            applying = true;
+            if (!originals.has(m.target)) originals.set(m.target, m.target.nodeValue);
+            m.target.nodeValue = out;
+            applying = false;
           }
         }
-      });
-      observer.observe(document.body, { childList:true, subtree:true, characterData:true });
-    } else {
+      }
+      if (pending.size && !rafId) rafId = requestAnimationFrame(flush);
+    });
+
+    walk(document.body);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    return () => {
+      observer.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
       restore();
-    }
-    return () => { observer?.disconnect(); };
+    };
   }, [lang]);
 
   return null;

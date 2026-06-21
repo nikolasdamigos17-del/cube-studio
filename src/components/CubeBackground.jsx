@@ -112,7 +112,7 @@ export default function CubeBackground() {
     s.targetX = t.rotX; s.targetY = t.rotY;
     s.animDur = 1700;
     s.animating = true; s.animT = 0;
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 12; i++) {
       s.particles.push({
         x:(Math.random()-0.5)*1.4, y:(Math.random()-0.5)*1.4, z:(Math.random()-0.5)*1.4,
         vx:(Math.random()-0.5)*2.4, vy:(Math.random()-0.5)*2.4,
@@ -127,13 +127,20 @@ export default function CubeBackground() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5); // cap DPR — big perf win on phones
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
     resize();
     window.addEventListener('resize', resize);
 
     const spawn = setInterval(() => {
       const s = S.current;
-      if (s.particles.filter(p => p.type === 'ambient').length < 36) {
+      if (s.particles.filter(p => p.type === 'ambient').length < 18) {
         const a = Math.random()*Math.PI*2, r = 1.5+Math.random()*1.1;
         s.particles.push({
           x:Math.cos(a)*r, y:Math.sin(a)*r, z:(Math.random()-0.5)*r*1.2,
@@ -144,7 +151,14 @@ export default function CubeBackground() {
       }
     }, 110);
 
+    let lastFrameTime = 0;
+    const FRAME_INTERVAL = 1000 / 33; // cap at ~33fps — smooth but much lighter than 60fps
     const draw = (ts) => {
+      if (ts - lastFrameTime < FRAME_INTERVAL) {
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
+      lastFrameTime = ts;
       const s = S.current;
       const pal = s.pal;
     // One pulsing beam per cube vertex — light bursting out of the corners
@@ -246,8 +260,6 @@ export default function CubeBackground() {
           const a = (0.28 + vis*0.62)*dim;
           ctx.strokeStyle = rgba(pal.line, a);
           ctx.lineWidth = lw;
-          ctx.shadowColor = rgba(pal.glow, 0.7*vis*glowK);
-          ctx.shadowBlur = 6 + vis*12;
           // segment 1: corner → 38%
           ctx.beginPath();
           ctx.moveTo(p1[0], p1[1]);
@@ -258,7 +270,6 @@ export default function CubeBackground() {
           ctx.moveTo(lerp(p1[0],p2[0],0.62), lerp(p1[1],p2[1],0.62));
           ctx.lineTo(p2[0], p2[1]);
           ctx.stroke();
-          ctx.shadowBlur = 0;
 
           // light escaping through the bracket gap
           if (vis > 0.35) {
@@ -282,8 +293,6 @@ export default function CubeBackground() {
         const al = (0.30 + depth*0.55)*dim;
         ctx.strokeStyle = rgba(pal.line, al);
         ctx.lineWidth = 1 + depth*1.3;
-        ctx.shadowColor = rgba(pal.glow, 0.6*depth*glowK);
-        ctx.shadowBlur = 4 + depth*10;
         ctx.beginPath();
         ctx.moveTo(p1[0],p1[1]);
         ctx.lineTo(lerp(p1[0],p2[0],0.42), lerp(p1[1],p2[1],0.42));
@@ -292,7 +301,6 @@ export default function CubeBackground() {
         ctx.moveTo(lerp(p1[0],p2[0],0.58), lerp(p1[1],p2[1],0.58));
         ctx.lineTo(p2[0],p2[1]);
         ctx.stroke();
-        ctx.shadowBlur = 0;
         // light at the edge gap
         const gx = lerp(p1[0],p2[0],0.5), gy = lerp(p1[1],p2[1],0.5);
         const r = 6 + depth*14;
