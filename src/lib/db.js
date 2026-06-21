@@ -73,7 +73,8 @@ const GREEK_DIRECTIVE = `
 export async function callAI(prompt, systemPrompt) {
   const lang = localStorage.getItem('cube_lang') || 'en';
   if (lang === 'el') systemPrompt = (systemPrompt || '') + GREEK_DIRECTIVE;
-  const API_KEY = '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';
+  const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if (!API_KEY) { console.error('Missing VITE_ANTHROPIC_API_KEY env variable'); return '__ERROR__ Missing API key'; }
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
