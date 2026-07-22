@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
-import barbellNav from './assets/barbell-nav.png';
-import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, Zap, ChevronDown, MoreHorizontal, X } from 'lucide-react';
+import barbellBar from './assets/barbell-bar.png';
+import barbellPlates from './assets/barbell-plates.png';
+import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, Zap, ChevronDown, MoreHorizontal, X, Settings, Globe } from 'lucide-react';
 import { useAppContext } from './lib/AppContext';
 import { db } from './lib/db';
 import { format } from 'date-fns';
@@ -24,16 +25,16 @@ const NAV = [
 // Mobile bottom-bar: 4 primary tabs + a "More" button that opens the rest
 const BOTTOM_NAV = [
   { key:'nav_home', icon:Home, path:'/' },
+  { key:'nav_nutrition', icon:Salad, path:'/Nutrition' },
+  { key:'nav_messages', icon:MessageCircle, path:'/Messages' },
+];
+const MORE_NAV = [
   { key:'nav_clients', icon:Users, path:'/Clients' },
   { key:'nav_training', icon:Dumbbell, path:'/TrainingPlans' },
   { key:'nav_calendar', icon:Calendar, path:'/CalendarPage' },
-];
-const MORE_NAV = [
-  { key:'nav_nutrition', icon:Salad, path:'/Nutrition' },
   { key:'nav_statistics', icon:BarChart2, path:'/Statistics' },
   { key:'nav_logistics', icon:CreditCard, path:'/Logistics' },
   { key:'nav_hevy', icon:Zap, path:'/HevySync' },
-  { key:'nav_messages', icon:MessageCircle, path:'/Messages' },
 ];
 
 function Clock({ visible }) {
@@ -124,6 +125,7 @@ function BottomBar({ unread, requests }) {
   const { logout } = useAppContext();
   const { themeName, switchTheme, themes } = useTheme();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [moreTab, setMoreTab] = useState('menu'); // 'menu' | 'settings'
   const isActive = (path) => loc.pathname === path || (path !== '/' && loc.pathname.startsWith(path));
   const moreActive = MORE_NAV.some(n => isActive(n.path));
 
@@ -144,64 +146,103 @@ function BottomBar({ unread, requests }) {
             boxShadow:'0 -8px 40px rgba(0,0,0,0.5)', animation:'sheetUp 0.26s cubic-bezier(0.22,1,0.36,1)',
             maxHeight:'80vh', overflowY:'auto' }}>
             <style>{`@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
-            <div style={{width:38,height:4,borderRadius:4,background:'hsl(var(--muted-foreground)/0.3)',margin:'4px auto 16px'}}/>
+            <div style={{width:38,height:4,borderRadius:4,background:'hsl(var(--muted-foreground)/0.3)',margin:'4px auto 14px'}}/>
 
-            {/* More nav items */}
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{color:'hsl(var(--muted-foreground))'}}>Menu</p>
-            <div className="grid grid-cols-3 gap-2 mb-5">
-              {MORE_NAV.map(({ key, icon:Icon, path }) => {
-                const active = isActive(path);
-                const badge = path==='/Messages' ? unread : 0;
-                return (
-                  <Link key={path} to={path} onClick={()=>setMoreOpen(false)}
-                    className="flex flex-col items-center justify-center gap-1.5 rounded-2xl py-3.5"
-                    style={{ background: active?'hsl(var(--primary)/0.14)':'hsl(var(--muted)/0.5)',
-                      color: active?'hsl(var(--primary))':'hsl(var(--foreground))', position:'relative' }}>
-                    <Icon className="w-5 h-5" strokeWidth={active?2.4:2}/>
-                    <span className="text-[11px] font-medium">{tr(key)}</span>
-                    {badge>0 && <span className="absolute top-2 right-3 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center">{badge>9?'9+':badge}</span>}
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* Theme picker */}
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{color:'hsl(var(--muted-foreground))'}}>Theme · Dark</p>
-            <div className="grid grid-cols-8 gap-1.5 mb-2">
-              {darkThemes.map(([k,t])=>(
-                <button key={k} onClick={()=>switchTheme(k)} title={t.name}
-                  style={{height:34,borderRadius:9,background:swatch(k),cursor:'pointer',
-                    border:themeName===k?'2px solid hsl(var(--primary))':'1px solid hsl(var(--border))',
-                    display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>{t.emoji}</button>
-              ))}
-            </div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{color:'hsl(var(--muted-foreground))'}}>Theme · Light</p>
-            <div className="grid grid-cols-8 gap-1.5 mb-5">
-              {lightThemes.map(([k,t])=>(
-                <button key={k} onClick={()=>switchTheme(k)} title={t.name}
-                  style={{height:34,borderRadius:9,background:swatch(k),cursor:'pointer',
-                    border:themeName===k?'2px solid hsl(var(--primary))':'1px solid rgba(0,0,0,0.12)',
-                    display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>{t.emoji}</button>
-              ))}
-            </div>
-
-            {/* Language + Sign out */}
-            <div className="flex gap-2">
-              <button onClick={toggle}
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold"
-                style={{background:'hsl(var(--muted)/0.5)',color:'hsl(var(--foreground))'}}>
-                <span className="text-base">{lang==='en'?'🇬🇧':'🇬🇷'}</span>
-                {lang==='en'?'English':'Ελληνικά'}
+            {/* Tab switcher */}
+            <div style={{display:'flex',gap:4,padding:4,borderRadius:14,background:'hsl(var(--muted)/0.5)',marginBottom:16}}>
+              <button onClick={()=>setMoreTab('menu')}
+                style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'9px',
+                  borderRadius:11,border:'none',cursor:'pointer',fontSize:13,fontWeight:600,
+                  background:moreTab==='menu'?'hsl(var(--card))':'transparent',
+                  color:moreTab==='menu'?'hsl(var(--foreground))':'hsl(var(--muted-foreground))',
+                  boxShadow:moreTab==='menu'?'0 1px 4px rgba(0,0,0,0.15)':'none',transition:'all 0.2s'}}>
+                <MoreHorizontal className="w-4 h-4"/> Menu
               </button>
-              <button onClick={logout}
-                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold"
-                style={{background:'rgba(239,68,68,0.12)',color:'#ef4444'}}>
-                <LogOut className="w-4 h-4"/> Sign Out
+              <button onClick={()=>setMoreTab('settings')}
+                style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'9px',
+                  borderRadius:11,border:'none',cursor:'pointer',fontSize:13,fontWeight:600,
+                  background:moreTab==='settings'?'hsl(var(--card))':'transparent',
+                  color:moreTab==='settings'?'hsl(var(--foreground))':'hsl(var(--muted-foreground))',
+                  boxShadow:moreTab==='settings'?'0 1px 4px rgba(0,0,0,0.15)':'none',transition:'all 0.2s'}}>
+                <Settings className="w-4 h-4"/> {tr('nav_settings')||'Settings'}
               </button>
             </div>
+
+            {/* ── MENU tab ── */}
+            {moreTab==='menu' && (
+              <>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {MORE_NAV.map(({ key, icon:Icon, path }) => {
+                    const active = isActive(path);
+                    const badge = path==='/Messages' ? unread : 0;
+                    return (
+                      <Link key={path} to={path} onClick={()=>setMoreOpen(false)}
+                        className="flex flex-col items-center justify-center gap-1.5 rounded-2xl py-4"
+                        style={{ background: active?'hsl(var(--primary)/0.14)':'hsl(var(--muted)/0.5)',
+                          color: active?'hsl(var(--primary))':'hsl(var(--foreground))', position:'relative' }}>
+                        <Icon className="w-5 h-5" strokeWidth={active?2.4:2}/>
+                        <span className="text-[11px] font-medium text-center leading-tight px-1">{tr(key)}</span>
+                        {badge>0 && <span className="absolute top-2 right-3 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold text-white flex items-center justify-center">{badge>9?'9+':badge}</span>}
+                      </Link>
+                    );
+                  })}
+                </div>
+                <button onClick={logout}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold"
+                  style={{background:'rgba(239,68,68,0.12)',color:'#ef4444'}}>
+                  <LogOut className="w-4 h-4"/> Sign Out
+                </button>
+              </>
+            )}
+
+            {/* ── SETTINGS tab ── */}
+            {moreTab==='settings' && (
+              <>
+                {/* Language */}
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{color:'hsl(var(--muted-foreground))'}}>
+                  <Globe className="w-3 h-3 inline mr-1 -mt-0.5"/>Language
+                </p>
+                <div className="flex gap-2 mb-5">
+                  <button onClick={()=>lang!=='en'&&toggle()}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold"
+                    style={{border:lang==='en'?'2px solid hsl(var(--primary))':'1px solid hsl(var(--border))',
+                      background:lang==='en'?'hsl(var(--primary)/0.12)':'hsl(var(--muted)/0.4)',
+                      color:lang==='en'?'hsl(var(--primary))':'hsl(var(--foreground))'}}>
+                    🇬🇧 English
+                  </button>
+                  <button onClick={()=>lang!=='el'&&toggle()}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold"
+                    style={{border:lang==='el'?'2px solid hsl(var(--primary))':'1px solid hsl(var(--border))',
+                      background:lang==='el'?'hsl(var(--primary)/0.12)':'hsl(var(--muted)/0.4)',
+                      color:lang==='el'?'hsl(var(--primary))':'hsl(var(--foreground))'}}>
+                    🇬🇷 Ελληνικά
+                  </button>
+                </div>
+
+                {/* Theme */}
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{color:'hsl(var(--muted-foreground))'}}>Theme · Dark</p>
+                <div className="grid grid-cols-8 gap-1.5 mb-3">
+                  {darkThemes.map(([k,t])=>(
+                    <button key={k} onClick={()=>switchTheme(k)} title={t.name}
+                      style={{height:36,borderRadius:10,background:swatch(k),cursor:'pointer',
+                        border:themeName===k?'2px solid hsl(var(--primary))':'1px solid hsl(var(--border))',
+                        display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>{t.emoji}</button>
+                  ))}
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{color:'hsl(var(--muted-foreground))'}}>Theme · Light</p>
+                <div className="grid grid-cols-8 gap-1.5 mb-2">
+                  {lightThemes.map(([k,t])=>(
+                    <button key={k} onClick={()=>switchTheme(k)} title={t.name}
+                      style={{height:36,borderRadius:10,background:swatch(k),cursor:'pointer',
+                        border:themeName===k?'2px solid hsl(var(--primary))':'1px solid rgba(0,0,0,0.12)',
+                        display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>{t.emoji}</button>
+                  ))}
+                </div>
+              </>
+            )}
 
             <button onClick={()=>setMoreOpen(false)}
-              className="w-full mt-3 py-3 rounded-2xl text-sm font-semibold"
+              className="w-full mt-4 py-3 rounded-2xl text-sm font-semibold"
               style={{ background:'hsl(var(--muted)/0.5)', color:'hsl(var(--muted-foreground))' }}>
               Close
             </button>
@@ -209,46 +250,62 @@ function BottomBar({ unread, requests }) {
         </>
       )}
 
-      {/* ── Floating barbell navigation bar (real image) ── */}
+      {/* ── Floating barbell navigation bar (theme-tinted, two-layer) ── */}
       <div className="fixed left-0 right-0 z-[60]" style={{
-        bottom:'calc(12px + env(safe-area-inset-bottom))',
-        display:'flex', justifyContent:'center', padding:'0 8px', pointerEvents:'none' }}>
-        <div style={{ position:'relative', width:'100%', maxWidth:440, pointerEvents:'auto',
-          aspectRatio:'3.73 / 1', filter:'drop-shadow(0 8px 20px rgba(0,0,0,0.45))' }}>
-          {/* The real barbell photo */}
-          <img src={barbellNav} alt="" style={{ position:'absolute', inset:0,
+        bottom:'calc(14px + env(safe-area-inset-bottom))',
+        display:'flex', justifyContent:'center', padding:'0 12px', pointerEvents:'none' }}>
+        <div style={{ position:'relative', width:'100%', maxWidth:430, pointerEvents:'auto',
+          aspectRatio:'3.73 / 1', filter:'drop-shadow(0 10px 22px rgba(0,0,0,0.4))' }}>
+
+          {/* Layer A: accent-colored plate fill (shows through the shaded plate PNG) */}
+          <img src={barbellPlates} alt="" aria-hidden="true" style={{ position:'absolute', inset:0,
+            width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none',
+            filter:'brightness(0.4) saturate(0)' }}/>
+          <div style={{ position:'absolute', inset:0, background:'hsl(var(--primary))',
+            WebkitMaskImage:`url(${barbellPlates})`, maskImage:`url(${barbellPlates})`,
+            WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
+            WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
+            mixBlendMode:'normal', opacity:0.92, pointerEvents:'none' }}/>
+          {/* plate shading overlay on top of the color to keep 3D look */}
+          <img src={barbellPlates} alt="" aria-hidden="true" style={{ position:'absolute', inset:0,
+            width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none',
+            mixBlendMode:'multiply', opacity:0.55 }}/>
+
+          {/* Layer B: the metal bar (unchanged, always metallic) */}
+          <img src={barbellBar} alt="" style={{ position:'absolute', inset:0,
             width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none' }}/>
-          {/* Tabs positioned over the shaft (x 14.3%→85.8%, y 28%→69.5%) */}
-          <div style={{ position:'absolute', left:'14.3%', right:'14.2%', top:'26%', bottom:'28%',
+
+          {/* Tabs over the shaft (x 14.3%→85.8%) */}
+          <div style={{ position:'absolute', left:'14.3%', right:'14.2%', top:'24%', bottom:'26%',
             display:'flex', alignItems:'center' }}>
             {BOTTOM_NAV.map(({ key, icon:Icon, path }) => {
               const active = isActive(path);
-              const badge = path==='/CalendarPage' ? requests : 0;
+              const badge = path==='/Messages' ? unread : 0;
               return (
                 <Link key={path} to={path}
                   className="flex-1 flex flex-col items-center justify-center relative"
-                  style={{ color: active?'#e11d2a':'#1a1a1a', transition:'color 0.15s ease',
-                    gap:1, textDecoration:'none' }}>
+                  style={{ color: active?'hsl(var(--primary))':'#2a2a2e', transition:'color 0.15s ease',
+                    gap:1.5, textDecoration:'none' }}>
                   <div className="relative">
-                    <Icon style={{width:'clamp(15px,4.4vw,19px)',height:'clamp(15px,4.4vw,19px)'}} strokeWidth={active?2.7:2.1}/>
-                    {badge>0 && <span className="absolute -top-1.5 -right-2 bg-red-500 rounded-full text-white flex items-center justify-center" style={{width:14,height:14,fontSize:8,fontWeight:700}}>{badge>9?'9+':badge}</span>}
+                    <Icon style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={active?2.7:2.2}/>
+                    {badge>0 && <span className="absolute -top-1.5 -right-2 rounded-full text-white flex items-center justify-center" style={{width:14,height:14,fontSize:8,fontWeight:700,background:'hsl(var(--primary))'}}>{badge>9?'9+':badge}</span>}
                   </div>
-                  <span style={{fontSize:'clamp(6px,1.9vw,8px)',fontWeight:700,letterSpacing:'-0.02em',
-                    textTransform:'uppercase',lineHeight:1,color:active?'#e11d2a':'#333',whiteSpace:'nowrap'}}>{tr(key)}</span>
-                  {active && <div style={{position:'absolute',bottom:-2,width:'60%',height:2,borderRadius:2,background:'#e11d2a'}}/>}
+                  <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
+                    textTransform:'uppercase',lineHeight:1,color:active?'hsl(var(--primary))':'#3a3a3e',whiteSpace:'nowrap'}}>{tr(key)}</span>
+                  {active && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:'hsl(var(--primary))'}}/>}
                 </Link>
               );
             })}
             <button onClick={()=>setMoreOpen(v=>!v)}
               className="flex-1 flex flex-col items-center justify-center relative"
-              style={{ color: moreActive||moreOpen?'#e11d2a':'#1a1a1a', gap:1, background:'transparent', border:'none', cursor:'pointer' }}>
+              style={{ color: moreActive||moreOpen?'hsl(var(--primary))':'#2a2a2e', gap:1.5, background:'transparent', border:'none', cursor:'pointer' }}>
               <div className="relative">
-                <MoreHorizontal style={{width:'clamp(15px,4.4vw,19px)',height:'clamp(15px,4.4vw,19px)'}} strokeWidth={moreActive?2.7:2.1}/>
-                {unread>0 && <span className="absolute -top-1.5 -right-2 bg-red-500 rounded-full" style={{width:8,height:8}}/>}
+                <MoreHorizontal style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={moreActive?2.7:2.2}/>
+                {unread>0 && <span className="absolute -top-1.5 -right-2 rounded-full" style={{width:8,height:8,background:'hsl(var(--primary))'}}/>}
               </div>
-              <span style={{fontSize:'clamp(6px,1.9vw,8px)',fontWeight:700,letterSpacing:'-0.02em',
-                textTransform:'uppercase',lineHeight:1,color:moreActive||moreOpen?'#e11d2a':'#333'}}>More</span>
-              {(moreActive||moreOpen) && <div style={{position:'absolute',bottom:-2,width:'60%',height:2,borderRadius:2,background:'#e11d2a'}}/>}
+              <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
+                textTransform:'uppercase',lineHeight:1,color:moreActive||moreOpen?'hsl(var(--primary))':'#3a3a3e'}}>More</span>
+              {(moreActive||moreOpen) && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:'hsl(var(--primary))'}}/>}
             </button>
           </div>
         </div>
