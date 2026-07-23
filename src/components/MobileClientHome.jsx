@@ -35,6 +35,14 @@ const DEFAULT_SLOTS = [
 const STORAGE_KEY = 'cp_home_widgets_v3';
 const ROW = 118;
 
+// tint helper: '#rrggbb' → rgba(r,g,b,a)
+const tint = (hex, a) => {
+  const h = (hex || '').replace('#', '');
+  if (h.length !== 6) return `rgba(255,255,255,${a})`;
+  const n = parseInt(h, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
+
 const pad    = { position:'absolute', inset:0, padding:13, display:'flex', flexDirection:'column' };
 const lbl    = { fontSize:10.5, color:'var(--cp-text-dim)', fontWeight:600 };
 const tick   = { fontSize:9, color:'var(--cp-text-dim)', fontWeight:600, letterSpacing:'.04em' };
@@ -616,10 +624,11 @@ export default function MobileClientHome() {
       <div style={{ padding:'14px 14px 0', minHeight:'100vh' }}>
 
         <div style={{ position:'relative', overflow:'hidden', borderRadius:15, padding:'13px 15px',
-          marginBottom:10, background:'linear-gradient(120deg,rgba(168,85,247,.16),rgba(168,85,247,.04))',
-          border:'1px solid rgba(168,85,247,.26)' }}>
+          marginBottom:10,
+          background:`linear-gradient(120deg,${tint(accent,.18)},${tint(accent,.04)})`,
+          border:`1px solid ${tint(accent,.28)}` }}>
           <div style={{ position:'absolute', right:-16, top:-30, fontFamily:'Playfair Display,Georgia,serif',
-            fontSize:96, lineHeight:1, color:'rgba(168,85,247,.12)', pointerEvents:'none' }}>”</div>
+            fontSize:96, lineHeight:1, color:tint(accent,.14), pointerEvents:'none' }}>”</div>
           <p style={{ position:'relative', margin:0, fontSize:14.5, fontWeight:600, lineHeight:1.5,
             letterSpacing:'-.005em', color:'var(--cp-text)', display:'-webkit-box',
             WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>

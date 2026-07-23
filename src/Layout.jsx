@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
-import BarbellNav, { useBarColors } from './components/BarbellNav';
+import BarbellNav, { BarbellDock, useBarColors } from './components/BarbellNav';
 import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, Zap, ChevronDown, MoreHorizontal, X, Settings, Globe } from 'lucide-react';
 import { useAppContext } from './lib/AppContext';
 import { db } from './lib/db';
@@ -251,10 +251,8 @@ function BottomBar({ unread, requests }) {
         </>
       )}
 
-      {/* ── Floating barbell navigation bar (theme-tinted) ── */}
-      <div className="fixed left-0 right-0 z-[60]" style={{
-        bottom:'calc(14px + env(safe-area-inset-bottom))',
-        display:'flex', justifyContent:'center', padding:'0 12px', pointerEvents:'none' }}>
+      {/* ── Barbell bezel: opaque base, content never passes behind it ── */}
+      <BarbellDock>
         <BarbellNav>
           {BOTTOM_NAV.map(({ key, icon:Icon, path }) => {
               const active = isActive(path);
@@ -286,7 +284,7 @@ function BottomBar({ unread, requests }) {
               {(moreActive||moreOpen) && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:tabActive}}/>}
             </button>
         </BarbellNav>
-      </div>
+      </BarbellDock>
     </>,
     document.body
   );
@@ -323,7 +321,7 @@ export default function MasterLayout({ children }) {
   if (isMobile) {
     return (
       <div className="min-h-screen bg-background">
-        <main className="min-h-screen bg-background" style={{ paddingBottom:'calc(122px + env(safe-area-inset-bottom))' }}>
+        <main className="min-h-screen bg-background" style={{ paddingBottom:'var(--dock-h, 122px)' }}>
           {children}
         </main>
         <BottomBar unread={unread} requests={requests} />

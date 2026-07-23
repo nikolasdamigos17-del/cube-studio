@@ -5,7 +5,7 @@ import { Home, Dumbbell, Salad, BarChart2, CreditCard, MessageCircle, LogOut, Su
 import { useAppContext } from '../../lib/AppContext';
 import { useTheme, CLIENT_THEMES } from '../../lib/ThemeContext';
 import logo from '../../assets/logo-cube.png';
-import BarbellNav, { useBarColors } from '../BarbellNav';
+import BarbellNav, { BarbellDock, useBarColors } from '../BarbellNav';
 import { useLang } from '../../lib/LangContext';
 
 const NAV = [
@@ -128,7 +128,7 @@ export default function ClientLayout({ children, title }) {
             <h1 style={{ margin:0, fontSize:18, fontWeight:600, fontFamily:'var(--cp-font)', color:'var(--cp-text)' }}>{title}</h1>
           </header>
         )}
-        <main style={{ paddingBottom:'calc(122px + env(safe-area-inset-bottom))', minHeight:'100vh' }}>
+        <main style={{ paddingBottom:'var(--dock-h, 122px)', minHeight:'100vh' }}>
           {children}
         </main>
         {createPortal(<>
@@ -225,10 +225,8 @@ export default function ClientLayout({ children, title }) {
           </>
         )}
 
-        {/* ── Floating barbell bottom nav (theme-tinted) ── */}
-        <div style={{ position:'fixed', left:0, right:0, zIndex:60,
-          bottom:'calc(14px + env(safe-area-inset-bottom))',
-          display:'flex', justifyContent:'center', padding:'0 12px', pointerEvents:'none' }}>
+        {/* ── Barbell bezel: opaque base, content never passes behind it ── */}
+        <BarbellDock>
           <BarbellNav>
               {CP_BOTTOM.map(({ path, icon:Icon, key }) => (
                 <NavLink key={path} to={path}
@@ -257,7 +255,7 @@ export default function ClientLayout({ children, title }) {
                 {cpSettingsOpen && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:cpTab}}/>}
               </button>
           </BarbellNav>
-        </div>
+        </BarbellDock>
         </>, document.body)}
       </div>
     );
