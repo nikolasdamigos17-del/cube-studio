@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
-import barbellBar from './assets/barbell-bar.png';
-import barbellPlates from './assets/barbell-plates.png';
+import BarbellNav from './components/BarbellNav';
+import { useAccent } from './lib/useAccent';
 import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, Zap, ChevronDown, MoreHorizontal, X, Settings, Globe } from 'lucide-react';
 import { useAppContext } from './lib/AppContext';
 import { db } from './lib/db';
@@ -126,6 +127,7 @@ function BottomBar({ unread, requests }) {
   const { themeName, switchTheme, themes } = useTheme();
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreTab, setMoreTab] = useState('menu'); // 'menu' | 'settings'
+  const accent = useAccent(false);
   const isActive = (path) => loc.pathname === path || (path !== '/' && loc.pathname.startsWith(path));
   const moreActive = MORE_NAV.some(n => isActive(n.path));
 
@@ -133,7 +135,7 @@ function BottomBar({ unread, requests }) {
   const lightThemes = Object.entries(themes).filter(([,t])=>t.group==='light');
   const swatch = (k) => ({dark:'#1a1a2e',obsidian:'#1a1500',ocean:'#020f24',forest:'#051205',slate:'#0d1424',aurora:'#0d0820',crimson:'#1a0505',copper:'#1a0e05',light:'#e8edf5',sand:'#e9e0cf',rose:'#f3dfe3',arctic:'#dbe8fa',mint:'#dcf2e6',ivory:'#f2ede4',lavender:'#ece8f5',sky:'#e0f0fa'}[k]||'#222');
 
-  return (
+  return createPortal(
     <>
       {/* ── More / Settings sheet ── */}
       {moreOpen && (
@@ -250,67 +252,44 @@ function BottomBar({ unread, requests }) {
         </>
       )}
 
-      {/* ── Floating barbell navigation bar (theme-tinted, two-layer) ── */}
+      {/* ── Floating barbell navigation bar (theme-tinted) ── */}
       <div className="fixed left-0 right-0 z-[60]" style={{
         bottom:'calc(14px + env(safe-area-inset-bottom))',
         display:'flex', justifyContent:'center', padding:'0 12px', pointerEvents:'none' }}>
-        <div style={{ position:'relative', width:'100%', maxWidth:430, pointerEvents:'auto',
-          aspectRatio:'3.73 / 1', filter:'drop-shadow(0 10px 22px rgba(0,0,0,0.4))' }}>
-
-          {/* Layer A: accent-colored plate fill (shows through the shaded plate PNG) */}
-          <img src={barbellPlates} alt="" aria-hidden="true" style={{ position:'absolute', inset:0,
-            width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none',
-            filter:'brightness(0.4) saturate(0)' }}/>
-          <div style={{ position:'absolute', inset:0, background:'hsl(var(--primary))',
-            WebkitMaskImage:`url(${barbellPlates})`, maskImage:`url(${barbellPlates})`,
-            WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
-            WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
-            mixBlendMode:'normal', opacity:0.92, pointerEvents:'none' }}/>
-          {/* plate shading overlay on top of the color to keep 3D look */}
-          <img src={barbellPlates} alt="" aria-hidden="true" style={{ position:'absolute', inset:0,
-            width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none',
-            mixBlendMode:'multiply', opacity:0.55 }}/>
-
-          {/* Layer B: the metal bar (unchanged, always metallic) */}
-          <img src={barbellBar} alt="" style={{ position:'absolute', inset:0,
-            width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none' }}/>
-
-          {/* Tabs over the shaft (x 14.3%→85.8%) */}
-          <div style={{ position:'absolute', left:'14.3%', right:'14.2%', top:'24%', bottom:'26%',
-            display:'flex', alignItems:'center' }}>
-            {BOTTOM_NAV.map(({ key, icon:Icon, path }) => {
+        <BarbellNav accent={accent}>
+          {BOTTOM_NAV.map(({ key, icon:Icon, path }) => {
               const active = isActive(path);
               const badge = path==='/Messages' ? unread : 0;
               return (
                 <Link key={path} to={path}
                   className="flex-1 flex flex-col items-center justify-center relative"
-                  style={{ color: active?'hsl(var(--primary))':'#2a2a2e', transition:'color 0.15s ease',
+                  style={{ color: active?accent:'#2a2a2e', transition:'color 0.15s ease',
                     gap:1.5, textDecoration:'none' }}>
                   <div className="relative">
                     <Icon style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={active?2.7:2.2}/>
-                    {badge>0 && <span className="absolute -top-1.5 -right-2 rounded-full text-white flex items-center justify-center" style={{width:14,height:14,fontSize:8,fontWeight:700,background:'hsl(var(--primary))'}}>{badge>9?'9+':badge}</span>}
+                    {badge>0 && <span className="absolute -top-1.5 -right-2 rounded-full text-white flex items-center justify-center" style={{width:14,height:14,fontSize:8,fontWeight:700,background:accent}}>{badge>9?'9+':badge}</span>}
                   </div>
                   <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
-                    textTransform:'uppercase',lineHeight:1,color:active?'hsl(var(--primary))':'#3a3a3e',whiteSpace:'nowrap'}}>{tr(key)}</span>
-                  {active && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:'hsl(var(--primary))'}}/>}
+                    textTransform:'uppercase',lineHeight:1,color:active?accent:'#3a3a3e',whiteSpace:'nowrap'}}>{tr(key)}</span>
+                  {active && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:accent}}/>}
                 </Link>
               );
             })}
             <button onClick={()=>setMoreOpen(v=>!v)}
               className="flex-1 flex flex-col items-center justify-center relative"
-              style={{ color: moreActive||moreOpen?'hsl(var(--primary))':'#2a2a2e', gap:1.5, background:'transparent', border:'none', cursor:'pointer' }}>
+              style={{ color: moreActive||moreOpen?accent:'#2a2a2e', gap:1.5, background:'transparent', border:'none', cursor:'pointer' }}>
               <div className="relative">
                 <MoreHorizontal style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={moreActive?2.7:2.2}/>
-                {unread>0 && <span className="absolute -top-1.5 -right-2 rounded-full" style={{width:8,height:8,background:'hsl(var(--primary))'}}/>}
+                {unread>0 && <span className="absolute -top-1.5 -right-2 rounded-full" style={{width:8,height:8,background:accent}}/>}
               </div>
               <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
-                textTransform:'uppercase',lineHeight:1,color:moreActive||moreOpen?'hsl(var(--primary))':'#3a3a3e'}}>More</span>
-              {(moreActive||moreOpen) && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:'hsl(var(--primary))'}}/>}
+                textTransform:'uppercase',lineHeight:1,color:moreActive||moreOpen?accent:'#3a3a3e'}}>More</span>
+              {(moreActive||moreOpen) && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:accent}}/>}
             </button>
-          </div>
-        </div>
+        </BarbellNav>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 

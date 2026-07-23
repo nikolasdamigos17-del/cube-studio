@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import { Home, Dumbbell, Salad, BarChart2, CreditCard, MessageCircle, LogOut, Sun, Moon, ChevronDown, Check, MoreHorizontal, Settings, Globe } from 'lucide-react';
 import { useAppContext } from '../../lib/AppContext';
 import { useTheme, CLIENT_THEMES } from '../../lib/ThemeContext';
 import logo from '../../assets/logo-cube.png';
-import barbellBar from '../../assets/barbell-bar.png';
-import barbellPlates from '../../assets/barbell-plates.png';
+import BarbellNav from '../BarbellNav';
+import { useAccent } from '../../lib/useAccent';
 import { useLang } from '../../lib/LangContext';
 
 const NAV = [
@@ -103,6 +104,7 @@ export default function ClientLayout({ children, title }) {
   const { logout, clientUser } = useAppContext();
   const [cpSettingsOpen, setCpSettingsOpen] = useState(false);
   const [cpMoreTab, setCpMoreTab] = useState('menu');
+  const cpAccent = useAccent(true);
   const { themeName: cpTheme, switchTheme: cpSwitch, themes: cpThemes } = useTheme();
   const { lang: cpLang, toggle: cpToggle } = useLang();
   const { tr } = useLang();
@@ -130,6 +132,7 @@ export default function ClientLayout({ children, title }) {
         <main style={{ paddingBottom:'calc(92px + env(safe-area-inset-bottom))', minHeight:'100vh' }}>
           {children}
         </main>
+        {createPortal(<>
         {/* ── More / Settings sheet (tabbed) ── */}
         {cpSettingsOpen && (
           <>
@@ -227,33 +230,20 @@ export default function ClientLayout({ children, title }) {
         <div style={{ position:'fixed', left:0, right:0, zIndex:60,
           bottom:'calc(14px + env(safe-area-inset-bottom))',
           display:'flex', justifyContent:'center', padding:'0 12px', pointerEvents:'none' }}>
-          <div style={{ position:'relative', width:'100%', maxWidth:430, pointerEvents:'auto',
-            aspectRatio:'3.73 / 1', filter:'drop-shadow(0 10px 22px rgba(0,0,0,0.4))' }}>
-            {/* accent-tinted plates via mask */}
-            <div style={{ position:'absolute', inset:0, background:'var(--cp-accent)',
-              WebkitMaskImage:`url(${barbellPlates})`, maskImage:`url(${barbellPlates})`,
-              WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
-              WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat', opacity:0.92, pointerEvents:'none' }}/>
-            <img src={barbellPlates} alt="" aria-hidden="true" style={{ position:'absolute', inset:0,
-              width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none',
-              mixBlendMode:'multiply', opacity:0.55 }}/>
-            <img src={barbellBar} alt="" style={{ position:'absolute', inset:0,
-              width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none' }}/>
-            <div style={{ position:'absolute', left:'14.3%', right:'14.2%', top:'24%', bottom:'26%',
-              display:'flex', alignItems:'center' }}>
+          <BarbellNav accent={cpAccent}>
               {CP_BOTTOM.map(({ path, icon:Icon, key }) => (
                 <NavLink key={path} to={path}
                   style={({isActive}) => ({
                     flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
                     gap:1.5, textDecoration:'none', position:'relative',
-                    color: isActive ? 'var(--cp-accent)' : '#2a2a2e', transition:'color 0.15s ease',
+                    color: isActive ? cpAccent : '#2a2a2e', transition:'color 0.15s ease',
                   })}>
                   {({isActive}) => (
                     <>
                       <Icon style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={isActive?2.7:2.2}/>
                       <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
-                        textTransform:'uppercase',lineHeight:1,color:isActive?'var(--cp-accent)':'#3a3a3e',whiteSpace:'nowrap'}}>{tr(key)}</span>
-                      {isActive && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:'var(--cp-accent)'}}/>}
+                        textTransform:'uppercase',lineHeight:1,color:isActive?cpAccent:'#3a3a3e',whiteSpace:'nowrap'}}>{tr(key)}</span>
+                      {isActive && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:cpAccent}}/>}
                     </>
                   )}
                 </NavLink>
@@ -261,15 +251,15 @@ export default function ClientLayout({ children, title }) {
               <button onClick={()=>setCpSettingsOpen(v=>!v)}
                 style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1.5,
                   border:'none',background:'transparent',cursor:'pointer',position:'relative',
-                  color:cpSettingsOpen?'var(--cp-accent)':'#2a2a2e'}}>
+                  color:cpSettingsOpen?cpAccent:'#2a2a2e'}}>
                 <MoreHorizontal style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={cpSettingsOpen?2.7:2.2}/>
                 <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
-                  textTransform:'uppercase',lineHeight:1,color:cpSettingsOpen?'var(--cp-accent)':'#3a3a3e'}}>More</span>
-                {cpSettingsOpen && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:'var(--cp-accent)'}}/>}
+                  textTransform:'uppercase',lineHeight:1,color:cpSettingsOpen?cpAccent:'#3a3a3e'}}>More</span>
+                {cpSettingsOpen && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:cpAccent}}/>}
               </button>
-            </div>
-          </div>
+          </BarbellNav>
         </div>
+        </>, document.body)}
       </div>
     );
   }
