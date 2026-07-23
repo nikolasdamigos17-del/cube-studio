@@ -5,7 +5,7 @@ import { Calendar, Users, Dumbbell, Salad, CreditCard, Bell, CheckSquare, Sparkl
   TrendingUp, Clock, Settings2, Check, X, Maximize2, ArrowRight } from 'lucide-react';
 import { db } from '../lib/db';
 import { useLang } from '../lib/LangContext';
-import { useAccent } from '../lib/useAccent';
+import { useBarColors } from './BarbellNav';
 
 const QUOTES = [
   "The only bad workout is the one that didn't happen.",
@@ -91,7 +91,7 @@ function Ring({ pct, color, size=54, stroke=5, children }) {
 export default function MobileHome() {
   const navigate = useNavigate();
   const { tr } = useLang();
-  const accent = useAccent(false);
+  const { accent } = useBarColors();
   const [data, setData] = useState({ clients:[], appts:[], todos:[], payments:[], plans:[], msgs:[] });
   const [quote] = useState(()=>QUOTES[Math.floor(Math.random()*QUOTES.length)]);
   const [editMode, setEditMode] = useState(false);

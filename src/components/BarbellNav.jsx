@@ -1,40 +1,43 @@
-import { BAR_IMG, SHAPE_IMG, SHEEN_IMG } from '../assets/barbellData';
+import { useTheme } from '../lib/ThemeContext';
+import { barFor } from '../assets/bars';
 
-// Reusable barbell nav frame. `accent` colors the plates; the bar stays metallic.
-// Renders the tab children over the shaft area.
-export default function BarbellNav({ accent, children, maxWidth = 430 }) {
+// Floating barbell nav frame. Picks the pre-rendered bar that matches the
+// active theme and positions the tab children over its shaft.
+// Children receive nothing — they are laid out in a flex row by this wrapper.
+export default function BarbellNav({ children, maxWidth = 430 }) {
+  const { themeName, isClient } = useTheme();
+  const bar = barFor(themeName, isClient);
+
+  const shaftH = bar.sy1 - bar.sy0;
+  const inset  = (bar.sx1 - bar.sx0) * 0.025;
+
   return (
-    <div style={{ position:'relative', width:'100%', maxWidth, pointerEvents:'auto',
-      aspectRatio:'3.73 / 1', filter:'drop-shadow(0 10px 22px rgba(0,0,0,0.42))' }}>
-
-      {/* 1. Accent-colored plate fill (shape as mask) */}
-      <div style={{ position:'absolute', inset:0, backgroundColor:accent,
-        WebkitMaskImage:`url(${SHAPE_IMG})`, maskImage:`url(${SHAPE_IMG})`,
-        WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
-        WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
-        WebkitMaskPosition:'center', maskPosition:'center', pointerEvents:'none' }}/>
-
-      {/* 2. Metallic sheen/highlights over the color (screen = adds light) */}
-      <img src={SHEEN_IMG} alt="" aria-hidden="true" style={{ position:'absolute', inset:0,
-        width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none',
-        mixBlendMode:'screen', opacity:0.85 }}/>
-
-      {/* 3. Inner shadow depth (the shape at low opacity, multiply, for rounded look) */}
-      <div style={{ position:'absolute', inset:0,
-        background:'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%)',
-        WebkitMaskImage:`url(${SHAPE_IMG})`, maskImage:`url(${SHAPE_IMG})`,
-        WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
-        WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat', pointerEvents:'none' }}/>
-
-      {/* 4. The metal bar on top */}
-      <img src={BAR_IMG} alt="" style={{ position:'absolute', inset:0,
-        width:'100%', height:'100%', objectFit:'fill', pointerEvents:'none', userSelect:'none' }}/>
-
-      {/* Tabs over the shaft (x 14.3% → 85.8%) */}
-      <div style={{ position:'absolute', left:'14.3%', right:'14.2%', top:'24%', bottom:'26%',
-        display:'flex', alignItems:'center' }}>
+    <div style={{
+      position:'relative', width:'100%', maxWidth, pointerEvents:'auto',
+      aspectRatio:`${bar.ar} / 1`,
+      filter:'drop-shadow(0 9px 20px rgba(0,0,0,0.45))',
+    }}>
+      <img src={bar.img} alt="" style={{
+        position:'absolute', inset:0, width:'100%', height:'100%',
+        objectFit:'fill', pointerEvents:'none', userSelect:'none',
+      }}/>
+      <div style={{
+        position:'absolute',
+        left:  `${(bar.sx0 + inset) * 100}%`,
+        right: `${(1 - bar.sx1 + inset) * 100}%`,
+        top:   `${(bar.sy0 + shaftH * 0.07) * 100}%`,
+        bottom:`${(1 - bar.sy1 + shaftH * 0.10) * 100}%`,
+        display:'flex', alignItems:'center',
+      }}>
         {children}
       </div>
     </div>
   );
+}
+
+// Colour helpers so the tabs always match the plates of the active bar.
+export function useBarColors() {
+  const { themeName, isClient } = useTheme();
+  const bar = barFor(themeName, isClient);
+  return { accent: bar.accent, tab: bar.tab, idle: '#3a3a42', idleLabel: '#4a4a52' };
 }

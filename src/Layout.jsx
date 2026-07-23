@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
-import BarbellNav from './components/BarbellNav';
-import { useAccent } from './lib/useAccent';
+import BarbellNav, { useBarColors } from './components/BarbellNav';
 import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, Zap, ChevronDown, MoreHorizontal, X, Settings, Globe } from 'lucide-react';
 import { useAppContext } from './lib/AppContext';
 import { db } from './lib/db';
@@ -127,7 +126,7 @@ function BottomBar({ unread, requests }) {
   const { themeName, switchTheme, themes } = useTheme();
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreTab, setMoreTab] = useState('menu'); // 'menu' | 'settings'
-  const accent = useAccent(false);
+  const { accent, tab: tabActive, idle, idleLabel } = useBarColors();
   const isActive = (path) => loc.pathname === path || (path !== '/' && loc.pathname.startsWith(path));
   const moreActive = MORE_NAV.some(n => isActive(n.path));
 
@@ -256,35 +255,35 @@ function BottomBar({ unread, requests }) {
       <div className="fixed left-0 right-0 z-[60]" style={{
         bottom:'calc(14px + env(safe-area-inset-bottom))',
         display:'flex', justifyContent:'center', padding:'0 12px', pointerEvents:'none' }}>
-        <BarbellNav accent={accent}>
+        <BarbellNav>
           {BOTTOM_NAV.map(({ key, icon:Icon, path }) => {
               const active = isActive(path);
               const badge = path==='/Messages' ? unread : 0;
               return (
                 <Link key={path} to={path}
                   className="flex-1 flex flex-col items-center justify-center relative"
-                  style={{ color: active?accent:'#2a2a2e', transition:'color 0.15s ease',
+                  style={{ color: active?tabActive:idle, transition:'color 0.15s ease',
                     gap:1.5, textDecoration:'none' }}>
                   <div className="relative">
-                    <Icon style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={active?2.7:2.2}/>
-                    {badge>0 && <span className="absolute -top-1.5 -right-2 rounded-full text-white flex items-center justify-center" style={{width:14,height:14,fontSize:8,fontWeight:700,background:accent}}>{badge>9?'9+':badge}</span>}
+                    <Icon style={{width:'clamp(15px,4.2vw,18px)',height:'clamp(15px,4.2vw,18px)'}} strokeWidth={active?2.7:2.2}/>
+                    {badge>0 && <span className="absolute -top-1.5 -right-2 rounded-full text-white flex items-center justify-center" style={{width:14,height:14,fontSize:8,fontWeight:700,background:tabActive}}>{badge>9?'9+':badge}</span>}
                   </div>
-                  <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
-                    textTransform:'uppercase',lineHeight:1,color:active?accent:'#3a3a3e',whiteSpace:'nowrap'}}>{tr(key)}</span>
-                  {active && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:accent}}/>}
+                  <span style={{fontSize:'clamp(6px,1.85vw,8px)',fontWeight:700,letterSpacing:'-0.02em',
+                    textTransform:'uppercase',lineHeight:1,color:active?tabActive:idleLabel,whiteSpace:'nowrap'}}>{tr(key)}</span>
+                  {active && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:tabActive}}/>}
                 </Link>
               );
             })}
             <button onClick={()=>setMoreOpen(v=>!v)}
               className="flex-1 flex flex-col items-center justify-center relative"
-              style={{ color: moreActive||moreOpen?accent:'#2a2a2e', gap:1.5, background:'transparent', border:'none', cursor:'pointer' }}>
+              style={{ color: moreActive||moreOpen?tabActive:idle, gap:1.5, background:'transparent', border:'none', cursor:'pointer' }}>
               <div className="relative">
-                <MoreHorizontal style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={moreActive?2.7:2.2}/>
-                {unread>0 && <span className="absolute -top-1.5 -right-2 rounded-full" style={{width:8,height:8,background:accent}}/>}
+                <MoreHorizontal style={{width:'clamp(15px,4.2vw,18px)',height:'clamp(15px,4.2vw,18px)'}} strokeWidth={moreActive?2.7:2.2}/>
+                {unread>0 && <span className="absolute -top-1.5 -right-2 rounded-full" style={{width:8,height:8,background:tabActive}}/>}
               </div>
-              <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
-                textTransform:'uppercase',lineHeight:1,color:moreActive||moreOpen?accent:'#3a3a3e'}}>More</span>
-              {(moreActive||moreOpen) && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:accent}}/>}
+              <span style={{fontSize:'clamp(6px,1.85vw,8px)',fontWeight:700,letterSpacing:'-0.02em',
+                textTransform:'uppercase',lineHeight:1,color:moreActive||moreOpen?tabActive:idleLabel}}>More</span>
+              {(moreActive||moreOpen) && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:tabActive}}/>}
             </button>
         </BarbellNav>
       </div>
@@ -324,7 +323,7 @@ export default function MasterLayout({ children }) {
   if (isMobile) {
     return (
       <div className="min-h-screen bg-background">
-        <main className="min-h-screen bg-background" style={{ paddingBottom:'calc(92px + env(safe-area-inset-bottom))' }}>
+        <main className="min-h-screen bg-background" style={{ paddingBottom:'calc(122px + env(safe-area-inset-bottom))' }}>
           {children}
         </main>
         <BottomBar unread={unread} requests={requests} />

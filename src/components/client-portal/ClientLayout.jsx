@@ -5,8 +5,7 @@ import { Home, Dumbbell, Salad, BarChart2, CreditCard, MessageCircle, LogOut, Su
 import { useAppContext } from '../../lib/AppContext';
 import { useTheme, CLIENT_THEMES } from '../../lib/ThemeContext';
 import logo from '../../assets/logo-cube.png';
-import BarbellNav from '../BarbellNav';
-import { useAccent } from '../../lib/useAccent';
+import BarbellNav, { useBarColors } from '../BarbellNav';
 import { useLang } from '../../lib/LangContext';
 
 const NAV = [
@@ -104,7 +103,7 @@ export default function ClientLayout({ children, title }) {
   const { logout, clientUser } = useAppContext();
   const [cpSettingsOpen, setCpSettingsOpen] = useState(false);
   const [cpMoreTab, setCpMoreTab] = useState('menu');
-  const cpAccent = useAccent(true);
+  const { tab: cpTab, idle: cpIdle, idleLabel: cpIdleLabel } = useBarColors();
   const { themeName: cpTheme, switchTheme: cpSwitch, themes: cpThemes } = useTheme();
   const { lang: cpLang, toggle: cpToggle } = useLang();
   const { tr } = useLang();
@@ -129,7 +128,7 @@ export default function ClientLayout({ children, title }) {
             <h1 style={{ margin:0, fontSize:18, fontWeight:600, fontFamily:'var(--cp-font)', color:'var(--cp-text)' }}>{title}</h1>
           </header>
         )}
-        <main style={{ paddingBottom:'calc(92px + env(safe-area-inset-bottom))', minHeight:'100vh' }}>
+        <main style={{ paddingBottom:'calc(122px + env(safe-area-inset-bottom))', minHeight:'100vh' }}>
           {children}
         </main>
         {createPortal(<>
@@ -230,20 +229,20 @@ export default function ClientLayout({ children, title }) {
         <div style={{ position:'fixed', left:0, right:0, zIndex:60,
           bottom:'calc(14px + env(safe-area-inset-bottom))',
           display:'flex', justifyContent:'center', padding:'0 12px', pointerEvents:'none' }}>
-          <BarbellNav accent={cpAccent}>
+          <BarbellNav>
               {CP_BOTTOM.map(({ path, icon:Icon, key }) => (
                 <NavLink key={path} to={path}
                   style={({isActive}) => ({
                     flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
                     gap:1.5, textDecoration:'none', position:'relative',
-                    color: isActive ? cpAccent : '#2a2a2e', transition:'color 0.15s ease',
+                    color: isActive ? cpTab : cpIdle, transition:'color 0.15s ease',
                   })}>
                   {({isActive}) => (
                     <>
-                      <Icon style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={isActive?2.7:2.2}/>
-                      <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
-                        textTransform:'uppercase',lineHeight:1,color:isActive?cpAccent:'#3a3a3e',whiteSpace:'nowrap'}}>{tr(key)}</span>
-                      {isActive && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:cpAccent}}/>}
+                      <Icon style={{width:'clamp(15px,4.2vw,18px)',height:'clamp(15px,4.2vw,18px)'}} strokeWidth={isActive?2.7:2.2}/>
+                      <span style={{fontSize:'clamp(6px,1.85vw,8px)',fontWeight:700,letterSpacing:'-0.02em',
+                        textTransform:'uppercase',lineHeight:1,color:isActive?cpTab:cpIdleLabel,whiteSpace:'nowrap'}}>{tr(key)}</span>
+                      {isActive && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:cpTab}}/>}
                     </>
                   )}
                 </NavLink>
@@ -251,11 +250,11 @@ export default function ClientLayout({ children, title }) {
               <button onClick={()=>setCpSettingsOpen(v=>!v)}
                 style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1.5,
                   border:'none',background:'transparent',cursor:'pointer',position:'relative',
-                  color:cpSettingsOpen?cpAccent:'#2a2a2e'}}>
-                <MoreHorizontal style={{width:'clamp(16px,4.6vw,20px)',height:'clamp(16px,4.6vw,20px)'}} strokeWidth={cpSettingsOpen?2.7:2.2}/>
-                <span style={{fontSize:'clamp(6.5px,2vw,8.5px)',fontWeight:700,letterSpacing:'-0.02em',
-                  textTransform:'uppercase',lineHeight:1,color:cpSettingsOpen?cpAccent:'#3a3a3e'}}>More</span>
-                {cpSettingsOpen && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:cpAccent}}/>}
+                  color:cpSettingsOpen?cpTab:cpIdle}}>
+                <MoreHorizontal style={{width:'clamp(15px,4.2vw,18px)',height:'clamp(15px,4.2vw,18px)'}} strokeWidth={cpSettingsOpen?2.7:2.2}/>
+                <span style={{fontSize:'clamp(6px,1.85vw,8px)',fontWeight:700,letterSpacing:'-0.02em',
+                  textTransform:'uppercase',lineHeight:1,color:cpSettingsOpen?cpTab:cpIdleLabel}}>More</span>
+                {cpSettingsOpen && <div style={{position:'absolute',bottom:-3,width:'56%',height:2.5,borderRadius:3,background:cpTab}}/>}
               </button>
           </BarbellNav>
         </div>

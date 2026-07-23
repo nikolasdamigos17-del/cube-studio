@@ -6,7 +6,7 @@ import { Calendar, Dumbbell, Salad, TrendingUp, Droplet, Bell,
 import { db } from '../lib/db';
 import { useAppContext } from '../lib/AppContext';
 import { useLang } from '../lib/LangContext';
-import { useAccent } from '../lib/useAccent';
+import { useBarColors } from './BarbellNav';
 import ClientLayout from './client-portal/ClientLayout';
 
 const QUOTES = [
@@ -84,7 +84,7 @@ export default function MobileClientHome() {
   const { clientUser } = useAppContext();
   const navigate = useNavigate();
   const { tr } = useLang();
-  const accent = useAccent(true);
+  const { accent } = useBarColors();
   const [d, setD] = useState({ client:null, appts:[], progress:[], plans:[], nutrition:[], reminders:[], water:null });
   const [quote] = useState(()=>QUOTES[Math.floor(Math.random()*QUOTES.length)]);
   const [editMode, setEditMode] = useState(false);
