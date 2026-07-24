@@ -2,12 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, subDays, eachDayOfInterval, differenceInMonths, addMinutes } from 'date-fns';
 import { el } from 'date-fns/locale';
-import { Salad, TrendingUp, Droplet, Clock, Activity, Settings2, Check, X, Maximize2 } from 'lucide-react';
+import { Salad, TrendingUp, Droplet, Clock, Activity, Sparkles, Settings2, Check, X, Maximize2 } from 'lucide-react';
 import { db } from '../lib/db';
 import { useAppContext } from '../lib/AppContext';
 import { useLang } from '../lib/LangContext';
 import { useBarColors } from './BarbellNav';
 import ClientLayout from './client-portal/ClientLayout';
+import MyCubeAssistant from './MyCubeAssistant';
 
 const QUOTES = [
   'Strength doesn’t come from what you can do. It comes from overcoming what you couldn’t.',
@@ -23,6 +24,7 @@ const WIDGETS = {
   water:        { label:'Water Intake',  icon:Droplet,    color:'#38bdf8', sizes:[1,2]   },
   nutrition:    { label:'Nutrition',     icon:Salad,      color:'#84cc16', sizes:[4]     },
   consistency:  { label:'Consistency',   icon:Activity,   color:'#8b5cf6', sizes:[2,4]   },
+  assistant:    { label:'My Cube',       icon:Sparkles,   color:'#e2e8f0', sizes:[1,2], bare:true },
 };
 
 const DEFAULT_SLOTS = [
@@ -31,6 +33,7 @@ const DEFAULT_SLOTS = [
   { w:'weight',       size:2 },
   { w:'nutrition',    size:4 },
   { w:'consistency',  size:2 },
+  { w:'assistant',    size:1 },
 ];
 const STORAGE_KEY = 'cp_home_widgets_v3';
 const ROW = 118;
@@ -274,7 +277,7 @@ export default function MobileClientHome() {
   const dCol = dLast == null ? 'var(--cp-text-dim)' : dLast < 0 ? '#22c55e' : dLast > 0 ? '#f59e0b' : 'var(--cp-text-dim)';
 
   const waterL    = d.water?.amount_liters || 0;
-  const waterGoal = d.client?.water_goal_liters || 2.5;
+  const waterGoal = d.nutrition[0]?.water_liters_daily ?? d.client?.water_goal_liters ?? 2.5;
   const waterPct  = Math.min(100, (waterL / waterGoal) * 100);
   const addWater = async (amt) => {
     if (editMode) return;
@@ -594,6 +597,10 @@ export default function MobileClientHome() {
       case 'nutrition':
         return <NutritionWidget plan={d.nutrition[0]} editMode={editMode}/>;
 
+      case 'assistant':
+        return <MyCubeAssistant size={size} editMode={editMode} lang={lang}
+          client={d.client} nutrition={d.nutrition} appts={d.appts} progress={d.progress}/>;
+
       case 'consistency': {
         const c = '#8b5cf6';
         const total = consistency.reduce((s, x) => s + x.v, 0);
@@ -651,8 +658,9 @@ export default function MobileClientHome() {
           gap:10, gridAutoFlow:'dense', paddingBottom:4 }}>
           {slots.map((slot, i) => (
             <div key={i} style={{ position:'relative', ...span(slot.size),
-              background:'var(--cp-card-bg)', border:'1px solid var(--cp-border)',
-              borderRadius:18, overflow:'hidden',
+              background: WIDGETS[slot.w].bare ? 'transparent' : 'var(--cp-card-bg)',
+              border: WIDGETS[slot.w].bare ? 'none' : '1px solid var(--cp-border)',
+              borderRadius:18, overflow: WIDGETS[slot.w].bare ? 'visible' : 'hidden',
               boxShadow: editMode ? `0 0 0 2px ${accent}55` : 'none',
               animation: editMode ? 'wiggle .3s ease-in-out infinite alternate' : 'none' }}>
               {render(slot.w, slot.size)}
