@@ -320,12 +320,10 @@ export default function MasterLayout({ children }) {
   // ── MOBILE: bottom navigation bar layout ──
   if (isMobile) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="min-h-screen bg-background" style={{ paddingBottom:'var(--dock-h, 122px)' }}>
-          {children}
-        </main>
+      <>
+        <div className="app-viewport bg-background">{children}</div>
         <BottomBar unread={unread} requests={requests} />
-      </div>
+      </>
     );
   }
 

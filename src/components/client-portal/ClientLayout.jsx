@@ -122,13 +122,13 @@ export default function ClientLayout({ children, title }) {
   // ── MOBILE: bottom navigation bar ──
   if (isMobile) {
     return (
-      <div style={{ minHeight:'100vh', backgroundColor:'var(--cp-bg)', fontFamily:'var(--cp-font-body)' }}>
+      <div className="app-viewport" style={{ backgroundColor:'var(--cp-bg)', fontFamily:'var(--cp-font-body)' }}>
         {title && (
           <header style={{ padding:'14px 18px', borderBottom:'1px solid var(--cp-border)', backgroundColor:'var(--cp-card-bg)', position:'sticky', top:0, zIndex:30, backdropFilter:'blur(12px)' }}>
             <h1 style={{ margin:0, fontSize:18, fontWeight:600, fontFamily:'var(--cp-font)', color:'var(--cp-text)' }}>{title}</h1>
           </header>
         )}
-        <main style={{ paddingBottom:'var(--dock-h, 122px)', minHeight:'100vh' }}>
+        <main style={{ minHeight:'100%' }}>
           {children}
         </main>
         {createPortal(<>

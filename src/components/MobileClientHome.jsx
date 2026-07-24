@@ -621,7 +621,7 @@ export default function MobileClientHome() {
 
   return (
     <ClientLayout title="">
-      <div style={{ padding:'14px 14px 0', minHeight:'100vh' }}>
+      <div style={{ padding:'14px 14px 16px', minHeight:'100%' }}>
 
         <div style={{ position:'relative', overflow:'hidden', borderRadius:15, padding:'13px 15px',
           marginBottom:10,

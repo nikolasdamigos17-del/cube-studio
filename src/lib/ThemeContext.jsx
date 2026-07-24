@@ -146,7 +146,7 @@ export const MASTER_THEMES = {
   sky:      { name:'Sky',      emoji:'🌤️', dark:false, group:'light' },
 };
 
-const MASTER_BODY = {
+export const MASTER_BODY = {
   light:'#dfe3ea',  dark:'#05060c',   sand:'#e7ddc8',   obsidian:'#070604',
   ocean:'#020812',  forest:'#040b04', rose:'#f2dde2',   slate:'#070a10',
   aurora:'#06040e', crimson:'#0c0404',copper:'#0a0603', arctic:'#dbe8fa',
@@ -163,6 +163,13 @@ function applyMasterTheme(name) {
   if (name !== 'light' && name !== 'dark') cl.add(`theme-${name}`);
   document.body.style.backgroundColor = MASTER_BODY[name] || '#05060c';
 }
+
+// Opaque page colour for the active theme (the translucent --cp-bg / bg-background
+// variables deliberately let the cube show through, so they can't be used for
+// surfaces that must hide what's behind them).
+export const bodyColor = (name, isClient) =>
+  isClient ? (CLIENT_THEMES[name]?.body || '#070705')
+           : (MASTER_BODY[name] || '#05060c');
 
 const ThemeContext = createContext(null);
 

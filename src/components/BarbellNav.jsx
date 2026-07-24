@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useTheme } from '../lib/ThemeContext';
+import { useEffect, useRef, useState } from 'react';
+import { useTheme, bodyColor } from '../lib/ThemeContext';
 import { barFor } from '../assets/bars';
 
 // Floating barbell nav frame. Picks the pre-rendered bar that matches the
@@ -44,40 +44,70 @@ export function useBarColors() {
 }
 
 // ── Bezel dock ────────────────────────────────────────────────────────────
-// An opaque base fixed to the bottom of the screen that HOLDS the barbell.
-// Page content stops above it (never scrolls behind), so nothing gets hidden.
-// It measures itself and publishes --dock-h so layouts can pad their content.
-export function BarbellDock({ children }) {
-  const { isClient } = useTheme();
+// A solid base fixed to the bottom of the screen that HOLDS the barbell.
+// Its top edge follows the barbell's own silhouette: raised around the plates,
+// dipping down along the metal shaft. Filled with the theme's opaque page
+// colour so nothing shows through it. Publishes --dock-h for the layouts.
+export function BarbellDock({ children, maxWidth = 430, sidePad = 12 }) {
+  const { themeName, isClient } = useTheme();
+  const bar = barFor(themeName, isClient);
   const ref = useRef(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const publish = () =>
+    const measure = () => {
+      setBox({ w: el.offsetWidth, h: el.offsetHeight });
       document.documentElement.style.setProperty('--dock-h', `${el.offsetHeight}px`);
-    publish();
-    const ro = new ResizeObserver(publish);
-    ro.observe(el);
-    window.addEventListener('orientationchange', publish);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('orientationchange', publish);
     };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('orientationchange', measure);
+    return () => { ro.disconnect(); window.removeEventListener('orientationchange', measure); };
   }, []);
 
-  const bg     = isClient ? 'var(--cp-bg)'     : 'hsl(var(--background))';
-  const border = isClient ? 'var(--cp-border)' : 'hsl(var(--border))';
+  const fill   = bodyColor(themeName, isClient);
+  const stroke = isClient ? 'var(--cp-border)' : 'hsl(var(--border))';
+  const PAD_TOP = 7;
+
+  // silhouette: high over the plates, low over the shaft
+  const { w: W, h: H } = box;
+  let d = '', edge = '';
+  if (W > 0 && H > 0) {
+    const BW = Math.min(W - sidePad * 2, maxWidth);
+    const BL = (W - BW) / 2;
+    const barH = BW / bar.ar;
+    const yHigh = 0;
+    const yLow  = Math.max(yHigh + 6, PAD_TOP + bar.sy0 * barH - 3);
+    const xL = BL + bar.sx0 * BW;
+    const xR = BL + bar.sx1 * BW;
+    const r  = Math.min(14, (xR - xL) / 4);
+    edge = `M0 ${yHigh} L${xL - r} ${yHigh}`
+         + ` C${xL} ${yHigh} ${xL} ${yLow} ${xL + r} ${yLow}`
+         + ` L${xR - r} ${yLow}`
+         + ` C${xR} ${yLow} ${xR} ${yHigh} ${xR + r} ${yHigh}`
+         + ` L${W} ${yHigh}`;
+    d = `${edge} L${W} ${H} L0 ${H} Z`;
+  }
 
   return (
     <div ref={ref} className="fixed left-0 right-0 bottom-0 z-[60]" style={{
-      background: bg,
-      borderTop: `1px solid ${border}`,
-      boxShadow: '0 -8px 22px rgba(0,0,0,.26)',
-      padding: '9px 12px calc(9px + env(safe-area-inset-bottom))',
+      padding: `${PAD_TOP}px ${sidePad}px calc(9px + env(safe-area-inset-bottom))`,
       display: 'flex', justifyContent: 'center',
+      filter: 'drop-shadow(0 -6px 16px rgba(0,0,0,.28))',
     }}>
-      {children}
+      {d && (
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true"
+          style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
+          <path d={d} fill={fill}/>
+          <path d={edge} fill="none" stroke={stroke} strokeWidth="1"/>
+        </svg>
+      )}
+      <div style={{ position:'relative', width:'100%', maxWidth, display:'flex', justifyContent:'center' }}>
+        {children}
+      </div>
     </div>
   );
 }

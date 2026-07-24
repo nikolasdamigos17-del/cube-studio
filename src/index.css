@@ -602,3 +602,20 @@ aside.fixed, aside[class*="fixed"] { will-change: width; }
 @media (pointer: coarse) {
   button, a, [role="button"] { touch-action: manipulation; }
 }
+
+/* ── App viewport ─────────────────────────────────────────────────────────
+   On mobile the app's screen ENDS above the barbell bezel. Making this a
+   fixed, transformed scroll container means any position:fixed element a
+   page renders (action bars, FABs, sheets) is laid out against THIS box,
+   so it can never end up hidden behind the bar. */
+.app-viewport {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  bottom: var(--dock-h, 122px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+  overscroll-behavior-y: contain;
+}
+.app-viewport .min-h-screen { min-height: 100% !important; }
