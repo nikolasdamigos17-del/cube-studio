@@ -6,6 +6,7 @@ import { useAppContext } from '../../lib/AppContext';
 import { useTheme, CLIENT_THEMES } from '../../lib/ThemeContext';
 import logo from '../../assets/logo-cube.png';
 import BarbellNav, { BarbellDock, useBarColors } from '../BarbellNav';
+import ThemeSwatch from '../ThemeSwatch';
 import { useLang } from '../../lib/LangContext';
 
 const NAV = [
@@ -71,25 +72,15 @@ function ThemePicker() {
             <p style={{fontSize:9,letterSpacing:'0.15em',color:'var(--cp-text-dim)',textTransform:'uppercase',margin:'0 0 8px 2px'}}>DARK</p>
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5,marginBottom:10}}>
               {dark.map(([k,t])=>(
-                <button key={k} onClick={()=>{switchTheme(k);setOpen(false);}}
-                  title={t.name}
-                  style={{height:32,borderRadius:8,border:themeName===k?'2px solid var(--cp-accent)':'1px solid var(--cp-border)',
-                    background:t.body,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',
-                    boxShadow:themeName===k?'0 0 0 1px var(--cp-accent)':'none'}}>
-                  {t.emoji}
-                </button>
+                <ThemeSwatch key={k} name={k} isClient isDark active={themeName===k}
+                  size={32} title={t.name} onClick={()=>{switchTheme(k);setOpen(false);}}/>
               ))}
             </div>
             <p style={{fontSize:9,letterSpacing:'0.15em',color:'var(--cp-text-dim)',textTransform:'uppercase',margin:'0 0 8px 2px'}}>LIGHT</p>
             <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5}}>
               {light.map(([k,t])=>(
-                <button key={k} onClick={()=>{switchTheme(k);setOpen(false);}}
-                  title={t.name}
-                  style={{height:32,borderRadius:8,border:themeName===k?'2px solid var(--cp-accent)':'1px solid rgba(0,0,0,0.15)',
-                    background:t.body,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',
-                    boxShadow:themeName===k?'0 0 0 1px #666':'none'}}>
-                  {t.emoji}
-                </button>
+                <ThemeSwatch key={k} name={k} isClient isDark={false} active={themeName===k}
+                  size={32} title={t.name} onClick={()=>{switchTheme(k);setOpen(false);}}/>
               ))}
             </div>
           </div>
@@ -209,10 +200,8 @@ export default function ClientLayout({ children, title }) {
                   <p style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--cp-text-dim)',marginBottom:8}}>Theme</p>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(8,1fr)',gap:6}}>
                     {Object.entries(cpThemes).map(([k,t])=>(
-                      <button key={k} onClick={()=>cpSwitch(k)} title={t.name}
-                        style={{height:36,borderRadius:10,background:t.body,cursor:'pointer',
-                          border:cpTheme===k?'2px solid var(--cp-accent)':'1px solid var(--cp-border)',
-                          display:'flex',alignItems:'center',justifyContent:'center',fontSize:14}}>{t.emoji}</button>
+                      <ThemeSwatch key={k} name={k} isClient isDark={t.family==='dark'}
+                        active={cpTheme===k} size={36} title={t.name} onClick={()=>cpSwitch(k)}/>
                     ))}
                   </div>
                 </>

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
 import BarbellNav, { BarbellDock, useBarColors } from './components/BarbellNav';
+import ThemeSwatch from './components/ThemeSwatch';
 import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, ChevronDown, MoreHorizontal, X, Settings, Globe } from 'lucide-react';
 import { useAppContext } from './lib/AppContext';
 import { db } from './lib/db';
@@ -47,73 +48,64 @@ function Clock({ visible }) {
   );
 }
 
-function ThemePicker({ open: sidebarOpen }) {
+function DesktopSettings({ open: sidebarOpen }) {
   const { themeName, switchTheme, themes } = useTheme();
+  const { lang, toggle } = useLang();
   const [open, setOpen] = React.useState(false);
-  const dark = Object.entries(themes).filter(([,t])=>t.group==='dark');
-  const light = Object.entries(themes).filter(([,t])=>t.group==='light');
-  const cur = themes[themeName];
+  const dark = Object.entries(themes).filter(([, t]) => t.group === 'dark');
+  const light = Object.entries(themes).filter(([, t]) => t.group === 'light');
+
   return (
-    <div style={{position:'relative'}}>
-      <button onClick={()=>setOpen(v=>!v)}
+    <div style={{ position:'relative' }}>
+      <button onClick={() => setOpen(v => !v)}
         className="flex items-center h-10 w-full rounded-xl px-3 text-muted-foreground hover:bg-muted hover:text-foreground overflow-hidden transition-colors gap-3">
-        <span className="text-base flex-shrink-0">{cur?.emoji||'🎨'}</span>
+        <Settings className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2}/>
         <span className="text-sm font-medium whitespace-nowrap"
-          style={{opacity:(open||sidebarOpen)?1:0,transition:'opacity 0.15s ease'}}>
-          {cur?.name||'Theme'}
-        </span>
+          style={{ opacity: sidebarOpen ? 1 : 0, transition:'opacity .15s ease' }}>Ρυθμίσεις</span>
       </button>
-      {open&&(
+
+      {open && (
         <>
-          <div onClick={()=>setOpen(false)} style={{position:'fixed',inset:0,zIndex:99}}/>
-          <div style={{position:'fixed',bottom:120,left:68,zIndex:100,background:'hsl(var(--card)/0.96)',
-            border:'1px solid hsl(var(--border))',borderRadius:16,padding:'14px',
-            boxShadow:'0 8px 40px rgba(0,0,0,0.5)',width:220,backdropFilter:'blur(20px)'}}>
-            <p style={{fontSize:9,letterSpacing:'0.16em',color:'hsl(var(--muted-foreground))',textTransform:'uppercase',margin:'0 0 8px 2px'}}>DARK</p>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5,marginBottom:12}}>
-              {dark.map(([k,t])=>(
-                <button key={k} onClick={()=>{switchTheme(k);setOpen(false);}} title={t.name}
-                  style={{height:34,borderRadius:8,border:themeName===k?'2px solid hsl(var(--primary))':'1px solid hsl(var(--border))',
-                    background:k==='dark'?'#1a1a2e':k==='obsidian'?'#1a1500':k==='ocean'?'#020f24':k==='forest'?'#051205':k==='slate'?'#0d1424':k==='aurora'?'#0d0820':k==='crimson'?'#1a0505':'#1a0e05',
-                    cursor:'pointer',fontSize:15,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  {t.emoji}
+          <div onClick={() => setOpen(false)} style={{ position:'fixed', inset:0, zIndex:60 }}/>
+          <div style={{ position:'absolute', bottom:0, left:'calc(100% + 10px)', zIndex:61,
+            width:250, padding:14, borderRadius:16,
+            background:'hsl(var(--card))', border:'1px solid hsl(var(--border))',
+            boxShadow:'0 12px 40px rgba(0,0,0,.45)' }}>
+            <p className="text-[9px] font-bold uppercase tracking-[.15em] mb-2"
+              style={{ color:'hsl(var(--muted-foreground))' }}>Γλώσσα</p>
+            <div style={{ display:'flex', gap:6, marginBottom:14 }}>
+              {[['en','🇬🇧 English'], ['el','🇬🇷 Ελληνικά']].map(([code, label]) => (
+                <button key={code} onClick={() => lang !== code && toggle()}
+                  style={{ flex:1, padding:'8px 0', borderRadius:10, cursor:'pointer',
+                    fontSize:11.5, fontWeight:600,
+                    border: lang === code ? '2px solid hsl(var(--primary))' : '1px solid hsl(var(--border))',
+                    background: lang === code ? 'hsl(var(--primary)/0.12)' : 'transparent',
+                    color: lang === code ? 'hsl(var(--primary))' : 'hsl(var(--foreground))' }}>
+                  {label}
                 </button>
               ))}
             </div>
-            <p style={{fontSize:9,letterSpacing:'0.16em',color:'hsl(var(--muted-foreground))',textTransform:'uppercase',margin:'0 0 8px 2px'}}>LIGHT</p>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5}}>
-              {light.map(([k,t])=>(
-                <button key={k} onClick={()=>{switchTheme(k);setOpen(false);}} title={t.name}
-                  style={{height:34,borderRadius:8,border:themeName===k?'2px solid hsl(var(--primary))':'1px solid rgba(0,0,0,0.12)',
-                    background:k==='light'?'#e8edf5':k==='sand'?'#e9e0cf':k==='rose'?'#f3dfe3':k==='arctic'?'#dbe8fa':k==='mint'?'#dcf2e6':k==='ivory'?'#f2ede4':k==='lavender'?'#ece8f5':'#e0f0fa',
-                    cursor:'pointer',fontSize:15,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  {t.emoji}
-                </button>
+
+            <p className="text-[9px] font-bold uppercase tracking-[.15em] mb-2"
+              style={{ color:'hsl(var(--muted-foreground))' }}>Θέμα · Dark</p>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginBottom:12 }}>
+              {dark.map(([k, t]) => (
+                <ThemeSwatch key={k} name={k} isDark active={themeName === k}
+                  size={34} title={t.name} onClick={() => switchTheme(k)}/>
+              ))}
+            </div>
+            <p className="text-[9px] font-bold uppercase tracking-[.15em] mb-2"
+              style={{ color:'hsl(var(--muted-foreground))' }}>Θέμα · Light</p>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6 }}>
+              {light.map(([k, t]) => (
+                <ThemeSwatch key={k} name={k} isDark={false} active={themeName === k}
+                  size={34} title={t.name} onClick={() => switchTheme(k)}/>
               ))}
             </div>
           </div>
         </>
       )}
     </div>
-  );
-}
-
-
-
-function LangToggle({ open }) {
-  const { lang, toggle } = useLang();
-  return (
-    <button
-      onClick={toggle}
-      className="flex items-center h-10 w-full rounded-xl px-3 text-muted-foreground hover:bg-muted hover:text-foreground overflow-hidden transition-colors gap-3"
-      title={lang === 'en' ? 'Switch to Greek' : 'Αλλαγή σε Αγγλικά'}
-    >
-      <span className="text-base flex-shrink-0">{lang === 'en' ? '🇬🇧' : '🇬🇷'}</span>
-      <span className="text-sm font-medium whitespace-nowrap"
-        style={{ opacity: open ? 1 : 0, transition: 'opacity 0.15s ease' }}>
-        {lang === 'en' ? 'English' : 'Ελληνικά'}
-      </span>
-    </button>
   );
 }
 
@@ -130,7 +122,6 @@ function BottomBar({ unread, requests }) {
 
   const darkThemes = Object.entries(themes).filter(([,t])=>t.group==='dark');
   const lightThemes = Object.entries(themes).filter(([,t])=>t.group==='light');
-  const swatch = (k) => ({dark:'#1a1a2e',obsidian:'#1a1500',ocean:'#020f24',forest:'#051205',slate:'#0d1424',aurora:'#0d0820',crimson:'#1a0505',copper:'#1a0e05',light:'#e8edf5',sand:'#e9e0cf',rose:'#f3dfe3',arctic:'#dbe8fa',mint:'#dcf2e6',ivory:'#f2ede4',lavender:'#ece8f5',sky:'#e0f0fa'}[k]||'#222');
 
   return createPortal(
     <>
@@ -222,19 +213,15 @@ function BottomBar({ unread, requests }) {
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{color:'hsl(var(--muted-foreground))'}}>Theme · Dark</p>
                 <div className="grid grid-cols-8 gap-1.5 mb-3">
                   {darkThemes.map(([k,t])=>(
-                    <button key={k} onClick={()=>switchTheme(k)} title={t.name}
-                      style={{height:36,borderRadius:10,background:swatch(k),cursor:'pointer',
-                        border:themeName===k?'2px solid hsl(var(--primary))':'1px solid hsl(var(--border))',
-                        display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>{t.emoji}</button>
+                    <ThemeSwatch key={k} name={k} isDark active={themeName===k}
+                      title={t.name} onClick={()=>switchTheme(k)}/>
                   ))}
                 </div>
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{color:'hsl(var(--muted-foreground))'}}>Theme · Light</p>
                 <div className="grid grid-cols-8 gap-1.5 mb-2">
                   {lightThemes.map(([k,t])=>(
-                    <button key={k} onClick={()=>switchTheme(k)} title={t.name}
-                      style={{height:36,borderRadius:10,background:swatch(k),cursor:'pointer',
-                        border:themeName===k?'2px solid hsl(var(--primary))':'1px solid rgba(0,0,0,0.12)',
-                        display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>{t.emoji}</button>
+                    <ThemeSwatch key={k} name={k} isDark={false} active={themeName===k}
+                      title={t.name} onClick={()=>switchTheme(k)}/>
                   ))}
                 </div>
               </>
@@ -373,8 +360,7 @@ export default function MasterLayout({ children }) {
         </nav>
 
         <div className="px-2 py-3 border-t border-border space-y-0.5 flex-shrink-0">
-          <ThemePicker open={open} />
-          <LangToggle open={open} />
+          <DesktopSettings open={open} />
           <button onClick={logout}
             className="flex items-center h-10 w-full rounded-xl px-3 text-muted-foreground hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40 overflow-hidden transition-colors">
             <LogOut className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />

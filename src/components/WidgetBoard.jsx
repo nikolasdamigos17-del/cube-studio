@@ -54,7 +54,7 @@ export default function WidgetBoard({
   const movePress = (e) => {
     if (!press.current) return;
     const pt = e.touches?.[0] || e;
-    if (Math.abs(pt.clientX - press.current.x) > 8 || Math.abs(pt.clientY - press.current.y) > 8) {
+    if (Math.abs(pt.clientX - press.current.x) > 10 || Math.abs(pt.clientY - press.current.y) > 10) {
       moved.current = true;
       clearTimeout(press.current.timer);
       press.current = null;
@@ -151,15 +151,14 @@ export default function WidgetBoard({
                 opacity: isDrag ? .45 : 1,
                 transform: isOver ? 'scale(1.03)' : 'none',
                 transition:'transform .16s, opacity .16s, border-color .16s',
-                animation: edit && !isDrag ? 'wgWiggle .32s ease-in-out infinite alternate' : 'none',
-                touchAction: edit ? 'none' : 'auto' }}>
+                animation: edit && !isDrag ? 'wgWiggle .32s ease-in-out infinite alternate' : 'none' }}>
               {render(slot.w, slot.size, edit)}
 
               {edit && (
                 <>
                   <div onPointerDown={onDragStart(i)}
                     style={{ position:'absolute', left:6, top:6, zIndex:4, ...ctrl,
-                      cursor:'grab', background:'rgba(0,0,0,.55)' }}>
+                      cursor:'grab', background:'rgba(0,0,0,.55)', touchAction:'none' }}>
                     <GripVertical style={{ width:13, height:13 }}/>
                   </div>
                   <div style={{ position:'absolute', top:6, right:6, display:'flex', gap:4, zIndex:4 }}>
@@ -195,14 +194,13 @@ export default function WidgetBoard({
       </div>
 
       {edit && (
-        <div style={{ display:'flex', justifyContent:'center', marginTop:14 }}>
-          <button onClick={() => setEdit(false)}
-            style={{ display:'flex', alignItems:'center', gap:7, padding:'10px 20px', borderRadius:12,
-              border:'none', cursor:'pointer', fontSize:13, fontWeight:700,
-              background:T.accent, color:'#fff' }}>
-            <Check style={{ width:15, height:15 }}/> Τέλος
-          </button>
-        </div>
+        <button onClick={() => setEdit(false)}
+          style={{ position:'fixed', top:'calc(12px + env(safe-area-inset-top))', right:14, zIndex:70,
+            display:'flex', alignItems:'center', gap:7, padding:'10px 18px', borderRadius:999,
+            border:'none', cursor:'pointer', fontSize:13, fontWeight:700,
+            background:T.accent, color:'#fff', boxShadow:'0 6px 20px rgba(0,0,0,.4)' }}>
+          <Check style={{ width:15, height:15 }}/> Τέλος
+        </button>
       )}
 
       <style>{`@keyframes wgWiggle{from{transform:rotate(-.45deg)}to{transform:rotate(.45deg)}}

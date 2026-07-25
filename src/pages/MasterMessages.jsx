@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Send, Search, MessageCircle, Paperclip, Image, Link2, X, Plus, Users, Check, Trash2 } from 'lucide-react';
+import { Send, Search, MessageCircle, Paperclip, Image, Link2, X, Plus, Users, Check, Trash2, ChevronLeft } from 'lucide-react';
 import { db } from '../lib/db';
 
 function CreateGroupModal({ clients, onClose, onCreated }) {
@@ -41,6 +41,12 @@ export default function MasterMessages() {
   const [groups, setGroups] = useState([]);
   const [messages, setMessages] = useState([]);
   const [selected, setSelected] = useState(null); // {type:'client'|'group', id, name, color}
+  const [isMobileMsg, setIsMobileMsg] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  useEffect(() => {
+    const h = () => setIsMobileMsg(window.innerWidth < 768);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
   const [newMsg, setNewMsg] = useState('');
   const [search, setSearch] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -91,9 +97,11 @@ export default function MasterMessages() {
   ].filter(t=>t.name?.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-white">
+    <div className="flex bg-white" style={{ height: isMobileMsg ? '100%' : 'calc(100vh - 64px)' }}>
       {/* Sidebar */}
-      <div className="w-72 border-r border-gray-100 flex flex-col flex-shrink-0">
+      <div className="w-72 border-r border-gray-100 flex-col flex-shrink-0"
+        style={{ display: isMobileMsg && selected ? 'none' : 'flex',
+                 width: isMobileMsg ? '100%' : undefined }}>
         <div className="p-4 border-b border-gray-50">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900 flex items-center gap-2"><MessageCircle className="w-4 h-4"/> Messages {totalUnread>0&&<span className="w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">{totalUnread}</span>}</h2>
@@ -139,6 +147,12 @@ export default function MasterMessages() {
       {selected ? (
         <div className="flex-1 flex flex-col">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3">
+            {isMobileMsg && (
+              <button onClick={()=>setSelected(null)} aria-label="Back"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 flex-shrink-0 -ml-1">
+                <ChevronLeft className="w-5 h-5"/>
+              </button>
+            )}
             {selected.type==='group'
               ? <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm">👥</div>
               : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{backgroundColor:selected.color}}>{selected.avatar}</div>
