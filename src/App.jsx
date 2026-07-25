@@ -19,7 +19,6 @@ import Nutrition from './pages/Nutrition';
 import Statistics from './pages/Statistics';
 import Logistics from './pages/Logistics';
 import MasterMessages from './pages/MasterMessages';
-import HevySync from './pages/HevySync';
 import LiveTraining from './pages/LiveTraining';
 import RecipePage from './pages/RecipePage';
 
@@ -105,7 +104,6 @@ function AppContent() {
         <Route path="/Statistics"  element={<MasterLayout><Statistics/></MasterLayout>}/>
         <Route path="/Logistics"   element={<MasterLayout><Logistics/></MasterLayout>}/>
         <Route path="/Messages"    element={<MasterLayout><MasterMessages/></MasterLayout>}/>
-        <Route path="/HevySync"    element={<MasterLayout><HevySync/></MasterLayout>}/>
         <Route path="/recipe"      element={<RecipePage/>}/>
         <Route path="/live-training" element={<LiveTraining/>}/>
         <Route path="*" element={<Navigate to="/" replace/>}/>

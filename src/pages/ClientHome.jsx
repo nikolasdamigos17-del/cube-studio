@@ -409,7 +409,9 @@ export default function ClientHome() {
   const gap = 18;
 
 
-  if (isMobileCH) return <MobileClientHome/>;
+  return isMobileCH
+    ? <MobileClientHome/>
+    : <MobileClientHome columns={4} rowHeight={152} wide/>;
 
   return (
     <ClientLayout title="">

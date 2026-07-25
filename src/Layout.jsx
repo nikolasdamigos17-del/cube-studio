@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
 import BarbellNav, { BarbellDock, useBarColors } from './components/BarbellNav';
-import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, Zap, ChevronDown, MoreHorizontal, X, Settings, Globe } from 'lucide-react';
+import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, ChevronDown, MoreHorizontal, X, Settings, Globe } from 'lucide-react';
 import { useAppContext } from './lib/AppContext';
 import { db } from './lib/db';
 import { format } from 'date-fns';
@@ -18,7 +18,6 @@ const NAV = [
   { key:'nav_nutrition', icon:Salad, path:'/Nutrition' },
   { key:'nav_statistics', icon:BarChart2, path:'/Statistics' },
   { key:'nav_logistics', icon:CreditCard, path:'/Logistics' },
-  { key:'nav_hevy', icon:Zap, path:'/HevySync' },
   { key:'nav_messages', icon:MessageCircle, path:'/Messages' },
 ];
 
@@ -34,7 +33,6 @@ const MORE_NAV = [
   { key:'nav_calendar', icon:Calendar, path:'/CalendarPage' },
   { key:'nav_statistics', icon:BarChart2, path:'/Statistics' },
   { key:'nav_logistics', icon:CreditCard, path:'/Logistics' },
-  { key:'nav_hevy', icon:Zap, path:'/HevySync' },
 ];
 
 function Clock({ visible }) {

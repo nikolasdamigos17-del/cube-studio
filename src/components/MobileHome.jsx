@@ -5,9 +5,10 @@ import { format, parseISO, differenceInDays, subDays, addMinutes,
 import { el } from 'date-fns/locale';
 import { Clock, CalendarDays, CalendarRange, LayoutGrid, CheckSquare, CreditCard,
          AlertTriangle, MessageCircle, Users, Inbox, Timer,
-         Settings2, Check, X, Maximize2 } from 'lucide-react';
+ } from 'lucide-react';
 import { db } from '../lib/db';
 import { useLang } from '../lib/LangContext';
+import WidgetBoard, { useSlots } from './WidgetBoard';
 import { useBarColors } from './BarbellNav';
 
 const WIDGETS = {
@@ -41,9 +42,6 @@ const tick   = { fontSize:9, color:'hsl(var(--muted-foreground))', fontWeight:60
 const big    = { fontFamily:'var(--font-display)', fontWeight:900, letterSpacing:'-.035em',
                  lineHeight:.9, color:'hsl(var(--foreground))', fontVariantNumeric:'tabular-nums' };
 const center = { display:'flex', alignItems:'center', justifyContent:'center' };
-const ctrlBtn= { width:24, height:24, borderRadius:7, border:'none', cursor:'pointer',
-                 background:'rgba(0,0,0,.62)', color:'#fff', ...{ display:'flex',
-                 alignItems:'center', justifyContent:'center' }, backdropFilter:'blur(4px)' };
 
 const initials = (n) => (n || '?').trim().charAt(0).toUpperCase();
 const avStyle = (size, c) => ({ width:size, height:size, borderRadius:'50%', ...center, flex:'0 0 auto',
@@ -65,7 +63,7 @@ function Head({ color, icon:Icon, title, sub, right }) {
   );
 }
 
-export default function MobileHome() {
+export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false }) {
   const navigate = useNavigate();
   const { lang } = useLang();
   const { accent } = useBarColors();
@@ -73,19 +71,7 @@ export default function MobileHome() {
 
   const [D, setD] = useState({ clients:[], appts:[], todos:[], payments:[], msgs:[], reqs:[], plans:[] });
   const [now, setNow] = useState(new Date());
-  const [editMode, setEditMode] = useState(false);
-  const [editSlot, setEditSlot] = useState(null);
-  const [slots, setSlots] = useState(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (Array.isArray(s) && s.length) {
-        const ok = s.filter(x => WIDGETS[x?.w]).map(x => ({
-          w:x.w, size: WIDGETS[x.w].sizes.includes(x.size) ? x.size : WIDGETS[x.w].sizes[0] }));
-        if (ok.length) return ok;
-      }
-    } catch (e) {}
-    return DEFAULT_SLOTS;
-  });
+  const [slots, saveSlots] = useSlots(STORAGE_KEY, DEFAULT_SLOTS, WIDGETS);
 
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
 
@@ -103,19 +89,6 @@ export default function MobileHome() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const saveSlots = (n) => { setSlots(n); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(n)); } catch (e) {} };
-  const setSlotWidget = (i, key) => {
-    const n = [...slots], allowed = WIDGETS[key].sizes;
-    n[i] = { w:key, size: allowed.includes(n[i].size) ? n[i].size : allowed[0] };
-    saveSlots(n); setEditSlot(null);
-  };
-  const cycleSize = (i) => {
-    const n = [...slots], sizes = WIDGETS[n[i].w].sizes;
-    n[i] = { ...n[i], size: sizes[(sizes.indexOf(n[i].size) + 1) % sizes.length] };
-    saveSlots(n);
-  };
-  const removeSlot = (i) => { const n = slots.filter((_, k) => k !== i); saveSlots(n.length ? n : DEFAULT_SLOTS); };
-  const addSlot = () => saveSlots([...slots, { w:'messages', size:1 }]);
 
   /* ── derived ── */
   const today = format(now, 'yyyy-MM-dd');
@@ -207,7 +180,7 @@ export default function MobileHome() {
   const activeClients = D.clients.filter(c => c.status !== 'inactive').length;
 
   /* ── renderers ── */
-  const render = (key, size) => {
+  const renderRef = (key, size, editMode) => {
     const W = WIDGETS[key], c = W.color;
     switch (key) {
 
@@ -781,17 +754,15 @@ export default function MobileHome() {
     }
   };
 
-  const span = (s) => s === 4 ? { gridColumn:'span 2', gridRow:'span 2' }
-                    : s === 2 ? { gridColumn:'span 2' } : {};
-
   return (
-    <div style={{ padding:'14px 14px 16px', minHeight:'100%' }}>
+    <div style={{ padding: wide ? '26px 28px 34px' : '14px 14px 16px', minHeight:'100%',
+      maxWidth: wide ? 1180 : 'none', margin: wide ? '0 auto' : undefined }}>
 
-      {/* ── the day at a glance (replaces the greeting) ── */}
       <div style={{ ...tick, marginBottom:8 }}>
         {format(now, 'EEEE d LLLL', loc).toUpperCase()} · {format(now, 'HH:mm')}
       </div>
-      <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+      <div style={{ display:'flex', gap: wide ? 12 : 8, marginBottom: wide ? 18 : 12,
+        maxWidth: wide ? 560 : 'none' }}>
         {[[todayAppts.length, 'ΡΑΝΤΕΒΟΥ'], [todayHours.toFixed(todayHours % 1 ? 1 : 0), 'ΩΡΕΣ'],
           [openTodos.length, 'ΕΚΚΡΕΜΗ']].map(([v, k]) => (
           <div key={k} style={{ flex:1, background:'hsl(var(--card))', border:'1px solid hsl(var(--border))',
@@ -802,106 +773,12 @@ export default function MobileHome() {
         ))}
       </div>
 
-      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:10 }}>
-        <button onClick={() => setEditMode(v => !v)}
-          style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:10,
-            border:'none', cursor:'pointer', fontSize:11, fontWeight:700,
-            background: editMode ? accent : 'hsl(var(--muted)/0.6)',
-            color: editMode ? '#fff' : 'hsl(var(--muted-foreground))' }}>
-          {editMode ? <><Check style={{ width:13, height:13 }}/>Τέλος</>
-                    : <><Settings2 style={{ width:13, height:13 }}/>Επεξεργασία</>}
-        </button>
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gridAutoRows:`${ROW}px`,
-        gap:10, gridAutoFlow:'dense' }}>
-        {slots.map((slot, i) => (
-          <div key={i} style={{ position:'relative', ...span(slot.size),
-            background:'hsl(var(--card))', border:'1px solid hsl(var(--border))',
-            borderRadius:18, overflow:'hidden',
-            boxShadow: editMode ? `0 0 0 2px ${accent}55` : 'none',
-            animation: editMode ? 'wiggle .3s ease-in-out infinite alternate' : 'none' }}>
-            {render(slot.w, slot.size)}
-            {editMode && (
-              <div style={{ position:'absolute', top:6, right:6, display:'flex', gap:4, zIndex:3 }}>
-                {WIDGETS[slot.w].sizes.length > 1 && (
-                  <button onClick={e => { e.stopPropagation(); cycleSize(i); }} style={ctrlBtn}>
-                    <Maximize2 style={{ width:12, height:12 }}/>
-                  </button>
-                )}
-                <button onClick={e => { e.stopPropagation(); setEditSlot(i); }} style={ctrlBtn}>
-                  <Settings2 style={{ width:12, height:12 }}/>
-                </button>
-                <button onClick={e => { e.stopPropagation(); removeSlot(i); }}
-                  style={{ ...ctrlBtn, background:'rgba(239,68,68,.9)' }}>
-                  <X style={{ width:12, height:12 }}/>
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-        {editMode && (
-          <button onClick={addSlot}
-            style={{ borderRadius:18, border:'2px dashed hsl(var(--border))', background:'hsl(var(--muted)/0.35)',
-              cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center',
-              justifyContent:'center', gap:6, color:'hsl(var(--muted-foreground))' }}>
-            <div style={{ width:32, height:32, borderRadius:'50%', background:'hsl(var(--muted)/0.7)',
-              ...center, fontSize:20 }}>+</div>
-            <span style={{ fontSize:11, fontWeight:600 }}>Προσθήκη</span>
-          </button>
-        )}
-      </div>
-
-      <style>{`@keyframes wiggle{from{transform:rotate(-.5deg)}to{transform:rotate(.5deg)}}
-        @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
-
-      {editSlot !== null && (
-        <>
-          <div onClick={() => setEditSlot(null)}
-            style={{ position:'fixed', inset:0, zIndex:80, background:'rgba(0,0,0,.55)', backdropFilter:'blur(3px)' }}/>
-          <div style={{ position:'fixed', left:0, right:0, bottom:0, zIndex:81, background:'hsl(var(--card))',
-            borderTopLeftRadius:24, borderTopRightRadius:24, borderTop:'1px solid hsl(var(--border))',
-            padding:'10px 16px 20px', boxShadow:'0 -8px 40px rgba(0,0,0,.5)',
-            animation:'sheetUp .26s cubic-bezier(.22,1,.36,1)', maxHeight:'82%', overflowY:'auto' }}>
-            <div style={{ width:38, height:4, borderRadius:4, background:'hsl(var(--muted-foreground)/0.3)',
-              margin:'4px auto 14px' }}/>
-            <p style={{ fontSize:13, fontWeight:700, margin:'0 0 4px', textAlign:'center' }}>Διάλεξε widget</p>
-            <p style={{ fontSize:11, color:'hsl(var(--muted-foreground))', margin:'0 0 14px', textAlign:'center' }}>
-              Μετά πάτα ⤢ για μέγεθος
-            </p>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-              {Object.entries(WIDGETS).map(([key, w]) => {
-                const Icon = w.icon, isCur = slots[editSlot]?.w === key;
-                return (
-                  <button key={key} onClick={() => setSlotWidget(editSlot, key)}
-                    style={{ display:'flex', alignItems:'center', gap:10, padding:12, borderRadius:14,
-                      border: isCur ? `2px solid ${w.color}` : '1px solid hsl(var(--border))',
-                      background: isCur ? `${w.color}22` : 'hsl(var(--muted)/0.4)',
-                      cursor:'pointer', textAlign:'left' }}>
-                    <div style={{ width:32, height:32, borderRadius:9, background:`${w.color}2e`,
-                      ...center, flex:'0 0 auto' }}>
-                      <Icon style={{ width:17, height:17, color:w.color }}/>
-                    </div>
-                    <div style={{ minWidth:0 }}>
-                      <div style={{ fontSize:11.5, fontWeight:600, lineHeight:1.2 }}>{w.label}</div>
-                      <div style={{ fontSize:9, color:'hsl(var(--muted-foreground))', marginTop:1 }}>
-                        {w.sizes.map(s => s === 1 ? 'S' : s === 2 ? 'M' : 'L').join(' · ')}
-                      </div>
-                    </div>
-                    {isCur && <Check style={{ width:14, height:14, color:w.color, marginLeft:'auto', flex:'0 0 auto' }}/>}
-                  </button>
-                );
-              })}
-            </div>
-            <button onClick={() => setEditSlot(null)}
-              style={{ width:'100%', marginTop:14, padding:12, borderRadius:14, border:'none',
-                background:'hsl(var(--muted)/0.5)', color:'hsl(var(--muted-foreground))',
-                fontSize:14, fontWeight:600, cursor:'pointer' }}>
-              Έτοιμο
-            </button>
-          </div>
-        </>
-      )}
+      <WidgetBoard
+        slots={slots} saveSlots={saveSlots} WIDGETS={WIDGETS}
+        render={(w, size, edit) => renderRef(w, size, edit)}
+        defaults={DEFAULT_SLOTS} rowHeight={rowHeight} columns={columns}
+        theme={{ card:'hsl(var(--card))', border:'hsl(var(--border))', text:'hsl(var(--foreground))',
+                 dim:'hsl(var(--muted-foreground))', accent:accent, muted:'hsl(var(--muted)/0.45)' }}/>
     </div>
   );
 }

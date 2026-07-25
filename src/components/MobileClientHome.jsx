@@ -2,13 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, subDays, eachDayOfInterval, differenceInMonths, addMinutes } from 'date-fns';
 import { el } from 'date-fns/locale';
-import { Salad, TrendingUp, Droplet, Clock, Activity, Sparkles, Settings2, Check, X, Maximize2 } from 'lucide-react';
+import { Salad, TrendingUp, Droplet, Clock, Activity } from 'lucide-react';
 import { db } from '../lib/db';
 import { useAppContext } from '../lib/AppContext';
 import { useLang } from '../lib/LangContext';
 import { useBarColors } from './BarbellNav';
 import ClientLayout from './client-portal/ClientLayout';
-import MyCubeAssistant from './MyCubeAssistant';
+import WidgetBoard, { useSlots } from './WidgetBoard';
 
 const QUOTES = [
   'Strength doesn’t come from what you can do. It comes from overcoming what you couldn’t.',
@@ -24,7 +24,6 @@ const WIDGETS = {
   water:        { label:'Water Intake',  icon:Droplet,    color:'#38bdf8', sizes:[1,2]   },
   nutrition:    { label:'Nutrition',     icon:Salad,      color:'#84cc16', sizes:[4]     },
   consistency:  { label:'Consistency',   icon:Activity,   color:'#8b5cf6', sizes:[2,4]   },
-  assistant:    { label:'My Cube',       icon:Sparkles,   color:'#e2e8f0', sizes:[1,2], bare:true },
 };
 
 const DEFAULT_SLOTS = [
@@ -33,7 +32,6 @@ const DEFAULT_SLOTS = [
   { w:'weight',       size:2 },
   { w:'nutrition',    size:4 },
   { w:'consistency',  size:2 },
-  { w:'assistant',    size:1 },
 ];
 const STORAGE_KEY = 'cp_home_widgets_v3';
 const ROW = 118;
@@ -52,9 +50,6 @@ const tick   = { fontSize:9, color:'var(--cp-text-dim)', fontWeight:600, letterS
 const big    = { fontFamily:'var(--cp-font)', fontWeight:900, letterSpacing:'-.035em',
                  lineHeight:.9, color:'var(--cp-text)', fontVariantNumeric:'tabular-nums' };
 const center = { display:'flex', alignItems:'center', justifyContent:'center' };
-const ctrlBtn= { width:24, height:24, borderRadius:7, border:'none', cursor:'pointer',
-                 background:'rgba(0,0,0,.62)', color:'#fff', display:'flex',
-                 alignItems:'center', justifyContent:'center', backdropFilter:'blur(4px)' };
 
 function Ring({ pct, color, size = 66, stroke = 7, children }) {
   const r = (size - stroke * 2) / 2, C = 2 * Math.PI * r;
@@ -198,7 +193,7 @@ function NutritionWidget({ plan, editMode }) {
   );
 }
 
-export default function MobileClientHome() {
+export default function MobileClientHome({ columns = 2, rowHeight = ROW, wide = false }) {
   const { clientUser } = useAppContext();
   const navigate = useNavigate();
   const { lang } = useLang();
@@ -207,19 +202,7 @@ export default function MobileClientHome() {
 
   const [d, setD] = useState({ client:null, appts:[], progress:[], plans:[], nutrition:[], water:null });
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
-  const [editMode, setEditMode] = useState(false);
-  const [editSlot, setEditSlot] = useState(null);
-  const [slots, setSlots] = useState(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (Array.isArray(s) && s.length) {
-        const ok = s.filter(x => WIDGETS[x?.w]).map(x => ({
-          w:x.w, size: WIDGETS[x.w].sizes.includes(x.size) ? x.size : WIDGETS[x.w].sizes[0] }));
-        if (ok.length) return ok;
-      }
-    } catch (e) {}
-    return DEFAULT_SLOTS;
-  });
+  const [slots, saveSlots] = useSlots(STORAGE_KEY, DEFAULT_SLOTS, WIDGETS);
 
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -238,19 +221,6 @@ export default function MobileClientHome() {
   }, [clientUser, today]);
   useEffect(() => { load(); }, [load]);
 
-  const saveSlots = (n) => { setSlots(n); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(n)); } catch (e) {} };
-  const setSlotWidget = (i, key) => {
-    const n = [...slots], allowed = WIDGETS[key].sizes;
-    n[i] = { w:key, size: allowed.includes(n[i].size) ? n[i].size : allowed[0] };
-    saveSlots(n); setEditSlot(null);
-  };
-  const cycleSize = (i) => {
-    const n = [...slots], sizes = WIDGETS[n[i].w].sizes;
-    n[i] = { ...n[i], size: sizes[(sizes.indexOf(n[i].size) + 1) % sizes.length] };
-    saveSlots(n);
-  };
-  const removeSlot = (i) => { const n = slots.filter((_, k) => k !== i); saveSlots(n.length ? n : DEFAULT_SLOTS); };
-  const addSlot = () => saveSlots([...slots, { w:'weight', size:1 }]);
 
   /* ── derived data ── */
   const upcoming = d.appts.filter(a => a.date >= today).sort((a, b) =>
@@ -280,7 +250,6 @@ export default function MobileClientHome() {
   const waterGoal = d.nutrition[0]?.water_liters_daily ?? d.client?.water_goal_liters ?? 2.5;
   const waterPct  = Math.min(100, (waterL / waterGoal) * 100);
   const addWater = async (amt) => {
-    if (editMode) return;
     if (d.water?.id) await db.WaterLog.update(d.water.id, { amount_liters:+(waterL + amt).toFixed(2) });
     else await db.WaterLog.create({ client_id:clientUser.clientId, date:today, amount_liters:amt });
     load();
@@ -293,7 +262,7 @@ export default function MobileClientHome() {
   });
 
   /* ── renderers ── */
-  const render = (key, size) => {
+  const renderRef = (key, size, editMode) => {
     switch (key) {
 
       case 'next_session': {
@@ -536,7 +505,7 @@ export default function MobileClientHome() {
         const AddBtns = ({ compact }) => (
           <div style={{ display:'flex', gap:compact ? 4 : 5, marginTop:compact ? 10 : 0 }}>
             {[0.25, 0.5].map(a => (
-              <button key={a} onClick={e => { e.stopPropagation(); addWater(a); }}
+              <button key={a} onClick={e => { e.stopPropagation(); if (!editMode) addWater(a); }}
                 style={{ flex:compact ? 1 : 'none', border:`1px solid ${c}66`, background:`${c}1f`,
                   color:'#7dd3fc', fontFamily:'var(--cp-font)', fontSize:10, fontWeight:800,
                   padding:compact ? '5px 0' : '6px 11px', borderRadius:8, cursor:'pointer' }}>
@@ -597,9 +566,6 @@ export default function MobileClientHome() {
       case 'nutrition':
         return <NutritionWidget plan={d.nutrition[0]} editMode={editMode}/>;
 
-      case 'assistant':
-        return <MyCubeAssistant size={size} editMode={editMode} lang={lang}
-          client={d.client} nutrition={d.nutrition} appts={d.appts} progress={d.progress}/>;
 
       case 'consistency': {
         const c = '#8b5cf6';
@@ -623,15 +589,13 @@ export default function MobileClientHome() {
     }
   };
 
-  const span = (s) => s === 4 ? { gridColumn:'span 2', gridRow:'span 2' }
-                    : s === 2 ? { gridColumn:'span 2' } : {};
-
   return (
     <ClientLayout title="">
-      <div style={{ padding:'14px 14px 16px', minHeight:'100%' }}>
+      <div style={{ padding: wide ? '26px 28px 34px' : '14px 14px 16px', minHeight:'100%',
+        maxWidth: wide ? 1180 : 'none', margin: wide ? '0 auto' : undefined }}>
 
         <div style={{ position:'relative', overflow:'hidden', borderRadius:15, padding:'13px 15px',
-          marginBottom:10,
+          marginBottom:12,
           background:`linear-gradient(120deg,${tint(accent,.18)},${tint(accent,.04)})`,
           border:`1px solid ${tint(accent,.28)}` }}>
           <div style={{ position:'absolute', right:-16, top:-30, fontFamily:'Playfair Display,Georgia,serif',
@@ -643,110 +607,12 @@ export default function MobileClientHome() {
           </p>
         </div>
 
-        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:10 }}>
-          <button onClick={() => setEditMode(v => !v)}
-            style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:10,
-              border:'none', cursor:'pointer', fontSize:11, fontWeight:700,
-              background: editMode ? accent : 'var(--cp-card-alt)',
-              color: editMode ? '#fff' : 'var(--cp-text-dim)' }}>
-            {editMode ? <><Check style={{ width:13, height:13 }}/>Τέλος</>
-                      : <><Settings2 style={{ width:13, height:13 }}/>Επεξεργασία</>}
-          </button>
-        </div>
-
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gridAutoRows:`${ROW}px`,
-          gap:10, gridAutoFlow:'dense', paddingBottom:4 }}>
-          {slots.map((slot, i) => (
-            <div key={i} style={{ position:'relative', ...span(slot.size),
-              background: WIDGETS[slot.w].bare ? 'transparent' : 'var(--cp-card-bg)',
-              border: WIDGETS[slot.w].bare ? 'none' : '1px solid var(--cp-border)',
-              borderRadius:18, overflow: WIDGETS[slot.w].bare ? 'visible' : 'hidden',
-              boxShadow: editMode ? `0 0 0 2px ${accent}55` : 'none',
-              animation: editMode ? 'wiggle .3s ease-in-out infinite alternate' : 'none' }}>
-              {render(slot.w, slot.size)}
-              {editMode && (
-                <div style={{ position:'absolute', top:6, right:6, display:'flex', gap:4, zIndex:3 }}>
-                  {WIDGETS[slot.w].sizes.length > 1 && (
-                    <button onClick={e => { e.stopPropagation(); cycleSize(i); }} style={ctrlBtn}>
-                      <Maximize2 style={{ width:12, height:12 }}/>
-                    </button>
-                  )}
-                  <button onClick={e => { e.stopPropagation(); setEditSlot(i); }} style={ctrlBtn}>
-                    <Settings2 style={{ width:12, height:12 }}/>
-                  </button>
-                  <button onClick={e => { e.stopPropagation(); removeSlot(i); }}
-                    style={{ ...ctrlBtn, background:'rgba(239,68,68,.9)' }}>
-                    <X style={{ width:12, height:12 }}/>
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-          {editMode && (
-            <button onClick={addSlot}
-              style={{ borderRadius:18, border:'2px dashed var(--cp-border)', background:'var(--cp-card-alt)',
-                cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center',
-                justifyContent:'center', gap:6, color:'var(--cp-text-dim)' }}>
-              <div style={{ width:32, height:32, borderRadius:'50%', background:'var(--cp-border)',
-                ...center, fontSize:20 }}>+</div>
-              <span style={{ fontSize:11, fontWeight:600 }}>Προσθήκη</span>
-            </button>
-          )}
-        </div>
-
-        <style>{`@keyframes wiggle{from{transform:rotate(-.5deg)}to{transform:rotate(.5deg)}}
-          @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
-
-        {editSlot !== null && (
-          <>
-            <div onClick={() => setEditSlot(null)}
-              style={{ position:'fixed', inset:0, zIndex:80, background:'rgba(0,0,0,.55)', backdropFilter:'blur(3px)' }}/>
-            <div style={{ position:'fixed', left:0, right:0, bottom:0, zIndex:81, background:'var(--cp-card-bg)',
-              borderTopLeftRadius:24, borderTopRightRadius:24, borderTop:'1px solid var(--cp-border)',
-              padding:'10px 16px calc(20px + env(safe-area-inset-bottom))',
-              boxShadow:'0 -8px 40px rgba(0,0,0,.5)', animation:'sheetUp .26s cubic-bezier(.22,1,.36,1)',
-              maxHeight:'75vh', overflowY:'auto' }}>
-              <div style={{ width:38, height:4, borderRadius:4, background:'var(--cp-text-dim)',
-                opacity:.4, margin:'4px auto 14px' }}/>
-              <p style={{ fontSize:13, fontWeight:700, color:'var(--cp-text)', margin:'0 0 4px', textAlign:'center' }}>
-                Διάλεξε widget
-              </p>
-              <p style={{ fontSize:11, color:'var(--cp-text-dim)', margin:'0 0 14px', textAlign:'center' }}>
-                Μετά πάτα ⤢ για μέγεθος
-              </p>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                {Object.entries(WIDGETS).map(([key, w]) => {
-                  const Icon = w.icon, isCur = slots[editSlot]?.w === key;
-                  return (
-                    <button key={key} onClick={() => setSlotWidget(editSlot, key)}
-                      style={{ display:'flex', alignItems:'center', gap:10, padding:12, borderRadius:14,
-                        border: isCur ? `2px solid ${w.color}` : '1px solid var(--cp-border)',
-                        background: isCur ? `${w.color}22` : 'var(--cp-card-alt)',
-                        cursor:'pointer', textAlign:'left' }}>
-                      <div style={{ width:32, height:32, borderRadius:9, background:`${w.color}2e`,
-                        ...center, flex:'0 0 auto' }}>
-                        <Icon style={{ width:17, height:17, color:w.color }}/>
-                      </div>
-                      <div style={{ minWidth:0 }}>
-                        <div style={{ fontSize:11.5, fontWeight:600, lineHeight:1.2, color:'var(--cp-text)' }}>{w.label}</div>
-                        <div style={{ fontSize:9, color:'var(--cp-text-dim)', marginTop:1 }}>
-                          {w.sizes.map(s => s === 1 ? 'S' : s === 2 ? 'M' : 'L').join(' · ')}
-                        </div>
-                      </div>
-                      {isCur && <Check style={{ width:14, height:14, color:w.color, marginLeft:'auto', flex:'0 0 auto' }}/>}
-                    </button>
-                  );
-                })}
-              </div>
-              <button onClick={() => setEditSlot(null)}
-                style={{ width:'100%', marginTop:14, padding:12, borderRadius:14, border:'none',
-                  background:'var(--cp-card-alt)', color:'var(--cp-text-dim)',
-                  fontSize:14, fontWeight:600, cursor:'pointer' }}>
-                Έτοιμο
-              </button>
-            </div>
-          </>
-        )}
+        <WidgetBoard
+          slots={slots} saveSlots={saveSlots} WIDGETS={WIDGETS}
+          render={(w, size, edit) => renderRef(w, size, edit)}
+          defaults={DEFAULT_SLOTS} rowHeight={rowHeight} columns={columns}
+          theme={{ card:'var(--cp-card-bg)', border:'var(--cp-border)', text:'var(--cp-text)',
+                   dim:'var(--cp-text-dim)', accent:accent, muted:'var(--cp-card-alt)' }}/>
       </div>
     </ClientLayout>
   );
