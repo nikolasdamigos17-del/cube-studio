@@ -48,29 +48,51 @@ function Clock({ visible }) {
   );
 }
 
-function DesktopSettings({ open: sidebarOpen }) {
+/* Desktop sidebar → Settings (theme + language together).
+   Portalled to <body> with fixed coordinates: inside the sidebar it landed in
+   the aside's stacking context, and it also disappeared the moment the pointer
+   left the aside and collapsed it. */
+function DesktopSettings({ open: sidebarOpen, onHoldOpen }) {
   const { themeName, switchTheme, themes } = useTheme();
   const { lang, toggle } = useLang();
   const [open, setOpen] = React.useState(false);
+  const [pos, setPos] = React.useState({ left:74, bottom:16 });
+  const btnRef = React.useRef(null);
   const dark = Object.entries(themes).filter(([, t]) => t.group === 'dark');
   const light = Object.entries(themes).filter(([, t]) => t.group === 'light');
 
+  const place = React.useCallback(() => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ left: r.right + 10, bottom: Math.max(12, window.innerHeight - r.bottom) });
+  }, []);
+
+  React.useEffect(() => {
+    onHoldOpen?.(open);
+    if (!open) return;
+    place();
+    const onKey = (e) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('resize', place);
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('keydown', onKey); };
+  }, [open, place, onHoldOpen]);
+
   return (
-    <div style={{ position:'relative' }}>
-      <button onClick={() => setOpen(v => !v)}
-        className="flex items-center h-10 w-full rounded-xl px-3 text-muted-foreground hover:bg-muted hover:text-foreground overflow-hidden transition-colors gap-3">
+    <>
+      <button ref={btnRef} onClick={() => setOpen(v => !v)}
+        className="flex items-center h-10 w-full rounded-xl px-3 text-muted-foreground hover:bg-muted hover:text-foreground overflow-hidden transition-colors gap-3"
+        style={open ? { background:'hsl(var(--muted))', color:'hsl(var(--foreground))' } : undefined}>
         <Settings className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2}/>
         <span className="text-sm font-medium whitespace-nowrap"
           style={{ opacity: sidebarOpen ? 1 : 0, transition:'opacity .15s ease' }}>Ρυθμίσεις</span>
       </button>
 
-      {open && (
+      {open && createPortal(
         <>
-          <div onClick={() => setOpen(false)} style={{ position:'fixed', inset:0, zIndex:60 }}/>
-          <div style={{ position:'absolute', bottom:0, left:'calc(100% + 10px)', zIndex:61,
-            width:250, padding:14, borderRadius:16,
+          <div onClick={() => setOpen(false)} style={{ position:'fixed', inset:0, zIndex:120 }}/>
+          <div style={{ position:'fixed', left:pos.left, bottom:pos.bottom, zIndex:121,
+            width:260, padding:14, borderRadius:16,
             background:'hsl(var(--card))', border:'1px solid hsl(var(--border))',
-            boxShadow:'0 12px 40px rgba(0,0,0,.45)' }}>
+            boxShadow:'0 16px 48px rgba(0,0,0,.5)', color:'hsl(var(--foreground))' }}>
             <p className="text-[9px] font-bold uppercase tracking-[.15em] mb-2"
               style={{ color:'hsl(var(--muted-foreground))' }}>Γλώσσα</p>
             <div style={{ display:'flex', gap:6, marginBottom:14 }}>
@@ -103,9 +125,8 @@ function DesktopSettings({ open: sidebarOpen }) {
               ))}
             </div>
           </div>
-        </>
-      )}
-    </div>
+        </>, document.body)}
+    </>
   );
 }
 
@@ -278,6 +299,7 @@ function BottomBar({ unread, requests }) {
 
 export default function MasterLayout({ children }) {
   const [open, setOpen] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
@@ -317,7 +339,7 @@ export default function MasterLayout({ children }) {
     <div className="min-h-screen bg-background flex">
       <aside
         onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        onMouseLeave={() => { if (!pinOpen) setOpen(false); }}
         className="fixed top-0 left-0 h-full z-50 flex flex-col border-r border-border bg-card"
         style={{
           width: open ? 220 : 64,
@@ -360,7 +382,7 @@ export default function MasterLayout({ children }) {
         </nav>
 
         <div className="px-2 py-3 border-t border-border space-y-0.5 flex-shrink-0">
-          <DesktopSettings open={open} />
+          <DesktopSettings open={open} onHoldOpen={setPinOpen} />
           <button onClick={logout}
             className="flex items-center h-10 w-full rounded-xl px-3 text-muted-foreground hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40 overflow-hidden transition-colors">
             <LogOut className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
