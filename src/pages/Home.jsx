@@ -130,7 +130,7 @@ export default function Home() {
   // Same widget board on every screen — just wider and taller on desktop.
   return isMobile
     ? <MobileHome/>
-    : <MobileHome columns={4} rowHeight={152} wide/>;
+    : <MobileHome columns={6} rowHeight={152} wide/>;
 
   return (
     <div className="p-8 max-w-7xl mx-auto animate-fade-in">

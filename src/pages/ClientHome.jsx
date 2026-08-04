@@ -411,7 +411,7 @@ export default function ClientHome() {
 
   return isMobileCH
     ? <MobileClientHome/>
-    : <MobileClientHome columns={4} rowHeight={152} wide/>;
+    : <MobileClientHome columns={6} rowHeight={152} wide/>;
 
   return (
     <ClientLayout title="">

@@ -261,6 +261,7 @@ export default function ClientNutrition() {
   const [expandedSection, setExpandedSection] = useState({});
   const [groceryOpen, setGroceryOpen] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState(null);
+  const [activeSection, setActiveSection] = useState(null); // drilled-in meal category
   const [tab, setTab] = useState('meals');
 
   useEffect(() => {
@@ -316,45 +317,64 @@ export default function ClientNutrition() {
                   </button>
                 </div>
 
-                {/* Meal sections */}
-                {plan.meal_sections?.map(section=>{
-                  const open=!!expandedSection[section.section_name];
-                  return (
-                    <div key={section.section_name} style={{...cs.card,overflow:'hidden'}}>
-                      {/* Section header — always visible, tap to toggle */}
-                      <button onClick={()=>setExpandedSection(p=>({...p,[section.section_name]:!p[section.section_name]}))}
-                        style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'15px 16px',border:'none',backgroundColor:'transparent',cursor:'pointer'}}>
+                {/* Meal categories → tap a card to open its options list */}
+                {(() => {
+                  const active = plan.meal_sections?.find(s => s.section_name === activeSection);
+                  if (active) {
+                    return (
+                      <>
+                        <button onClick={()=>setActiveSection(null)}
+                          style={{display:'flex',alignItems:'center',gap:6,background:'none',border:'none',cursor:'pointer',padding:'2px 0',fontSize:13,fontWeight:600,...cs.dim}}>
+                          <ChevronLeft style={{width:16,height:16}}/> All categories
+                        </button>
                         <div style={{display:'flex',alignItems:'center',gap:12}}>
-                          <span style={{fontSize:24}}>{getEmoji(section.section_name)}</span>
-                          <div style={{textAlign:'left'}}>
-                            <p style={{margin:0,fontSize:16,fontWeight:700,fontFamily:'var(--cp-font)',...cs.text}}>{section.section_name}</p>
-                            <p style={{margin:'2px 0 0',fontSize:11,...cs.dim}}>{section.time} · {section.options?.length} meal options</p>
+                          <span style={{fontSize:30}}>{getEmoji(active.section_name)}</span>
+                          <div>
+                            <p style={{margin:0,fontSize:18,fontWeight:700,fontFamily:'var(--cp-font)',...cs.text}}>{active.section_name}</p>
+                            <p style={{margin:'2px 0 0',fontSize:11,...cs.dim}}>{active.time ? active.time+' · ' : ''}{active.options?.length||0} options</p>
                           </div>
                         </div>
-                        {open?<ChevronDown style={{width:17,height:17,...cs.dim}}/>:<ChevronRight style={{width:17,height:17,...cs.dim}}/>}
-                      </button>
-
-                      {/* Meal options list */}
-                      {open&&section.options?.map((opt,oi)=>(
-                        <button key={oi} onClick={()=>setSelectedMeal({...opt,supplements,planSections:plan.meal_sections})}
-                          style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'13px 16px',border:'none',backgroundColor:'transparent',borderTop:'1px solid var(--cp-border)',cursor:'pointer',textAlign:'left',transition:'background 0.15s'}}>
-                          {/* Color stripe */}
-                          <div style={{width:3,height:36,borderRadius:2,backgroundColor:'var(--cp-accent)',flexShrink:0}}/>
-                          <div style={{flex:1,minWidth:0}}>
-                            <p style={{margin:'0 0 2px',fontSize:14,fontWeight:600,...cs.text}}>{opt.name}</p>
-                            <p style={{margin:0,fontSize:11,...cs.dim,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{opt.description}</p>
-                            <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap'}}>
-                              {[['🔥',opt.calories,'kcal'],['💪',opt.protein,'g P']].map(([e,v,l])=>v&&(
-                                <span key={l} style={{fontSize:10,padding:'2px 7px',borderRadius:7,backgroundColor:'var(--cp-bg)',border:'1px solid var(--cp-border)',...cs.dim}}>{e} {v}{l}</span>
-                              ))}
+                        <div style={{...cs.card,overflow:'hidden'}}>
+                          {active.options?.map((opt,oi)=>(
+                            <button key={oi} onClick={()=>setSelectedMeal({...opt,supplements,planSections:plan.meal_sections})}
+                              style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'13px 16px',border:'none',backgroundColor:'transparent',borderTop: oi ? '1px solid var(--cp-border)' : 'none',cursor:'pointer',textAlign:'left'}}>
+                              <div style={{width:3,height:36,borderRadius:2,backgroundColor:'var(--cp-accent)',flexShrink:0}}/>
+                              <div style={{flex:1,minWidth:0}}>
+                                <p style={{margin:'0 0 2px',fontSize:14,fontWeight:600,...cs.text}}>{opt.name}</p>
+                                <p style={{margin:0,fontSize:11,...cs.dim,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{opt.description}</p>
+                                <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap'}}>
+                                  {[['🔥',opt.calories,'kcal'],['💪',opt.protein,'g P'],['🌾',opt.carbs,'g C'],['🥑',opt.fat,'g F']].map(([e,v,l])=>v&&(
+                                    <span key={l} style={{fontSize:10,padding:'2px 7px',borderRadius:7,backgroundColor:'var(--cp-bg)',border:'1px solid var(--cp-border)',...cs.dim}}>{e} {v}{l}</span>
+                                  ))}
+                                </div>
+                              </div>
+                              <ChevronRight style={{width:14,height:14,flexShrink:0,...cs.dim}}/>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  }
+                  return (
+                    <>
+                      <span style={cs.label}>Meal categories</span>
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
+                        {plan.meal_sections?.map(section=>(
+                          <button key={section.section_name} onClick={()=>setActiveSection(section.section_name)}
+                            style={{...cs.card,padding:'15px 14px',display:'flex',flexDirection:'column',alignItems:'flex-start',gap:8,cursor:'pointer',textAlign:'left',minHeight:128,position:'relative'}}>
+                            <span style={{fontSize:30}}>{getEmoji(section.section_name)}</span>
+                            <div style={{marginTop:'auto'}}>
+                              <p style={{margin:0,fontSize:15,fontWeight:700,fontFamily:'var(--cp-font)',...cs.text}}>{section.section_name}</p>
+                              {section.time && <p style={{margin:'2px 0 0',fontSize:11,...cs.dim}}>{section.time}</p>}
                             </div>
-                          </div>
-                          <ChevronRight style={{width:14,height:14,...cs.dim,flexShrink:0}}/>
-                        </button>
-                      ))}
-                    </div>
+                            <span style={{fontSize:10,padding:'3px 9px',borderRadius:20,backgroundColor:'var(--cp-bg)',border:'1px solid var(--cp-border)',fontWeight:600,...cs.accent}}>{section.options?.length||0} options</span>
+                            <ChevronRight style={{width:15,height:15,position:'absolute',top:15,right:13,...cs.dim}}/>
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   );
-                })}
+                })()}
               </>
             )}
           </>
