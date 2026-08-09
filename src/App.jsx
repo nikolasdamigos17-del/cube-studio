@@ -20,6 +20,7 @@ import Statistics from './pages/Statistics';
 import Logistics from './pages/Logistics';
 import MasterMessages from './pages/MasterMessages';
 import LiveTraining from './pages/LiveTraining';
+import CoursePlanning from './pages/CoursePlanning';
 import RecipePage from './pages/RecipePage';
 
 import ClientHome from './pages/ClientHome';
@@ -106,6 +107,7 @@ function AppContent() {
         <Route path="/Messages"    element={<MasterLayout><MasterMessages/></MasterLayout>}/>
         <Route path="/recipe"      element={<RecipePage/>}/>
         <Route path="/live-training" element={<LiveTraining/>}/>
+        <Route path="/course-planning" element={<CoursePlanning/>}/>
         <Route path="*" element={<Navigate to="/" replace/>}/>
       </Routes>
     </ThemeProvider>

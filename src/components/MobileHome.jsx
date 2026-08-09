@@ -754,6 +754,273 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
     }
   };
 
+  /* ══════════════ DESKTOP: fixed "bento" layout (real data, all themes) ══════════════ */
+  if (wide) {
+    const hr = now.getHours();
+    const greeting = hr < 12 ? 'Καλημέρα' : hr < 18 ? 'Καλό απόγευμα' : 'Καλησπέρα';
+    const col = { next:'#06b6d4', agenda:'#3b82f6', load:'#0ea5e9', hours:'#06b6d4',
+      month:'#6366f1', todo:'#f59e0b', rev:'#22c55e', att:'#ef4444', msg:'#a855f7',
+      roster:'#8b5cf6', req:'#3b82f6' };
+    const inTxt = !next ? '' : nextIn == null ? format(parseISO(next.date), 'd LLL', loc).toUpperCase()
+      : nextIn <= 0 ? 'ΤΩΡΑ' : nextIn < 60 ? `ΣΕ ${nextIn}′` : `ΣΕ ${Math.round(nextIn / 60)}ω`;
+    const ms = startOfMonth(now), me = endOfMonth(now);
+    const lead = (getDay(ms) + 6) % 7;
+    const mDays = eachDayOfInterval({ start:ms, end:me });
+    const mCounts = mDays.map(dd => D.appts.filter(a => a.date === format(dd, 'yyyy-MM-dd')).length);
+    const mMax = Math.max(...mCounts, 1), mTotal = mCounts.reduce((s, x) => s + x, 0);
+    const revMax = Math.max(...revBars.map(b => b.v), 1);
+    const pts = revBars.map((b, i) => [ (i / Math.max(1, revBars.length - 1)) * 260, 56 - (b.v / revMax) * 46 ]);
+    const rl = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(0) + ',' + p[1].toFixed(0)).join(' ');
+    const wkMax = Math.max(...weekDays.map(x => x.n), 1);
+    const wkHMax = Math.max(...weekDays.map(x => x.mins), 1);
+    const dS = 8 * 60, dE = 21 * 60, dSpan = dE - dS;
+    const dpos = (m) => Math.max(0, Math.min(100, ((m - dS) / dSpan) * 100));
+    const declineReq = (r) => db.AppointmentRequest.update(r.id, { status:'declined' }).then(load).catch(() => {});
+
+    const card = (extra) => ({ background:'hsl(var(--card))', border:'1px solid hsl(var(--border))',
+      borderRadius:18, padding:'15px 16px', display:'flex', flexDirection:'column',
+      minWidth:0, overflow:'hidden', position:'relative', ...extra });
+    const go = (path) => () => navigate(path);
+    const chip = (txt, color) => (
+      <span style={{ fontFamily:'var(--font-display)', fontSize:10.5, fontWeight:800,
+        letterSpacing:'.03em', color, background:`${color}20`, padding:'3px 9px', borderRadius:999 }}>{txt}</span>
+    );
+    const hR = ({ icon:Icon, title, color, right }) => (
+      <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:11 }}>
+        <span style={{ width:27, height:27, borderRadius:8, background:`${color}22`,
+          display:'flex', alignItems:'center', justifyContent:'center', flex:'0 0 auto' }}>
+          <Icon style={{ width:14, height:14, color }}/>
+        </span>
+        <span style={{ ...tick, fontSize:10.5, letterSpacing:'.11em', textTransform:'uppercase' }}>{title}</span>
+        {right ? <span style={{ marginLeft:'auto' }}>{right}</span> : null}
+      </div>
+    );
+
+    return (
+      <div style={{ padding:'26px 30px 44px', maxWidth:1340, margin:'0 auto', minHeight:'100%' }}>
+        <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:20 }}>
+          <div>
+            <div style={{ ...tick, fontSize:11, letterSpacing:'.28em' }}>{format(now, 'EEEE d LLLL', loc).toUpperCase()}</div>
+            <div style={{ fontFamily:'var(--font-display)', fontSize:26, fontWeight:800, letterSpacing:'-.02em', marginTop:6, color:'hsl(var(--foreground))' }}>{greeting}</div>
+          </div>
+          <div style={{ ...tick, fontSize:12 }}>{format(now, 'HH:mm')}</div>
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gridAutoRows:'156px', gap:16 }}>
+
+          {/* NEXT — hero */}
+          <div onClick={go('/CalendarPage')} style={card({ gridColumn:'1/6', gridRow:'1/3', cursor:'pointer' })}>
+            {hR({ icon:Clock, title:'Επόμενο ραντεβού', color:col.next, right: next ? chip(inTxt, col.next) : null })}
+            {!next ? <div style={{ ...center, flex:1, ...lbl }}>Κανένα προγραμματισμένο</div> : (
+              <div style={{ display:'flex', gap:18, flex:1, minHeight:0 }}>
+                <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:11, marginBottom:12 }}>
+                    <div style={avStyle(46, col.next)}>{initials(next.client_name)}</div>
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontFamily:'var(--font-display)', fontSize:16, fontWeight:800, letterSpacing:'-.01em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))' }}>{next.client_name}</div>
+                      <div style={{ ...tick, marginTop:3 }}>{next.date === today ? 'Σήμερα' : format(parseISO(next.date), 'EEEE d LLL', loc)}</div>
+                    </div>
+                  </div>
+                  <div style={{ ...big, fontSize:34 }}>{next.start_time}</div>
+                  <div style={{ ...tick, marginTop:4 }}>{nextEnd ? `– ${nextEnd} · ` : ''}{next.duration_minutes || 60} λεπτά</div>
+                  <div style={{ display:'flex', gap:8, marginTop:'auto', paddingTop:12 }}>
+                    <button onClick={e => { e.stopPropagation(); navigate('/TrainingPlans'); }} style={{ flex:1, border:'none', borderRadius:10, padding:'10px 0', cursor:'pointer', background:col.next, color:'#04222a', fontFamily:'var(--font-display)', fontSize:11.5, fontWeight:800 }}>▶ ΕΝΑΡΞΗ</button>
+                    <button onClick={e => { e.stopPropagation(); navigate('/Messages'); }} style={{ border:'1px solid hsl(var(--border))', borderRadius:10, padding:'10px 16px', cursor:'pointer', background:'transparent', color:'hsl(var(--muted-foreground))', fontSize:11.5, fontWeight:600 }}>Μήνυμα</button>
+                  </div>
+                </div>
+                <div style={{ flex:1, borderLeft:'1px solid hsl(var(--border))', paddingLeft:18, display:'flex', flexDirection:'column', minWidth:0 }}>
+                  {nextPlan ? (<>
+                    <div style={{ ...tick, color:col.next, marginBottom:7, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{nextPlan.title.replace(/^[^-–]+[-–]\s*/, '').toUpperCase()}</div>
+                    {(nextPlan.exercises || []).slice(0, 4).map((e, i) => (
+                      <div key={i} style={{ display:'flex', alignItems:'center', gap:9, fontSize:12.5, padding:'5px 0', borderBottom:'1px solid hsl(var(--border))' }}>
+                        <span style={{ ...tick, width:14 }}>{i + 1}</span>
+                        <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{e.name}</span>
+                        <span style={tick}>{e.sets}×{e.reps}</span>
+                      </div>
+                    ))}
+                  </>) : (nextClient?.notes || nextClient?.goals) ? (<>
+                    <div style={{ ...tick, color:col.next, marginBottom:6 }}>ΣΗΜΕΙΩΣΗ ΠΕΛΑΤΗ</div>
+                    <p style={{ margin:0, fontSize:12.5, lineHeight:1.5, color:'hsl(var(--foreground))', display:'-webkit-box', WebkitLineClamp:5, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{nextClient.notes || nextClient.goals}</p>
+                  </>) : <div style={{ ...center, flex:1, ...tick }}>Χωρίς πλάνο</div>}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* REVENUE — wide */}
+          <div onClick={go('/Logistics')} style={card({ gridColumn:'6/13', gridRow:'1/2', cursor:'pointer' })}>
+            {hR({ icon:CreditCard, title:`Οικονομικά · ${format(now, 'LLLL', loc)}`, color:col.rev })}
+            <div style={{ display:'flex', alignItems:'center', gap:22, flex:1, minHeight:0 }}>
+              <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', flex:'0 0 auto' }}>
+                <div style={{ ...big, fontSize:32 }}>€{Math.round(monthRevenue).toLocaleString()}</div>
+                {revDelta != null && <div style={{ fontFamily:'var(--font-display)', fontSize:11.5, fontWeight:700, marginTop:5, color: revDelta >= 0 ? '#4ade80' : '#f87171' }}>{revDelta >= 0 ? '▲ ' : '▼ '}{Math.abs(revDelta)}% vs {format(subDays(startOfMonth(now), 1), 'LLLL', loc)}</div>}
+              </div>
+              <div style={{ flex:1, height:'100%', display:'flex', alignItems:'center', minWidth:0 }}>
+                <svg viewBox="0 0 260 60" preserveAspectRatio="none" style={{ width:'100%', height:60 }}>
+                  <defs><linearGradient id="cubeRevG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={col.rev} stopOpacity="0.32"/><stop offset="1" stopColor={col.rev} stopOpacity="0"/></linearGradient></defs>
+                  <path d={`${rl} L260,60 L0,60 Z`} fill="url(#cubeRevG)"/>
+                  <path d={rl} fill="none" stroke={col.rev} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:11, borderLeft:'1px solid hsl(var(--border))', paddingLeft:20, flex:'0 0 auto' }}>
+                <div><div style={tick}>ΕΚΚΡΕΜΗ</div><div style={{ fontFamily:'var(--font-display)', fontSize:18, fontWeight:800, marginTop:2, color:'#f59e0b' }}>€{Math.round(outstanding).toLocaleString()}</div></div>
+                <div><div style={tick}>ΟΦΕΙΛΕΤΕΣ</div><div style={{ fontFamily:'var(--font-display)', fontSize:18, fontWeight:800, marginTop:2, color:'hsl(var(--foreground))' }}>{debtors.length}</div></div>
+              </div>
+            </div>
+          </div>
+
+          {/* DAY LOAD */}
+          <div onClick={go('/CalendarPage')} style={card({ gridColumn:'6/10', gridRow:'2/3', cursor:'pointer' })}>
+            {hR({ icon:Timer, title:'Φόρτος ημέρας', color:col.load, right: chip(`${todayHours.toFixed(todayHours % 1 ? 1 : 0)} ώρες`, col.load) })}
+            <div style={{ ...big, fontSize:22 }}>{todayAppts.length}<span style={{ ...lbl, fontWeight:600 }}> ραντεβού σήμερα</span></div>
+            <div style={{ marginTop:'auto' }}>
+              <div style={{ position:'relative', height:20, borderRadius:7, overflow:'hidden', background:'hsl(var(--muted)/0.5)', border:'1px solid hsl(var(--border))' }}>
+                {todayAppts.map((a, i) => { const l = dpos(toMin(a.start_time)); const w = Math.max(2, ((a.duration_minutes || 60) / dSpan) * 100); return <div key={i} title={a.client_name} style={{ position:'absolute', left:`${l}%`, width:`${w}%`, top:0, bottom:0, background:col.load, opacity:.82 }}/>; })}
+                {mins >= dS && mins <= dE && <div style={{ position:'absolute', left:`${dpos(mins)}%`, top:-2, bottom:-2, width:2, background:'#f87171' }}/>}
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', marginTop:5 }}><span style={tick}>08:00</span><span style={tick}>14:30</span><span style={tick}>21:00</span></div>
+            </div>
+          </div>
+
+          {/* HOURS */}
+          <div onClick={go('/Statistics')} style={card({ gridColumn:'10/13', gridRow:'2/3', cursor:'pointer' })}>
+            {hR({ icon:Timer, title:'Ώρες εβδομάδας', color:col.hours })}
+            <div style={{ ...big, fontSize:28 }}>{weekHours.toFixed(weekHours % 1 ? 1 : 0)}<span style={{ ...lbl, fontWeight:600, fontSize:13 }}> ω</span></div>
+            <div style={{ marginTop:'auto', display:'flex', alignItems:'flex-end', gap:5, height:42 }}>
+              {weekDays.map((d, i) => (<div key={i} style={{ flex:1, height:`${Math.max(8, (d.mins / wkHMax) * 100)}%`, borderRadius:'3px 3px 0 0', background: d.isToday ? col.hours : `${col.hours}66` }}/>))}
+            </div>
+          </div>
+
+          {/* AGENDA — timeline */}
+          <div onClick={go('/CalendarPage')} style={card({ gridColumn:'1/9', gridRow:'3/4', cursor:'pointer' })}>
+            {hR({ icon:CalendarDays, title:`Ατζέντα ημέρας · ${todayAppts.length} ραντεβού`, color:col.agenda })}
+            <div style={{ position:'relative', flex:1, minHeight:0 }}>
+              {todayAppts.length === 0 && <div style={{ ...center, position:'absolute', inset:0, ...lbl }}>Κενή μέρα</div>}
+              {todayAppts.map((a, i) => { const l = dpos(toMin(a.start_time)); const w = Math.max(9, ((a.duration_minutes || 60) / dSpan) * 100); const past = toMin(a.start_time) + (a.duration_minutes || 60) < mins; const live = !past && toMin(a.start_time) <= mins;
+                return <div key={i} style={{ position:'absolute', bottom:22, left:`${l}%`, width:`${w}%`, height:46, borderRadius:9, padding:'7px 9px', overflow:'hidden', opacity:past ? .5 : 1, background:`${col.agenda}1c`, border:`1px solid ${col.agenda}66` }}>
+                  <div style={{ fontFamily:'var(--font-display)', fontSize:10, fontWeight:800, color: live ? col.agenda : 'hsl(var(--muted-foreground))' }}>{a.start_time}{live ? ' · ΤΩΡΑ' : ''}</div>
+                  <div style={{ fontSize:12, fontWeight:600, marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))' }}>{a.client_name}</div>
+                </div>; })}
+              <div style={{ position:'absolute', left:0, right:0, bottom:16, height:1, background:'hsl(var(--border))' }}/>
+              <div style={{ position:'absolute', left:0, right:0, bottom:0, display:'flex', justifyContent:'space-between' }}>
+                {['08:00','11:00','14:00','17:00','21:00'].map(h => <span key={h} style={tick}>{h}</span>)}
+              </div>
+            </div>
+          </div>
+
+          {/* MESSAGES */}
+          <div onClick={go('/Messages')} style={card({ gridColumn:'9/13', gridRow:'3/4', cursor:'pointer' })}>
+            {hR({ icon:MessageCircle, title:'Μηνύματα', color:col.msg, right: D.msgs.length > 0 ? chip(`${D.msgs.length} νέα`, col.msg) : null })}
+            <div style={{ flex:1, display:'flex', flexDirection:'column', gap:2, minHeight:0 }}>
+              {D.msgs.length === 0 && <div style={{ ...center, flex:1, ...lbl }}>Κανένα αδιάβαστο</div>}
+              {D.msgs.slice(0, 3).map((m, i) => (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid hsl(var(--border))' }}>
+                  <div style={avStyle(30, col.msg)}>{initials(m.client_name)}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12.5, fontWeight:600, color:'hsl(var(--foreground))' }}>{m.client_name}</div>
+                    <div style={{ ...tick, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.content}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* WEEK strip */}
+          <div onClick={go('/CalendarPage')} style={card({ gridColumn:'1/8', gridRow:'4/5', cursor:'pointer' })}>
+            {hR({ icon:CalendarRange, title:`Εβδομάδα · ${weekTotal} ραντεβού`, color:col.agenda })}
+            <div style={{ display:'flex', gap:8, flex:1, minHeight:0 }}>
+              {weekDays.map((d, i) => (
+                <div key={i} style={{ flex:1, borderRadius:10, background: d.isToday ? `${col.agenda}18` : 'hsl(var(--muted)/0.3)', border: d.isToday ? `1px solid ${col.agenda}88` : '1px solid transparent', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', padding:'8px 4px 9px', position:'relative' }}>
+                  <span style={{ ...tick, position:'absolute', top:7 }}>{d.label}</span>
+                  <div style={{ width:9, height:`${Math.max(4, (d.n / wkMax) * 54)}px`, borderRadius:4, background: d.isToday ? col.agenda : `${col.agenda}66`, marginBottom:6 }}/>
+                  <span style={{ fontFamily:'var(--font-display)', fontSize:12, fontWeight:800, color:'hsl(var(--foreground))' }}>{d.n}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* TODO 2-col */}
+          <div style={card({ gridColumn:'8/13', gridRow:'4/5' })}>
+            {hR({ icon:CheckSquare, title:'Εκκρεμότητες', color:col.todo, right: chip(String(openTodos.length), col.todo) })}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 18px', flex:1, alignContent:'start', overflow:'hidden' }}>
+              {openTodos.length === 0 && <div style={{ ...center, ...lbl, gridColumn:'1/3' }}>Όλα ολοκληρωμένα ✓</div>}
+              {sortedTodos.slice(0, 8).map(t => (
+                <div key={t.id} onClick={() => toggleTodo(t)} style={{ display:'flex', alignItems:'center', gap:9, fontSize:12.5, padding:'5px 0', cursor:'pointer', minWidth:0 }}>
+                  <span style={{ width:16, height:16, borderRadius:5, border:`2px solid ${col.todo}`, flex:'0 0 auto' }}/>
+                  <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))' }}>{t.title}</span>
+                  <span style={{ ...tick, color:dueColor(t) }}>{dueText(t)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* MONTH calendar */}
+          <div onClick={go('/CalendarPage')} style={card({ gridColumn:'1/5', gridRow:'5/7', cursor:'pointer' })}>
+            {hR({ icon:LayoutGrid, title:format(now, 'LLLL yyyy', loc), color:col.month, right: chip(`${mTotal}`, col.month) })}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4, marginBottom:5 }}>
+              {['Δ','Τ','Τ','Π','Π','Σ','Κ'].map((d, i) => <div key={i} style={{ ...tick, textAlign:'center' }}>{d}</div>)}
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gridAutoRows:'1fr', gap:4, flex:1, minHeight:0 }}>
+              {Array.from({ length:lead }).map((_, i) => <div key={`e${i}`}/>)}
+              {mDays.map((dd, i) => { const n = mCounts[i]; const isT = format(dd, 'yyyy-MM-dd') === today;
+                return <div key={i} style={{ borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11.5, fontWeight:700, position:'relative', fontVariantNumeric:'tabular-nums', background: isT ? col.month : n ? `${col.month}${Math.round((0.14 + (n / mMax) * 0.5) * 255).toString(16).padStart(2, '0')}` : 'hsl(var(--muted)/0.28)', color: isT ? '#fff' : 'hsl(var(--foreground))' }}>{format(dd, 'd')}{n && !isT ? <span style={{ position:'absolute', bottom:4, width:4, height:4, borderRadius:'50%', background:col.month }}/> : null}</div>; })}
+            </div>
+          </div>
+
+          {/* ATTENTION row */}
+          <div onClick={go('/Clients')} style={card({ gridColumn:'5/13', gridRow:'5/6', cursor:'pointer' })}>
+            {hR({ icon:AlertTriangle, title:`Χρειάζονται προσοχή · ${attention.length}`, color:col.att })}
+            <div style={{ display:'flex', gap:10, flex:1, minHeight:0 }}>
+              {attention.length === 0 && <div style={{ ...center, flex:1, ...lbl }}>Τίποτα εκκρεμές ✓</div>}
+              {attention.slice(0, 4).map((a, i) => (
+                <div key={i} style={{ flex:1, borderRadius:12, background:`${a.c}14`, border:`1px solid ${a.c}3a`, padding:'10px 11px', display:'flex', flexDirection:'column', gap:7, minWidth:0 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={avStyle(26, a.c)}>{initials(a.name)}</div>
+                    <span style={{ fontSize:12.5, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))' }}>{a.name}</span>
+                  </div>
+                  <span style={{ ...tick, color:a.c, marginTop:'auto', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.why}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ROSTER avatar strip */}
+          <div onClick={go('/Clients')} style={card({ gridColumn:'5/10', gridRow:'6/7', cursor:'pointer' })}>
+            {hR({ icon:Users, title:'Πελατολόγιο', color:col.roster })}
+            <div style={{ display:'flex', alignItems:'center', gap:16, flex:1 }}>
+              <div style={{ ...big, fontSize:36 }}>{activeClients}<span style={{ ...tick, display:'block', marginTop:2 }}>ΕΝΕΡΓΟΙ</span></div>
+              <div style={{ display:'flex', alignItems:'center' }}>
+                {D.clients.slice(0, 6).map((c2, i) => (<div key={i} style={{ ...avStyle(38, ['#06b6d4','#8b5cf6','#22c55e','#f59e0b','#a855f7','#3b82f6'][i % 6]), marginLeft: i ? -10 : 0, border:'2px solid hsl(var(--card))' }}>{initials(c2.name)}</div>))}
+                {D.clients.length > 6 && <div style={{ width:38, height:38, borderRadius:'50%', marginLeft:-10, border:'2px solid hsl(var(--card))', background:'hsl(var(--muted)/0.6)', ...center, ...tick }}>+{D.clients.length - 6}</div>}
+              </div>
+            </div>
+          </div>
+
+          {/* REQUESTS */}
+          <div style={card({ gridColumn:'10/13', gridRow:'6/7' })}>
+            {hR({ icon:Inbox, title:'Αιτήματα', color:col.req, right: D.reqs.length > 0 ? chip(String(D.reqs.length), col.req) : null })}
+            <div style={{ flex:1, display:'flex', flexDirection:'column', gap:2, minHeight:0 }}>
+              {D.reqs.length === 0 && <div style={{ ...center, flex:1, ...lbl }}>Κανένα εκκρεμές</div>}
+              {D.reqs.slice(0, 2).map((r, i) => (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:9, padding:'7px 0', borderBottom:'1px solid hsl(var(--border))' }}>
+                  <div style={avStyle(28, col.req)}>{initials(r.client_name)}</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color:'hsl(var(--foreground))' }}>{r.client_name}</div>
+                    <div style={{ ...tick, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.requested_date ? format(parseISO(r.requested_date), 'EEE d LLL', loc) : (r.type || 'ραντεβού')}</div>
+                  </div>
+                  <button onClick={e => { e.stopPropagation(); navigate('/CalendarPage'); }} style={{ border:'none', borderRadius:8, padding:'6px 9px', cursor:'pointer', background:'rgba(34,197,94,.2)', color:'#4ade80', fontFamily:'var(--font-display)', fontSize:10, fontWeight:800 }}>ΟΡΙΣΜΟΣ</button>
+                  <button onClick={e => { e.stopPropagation(); declineReq(r); }} style={{ border:'none', borderRadius:8, padding:'6px 8px', cursor:'pointer', background:'rgba(239,68,68,.18)', color:'#f87171', fontFamily:'var(--font-display)', fontSize:10, fontWeight:800 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div style={{ padding: wide ? '26px 28px 34px' : '14px 14px 16px', minHeight:'100%',
       maxWidth: wide ? 1180 : 'none', margin: wide ? '0 auto' : undefined }}>
@@ -776,7 +1043,7 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
       <WidgetBoard
         slots={slots} saveSlots={saveSlots} WIDGETS={WIDGETS}
         render={(w, size, edit) => renderRef(w, size, edit)}
-        defaults={DEFAULT_SLOTS} rowHeight={rowHeight} columns={columns}
+        defaults={DEFAULT_SLOTS} rowHeight={rowHeight} columns={columns} square={wide}
         theme={{ card:'hsl(var(--card))', border:'hsl(var(--border))', text:'hsl(var(--foreground))',
                  dim:'hsl(var(--muted-foreground))', accent:accent, muted:'hsl(var(--muted)/0.45)' }}/>
     </div>

@@ -523,7 +523,8 @@ export default function TrainingPlans() {
   const [editing, setEditing] = useState(null);
 
   const load = async () => {
-    const [p, c] = await Promise.all([db.TrainingPlan.list('-date', 200), db.Client.list('name')]);
+    const [p, cAll] = await Promise.all([db.TrainingPlan.list('-date', 200), db.Client.list('name')]);
+    const c = cAll.filter(cl => cl.services !== 'nutrition_only');
     setPlans(p); setClients(c);
   };
   useEffect(() => { load(); }, []);

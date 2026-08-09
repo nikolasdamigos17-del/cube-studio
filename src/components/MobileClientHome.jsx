@@ -610,7 +610,7 @@ export default function MobileClientHome({ columns = 2, rowHeight = ROW, wide = 
         <WidgetBoard
           slots={slots} saveSlots={saveSlots} WIDGETS={WIDGETS}
           render={(w, size, edit) => renderRef(w, size, edit)}
-          defaults={DEFAULT_SLOTS} rowHeight={rowHeight} columns={columns}
+          defaults={DEFAULT_SLOTS} rowHeight={rowHeight} columns={columns} square={wide}
           theme={{ card:'var(--cp-card-bg)', border:'var(--cp-border)', text:'var(--cp-text)',
                    dim:'var(--cp-text-dim)', accent:accent, muted:'var(--cp-card-alt)' }}/>
       </div>

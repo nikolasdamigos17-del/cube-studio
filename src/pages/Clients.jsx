@@ -8,50 +8,76 @@ const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#8b
 const SERVICE_LABELS = { personal_training:'Personal Training', personal_training_nutrition:'PT + Nutrition', nutrition_only:'Nutrition Only', group_training:'Group Training' };
 
 function AddClientModal({ onClose, onSaved, client }) {
-  const [f, setF] = useState(client||{ name:'', email:'', phone:'', gender:'male', date_of_birth:'', theme_color:'#6366f1', services:'personal_training', sessions_per_week:3, session_duration_hours:1, nutrition_meetings_per_month:2, monthly_price:'', weight:'', height:'', body_fat:'', goals:'', medical_notes:'', portal_password:'', active:true });
+  const [f, setF] = useState(client||{ name:'', phone:'', email:'', services:'personal_training', sessions_per_month:12, nutrition_meetings_per_month:2, monthly_price:'', active:true });
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState('info');
   const set = (k,v) => setF(p=>({...p,[k]:v}));
+  const hasTraining  = ['personal_training','personal_training_nutrition','group_training'].includes(f.services);
+  const hasNutrition = ['nutrition_only','personal_training_nutrition'].includes(f.services);
+  const PROGRAMS = [
+    { v:'personal_training',           icon:'🏋️', label:'Προπόνηση',            desc:'Personal training' },
+    { v:'nutrition_only',              icon:'🥗', label:'Διατροφή',             desc:'Nutrition Center' },
+    { v:'personal_training_nutrition', icon:'⚡', label:'Προπόνηση + Διατροφή', desc:'Πλήρες πρόγραμμα' },
+    { v:'group_training',              icon:'👥', label:'Group',                desc:'Ομαδικές προπονήσεις' },
+  ];
   const save = async () => {
     setSaving(true);
-    if (client?.id) await db.Client.update(client.id, f);
-    else await db.Client.create(f);
+    const payload = { ...f };
+    if (!client?.id) {
+      payload.theme_color = COLORS[Math.floor(Math.random()*COLORS.length)];
+      payload.portal_password = `${(f.name||'Cube').trim().split(' ')[0]}${new Date().getFullYear()}!`;
+      payload.gender = payload.gender || 'male';
+    }
+    if (hasTraining && payload.sessions_per_month)
+      payload.sessions_per_week = Math.max(1, Math.round(payload.sessions_per_month/4)); // συμβατότητα με ημερολόγιο/οικονομικά
+    if (!hasNutrition) payload.nutrition_meetings_per_month = 0;
+    if (client?.id) await db.Client.update(client.id, payload);
+    else await db.Client.create(payload);
     setSaving(false); onSaved(); onClose();
   };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-        <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-gray-900 text-lg">{client?'Edit Client':'Add New Client'}</h2><button onClick={onClose}><X className="w-5 h-5 text-gray-400"/></button></div>
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5">{['info','body','services'].map(t=><button key={t} onClick={()=>setTab(t)} className={`flex-1 py-1.5 text-xs rounded-lg font-medium capitalize transition-colors ${tab===t?'bg-white text-gray-900 shadow':'text-gray-500'}`}>{t==='info'?'Personal Info':t==='body'?'Body Measures':'Services'}</button>)}</div>
-        {tab==='info'&&(
-          <div className="grid grid-cols-2 gap-3">
-            {[['name','Name *'],['email','Email'],['phone','Phone']].map(([k,l])=><div key={k} className={k==='name'?'col-span-2':''}><label className="text-xs font-medium text-gray-500 uppercase">{l}</label><input value={f[k]||''} onChange={e=>set(k,e.target.value)} className="input-base mt-1"/></div>)}
-            <div><label className="text-xs font-medium text-gray-500 uppercase">Gender</label><select value={f.gender} onChange={e=>set('gender',e.target.value)} className="input-base mt-1"><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
-            <div><label className="text-xs font-medium text-gray-500 uppercase">Date of Birth</label><input type="date" value={f.date_of_birth||''} onChange={e=>set('date_of_birth',e.target.value)} className="input-base mt-1"/></div>
-            <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Portal Password</label><input value={f.portal_password||''} onChange={e=>set('portal_password',e.target.value)} placeholder="e.g. Alex2024!" className="input-base mt-1"/></div>
-            <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Goals</label><textarea value={f.goals||''} onChange={e=>set('goals',e.target.value)} rows={2} className="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none resize-none"/></div>
-            <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Medical Notes</label><textarea value={f.medical_notes||''} onChange={e=>set('medical_notes',e.target.value)} rows={2} className="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none resize-none"/></div>
-            <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase mb-2 block">Theme Color</label><div className="flex gap-2 flex-wrap">{COLORS.map(c=><button key={c} onClick={()=>set('theme_color',c)} className={`w-8 h-8 rounded-full border-2 transition-all ${f.theme_color===c?'border-gray-900 scale-110':'border-transparent'}`} style={{backgroundColor:c}}/>)}</div></div>
-          </div>
-        )}
-        {tab==='body'&&(<div className="grid grid-cols-3 gap-3">{[['weight','Weight (kg)'],['height','Height (cm)'],['body_fat','Body Fat (%)']].map(([k,l])=><div key={k}><label className="text-xs font-medium text-gray-500 uppercase">{l}</label><input type="number" value={f[k]||''} onChange={e=>set(k,parseFloat(e.target.value))} className="input-base mt-1"/></div>)}</div>)}
-        {tab==='services'&&(
-          <div className="space-y-3">
-            <div><label className="text-xs font-medium text-gray-500 uppercase">Service</label><select value={f.services} onChange={e=>set('services',e.target.value)} className="input-base mt-1"><option value="personal_training">Personal Training</option><option value="group_training">Group Training</option><option value="personal_training_nutrition">PT + Nutrition</option><option value="nutrition_only">Nutrition Only</option></select></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-xs font-medium text-gray-500 uppercase">Sessions / Week</label><input type="number" min="1" max="7" value={f.sessions_per_week} onChange={e=>set('sessions_per_week',parseInt(e.target.value))} className="input-base mt-1"/></div>
-              <div><label className="text-xs font-medium text-gray-500 uppercase">Duration (hrs)</label><input type="number" step="0.5" value={f.session_duration_hours} onChange={e=>set('session_duration_hours',parseFloat(e.target.value))} className="input-base mt-1"/></div>
-            </div>
-            <div><label className="text-xs font-medium text-gray-500 uppercase">Monthly Price (€)</label><input type="number" value={f.monthly_price||''} onChange={e=>set('monthly_price',parseFloat(e.target.value))} className="input-base mt-1"/></div>
-          </div>
-        )}
-        <div className="flex gap-2 mt-6"><button onClick={onClose} className="btn btn-secondary flex-1">Cancel</button><button onClick={save} disabled={saving||!f.name} className="btn btn-primary flex-1">{saving?'Saving…':client?'Save Changes':'Add Client'}</button></div>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-bold text-gray-900 text-lg">{client?'Επεξεργασία πελάτη':'Νέος πελάτης'}</h2>
+          <button onClick={onClose}><X className="w-5 h-5 text-gray-400"/></button>
+        </div>
+
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Στοιχεία επικοινωνίας</p>
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Ονοματεπώνυμο *</label><input value={f.name||''} onChange={e=>set('name',e.target.value)} className="input-base mt-1" placeholder="π.χ. Μαρία Παπαδάκη"/></div>
+          <div><label className="text-xs font-medium text-gray-500 uppercase">Τηλέφωνο</label><input value={f.phone||''} onChange={e=>set('phone',e.target.value)} className="input-base mt-1" placeholder="+30 …"/></div>
+          <div><label className="text-xs font-medium text-gray-500 uppercase">Email</label><input value={f.email||''} onChange={e=>set('email',e.target.value)} className="input-base mt-1"/></div>
+        </div>
+
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Πρόγραμμα</p>
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          {PROGRAMS.map(p=>(
+            <button key={p.v} onClick={()=>set('services',p.v)}
+              className={`text-left p-3 rounded-xl border-2 transition-all ${f.services===p.v?'border-gray-900 bg-gray-50':'border-gray-100 hover:border-gray-300'}`}>
+              <span className="text-xl">{p.icon}</span>
+              <p className="text-sm font-semibold text-gray-900 mt-1">{p.label}</p>
+              <p className="text-[11px] text-gray-400">{p.desc}</p>
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          {hasTraining&&<div><label className="text-xs font-medium text-gray-500 uppercase">Προπονήσεις / μήνα</label><input type="number" min="1" value={f.sessions_per_month||''} onChange={e=>set('sessions_per_month',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}
+          {hasNutrition&&<div><label className="text-xs font-medium text-gray-500 uppercase">Διατροφικές συναντήσεις / μήνα</label><input type="number" min="1" value={f.nutrition_meetings_per_month||''} onChange={e=>set('nutrition_meetings_per_month',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}
+          <div className={hasTraining&&hasNutrition?'col-span-2':''}><label className="text-xs font-medium text-gray-500 uppercase">Μηνιαία τιμή (€)</label><input type="number" value={f.monthly_price||''} onChange={e=>set('monthly_price',parseFloat(e.target.value)||'')} className="input-base mt-1"/></div>
+        </div>
+
+        {!client&&<p className="text-[11px] text-gray-400 mb-4">Χρώμα προφίλ & κωδικός portal δημιουργούνται αυτόματα. Στόχος, μετρήσεις και διατροφικό προφίλ ορίζονται στο Course Planning — όχι εδώ.</p>}
+
+        <div className="flex gap-2">
+          <button onClick={onClose} className="btn btn-secondary flex-1">Άκυρο</button>
+          <button onClick={save} disabled={saving||!f.name} className="btn btn-primary flex-1">{saving?'Αποθήκευση…':client?'Αποθήκευση':'Εγγραφή πελάτη'}</button>
+        </div>
       </div>
     </div>
   );
 }
-
 function GroupModal({ clients, group, onClose, onSaved }) {
   const [name, setName] = useState(group?.name||'');
   const [selected, setSelected] = useState(group?.member_ids||[]);
@@ -134,7 +160,8 @@ export default function Clients() {
                 </div>
                 <div className="mt-3 flex gap-2 flex-wrap">
                   {c.weight&&<span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full">{c.weight} kg</span>}
-                  {c.sessions_per_week&&<span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full">{c.sessions_per_week}×/wk</span>}
+                  {(c.sessions_per_month||c.sessions_per_week)&&<span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full">{c.sessions_per_month?`${c.sessions_per_month}× προπ./μήνα`:`${c.sessions_per_week}×/εβδ.`}</span>}
+                  {["nutrition_only","personal_training_nutrition"].includes(c.services)&&c.nutrition_meetings_per_month?<span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">🥗 {c.nutrition_meetings_per_month}×/μήνα</span>:null}
                   {c.monthly_price&&<span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">€{c.monthly_price}/mo</span>}
                 </div>
               </div>

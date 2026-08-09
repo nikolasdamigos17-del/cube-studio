@@ -59,6 +59,8 @@ export const db = {
   HevyWorkout: createEntity('hevy_workouts'),
   ClientReminder: createEntity('client_reminders'),
   AppointmentRequest: createEntity('appointment_requests'),
+  NutritionProfile: createEntity('nutrition_profiles'),
+  NutritionMeeting: createEntity('nutrition_meetings'),
   WaterLog: createEntity('water_logs'),
   SupplementLog: createEntity('supplement_logs'),
 };

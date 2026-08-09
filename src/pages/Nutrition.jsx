@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Trash2, X, Sparkles, ChevronRight, ChevronDown, ExternalLink, Loader2, Check, AlertCircle, Pencil, RotateCcw, Plus, Minus } from 'lucide-react';
+import { Trash2, X, Sparkles, ChevronRight, ChevronDown, ExternalLink, Loader2, Check, AlertCircle, Pencil, RotateCcw, Plus, Minus, ArrowLeft, Users, ClipboardList, CalendarClock, Lock, Search } from 'lucide-react';
 import { db, callAI } from '../lib/db';
 
 const MEAL_TYPES = [
@@ -479,38 +480,181 @@ function PlanCard({ plan, onDelete }) {
 }
 
 // ── Main Page ────────────────────────────────────────────────────────────────
+/* ═══════════════ NUTRITION CENTER ═══════════════ */
+
+const hasNutritionSvc = (c) => c.services==='nutrition_only' || c.services==='personal_training_nutrition';
+const GOAL_LABELS = { fat_loss:'Απώλεια λίπους', muscle_gain:'Μυϊκή ανάπτυξη', recomp:'Ανασύνθεση', maintain:'Συντήρηση / Υγεία', performance:'Απόδοση' };
+const FLAG_LABELS = { vegetarian:'Vegetarian', vegan:'Vegan', lactose_free:'Lactose-free', nut_allergy:'Χωρίς ξηρούς καρπούς' };
+const SLOT_LABELS = { breakfast:'Πρωινό', snack1:'Δεκατιανό', lunch:'Μεσημεριανό', snack2:'Απογ. σνακ', dinner:'Βραδινό', preworkout:'Pre-workout', postworkout:'Post-workout' };
+
 export default function Nutrition() {
+  const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
   const [clients, setClients] = useState([]);
-  const [filterClient, setFilterClient] = useState('');
+  const [profiles, setProfiles] = useState([]);
+  const [meetings, setMeetings] = useState([]);
+  const [sel, setSel] = useState(null);
+  const [search, setSearch] = useState('');
   const [showWizard, setShowWizard] = useState(false);
 
   const load = async () => {
-    const [p,c] = await Promise.all([db.NutritionPlan.list('-date',100), db.Client.list('name')]);
-    setPlans(p); setClients(c);
+    const [p, c, pr, m] = await Promise.all([
+      db.NutritionPlan.list('-date', 200),
+      db.Client.list('name'),
+      db.NutritionProfile.list('-updated_date', 300),
+      db.NutritionMeeting.list('-date', 300),
+    ]);
+    setPlans(p); setClients(c); setProfiles(pr); setMeetings(m);
   };
-  useEffect(()=>{load();},[]);
+  useEffect(()=>{ load(); },[]);
 
-  if (showWizard) return <AIWizard clients={clients} onPlanCreated={load} onClose={()=>setShowWizard(false)}/>;
+  const nutriClients = clients.filter(hasNutritionSvc);
+  const profOf   = (id) => profiles.find(p=>p.client_id===id);
+  const ordersOf = (id) => meetings.filter(m=>m.client_id===id && m.status==='ordered');
+  const plansOf  = (id) => plans.filter(p=>p.client_id===id);
 
-  const filtered = filterClient?plans.filter(p=>p.client_id===filterClient):plans;
+  if (showWizard) return <AIWizard clients={nutriClients} onPlanCreated={load} onClose={()=>setShowWizard(false)}/>;
+
+  const client = sel ? clients.find(c=>c.id===sel) : null;
+
+  /* ─────────── ΦΑΚΕΛΟΣ ΠΕΛΑΤΗ ─────────── */
+  if (client) {
+    const prof = profOf(client.id);
+    const setupDone = !!prof?.setup_completed;
+    const orders = ordersOf(client.id);
+    const cPlans = plansOf(client.id);
+    const excludedTotal = (prof?.excluded_ingredients?.length||0) + (prof?.excluded_auto?.length||0);
+    return (
+      <div className="p-6 md:p-8 max-w-5xl mx-auto animate-fade-in">
+        <button onClick={()=>setSel(null)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-5"><ArrowLeft className="w-4 h-4"/> Nutrition Center</button>
+
+        <div className="flex items-center gap-4 mb-7">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl" style={{backgroundColor:client.theme_color||'#6366f1'}}>{client.name?.charAt(0)}</div>
+          <div className="flex-1">
+            <h1 className="page-title">{client.name}</h1>
+            <p className="page-subtitle">{client.nutrition_meetings_per_month||'—'} διατροφικές συναντήσεις / μήνα{client.monthly_price?` · €${client.monthly_price}/μήνα`:''}</p>
+          </div>
+          {setupDone
+            ? <span className="badge badge-green">Course Planning ✓</span>
+            : <span className="badge" style={{background:'rgba(245,158,11,0.12)',color:'#d97706'}}>Εκκρεμεί Course Planning</span>}
+        </div>
+
+        {/* Προφίλ / Course Planning */}
+        <div className="card p-5 mb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center"><ClipboardList className="w-4.5 h-4.5 text-amber-500" style={{width:18,height:18}}/></div>
+              <div>
+                <p className="font-semibold text-foreground">Πλάνο πορείας & διατροφικό προφίλ</p>
+                <p className="text-sm text-muted-foreground">Στόχος, αποκλεισμοί υλικών, δομή γευμάτων</p>
+              </div>
+            </div>
+            <button onClick={()=>navigate(`/course-planning?client=${client.id}`)} className="btn btn-primary">{setupDone?'Επεξεργασία προφίλ':'Έναρξη Course Planning'}</button>
+          </div>
+          {setupDone&&(
+            <div className="mt-4 pt-4 border-t border-border/60 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div><p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Στόχος</p><p className="text-sm font-medium text-foreground">{GOAL_LABELS[prof.goal_type]||'—'}{prof.target_weight?` → ${prof.target_weight}kg`:''}</p></div>
+              <div><p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Προφίλ</p><div className="flex gap-1.5 flex-wrap">{Object.entries(prof.flags||{}).filter(([,v])=>v).map(([k])=><span key={k} className="badge badge-blue">{FLAG_LABELS[k]}</span>)}{!Object.values(prof.flags||{}).some(Boolean)&&<span className="text-sm text-muted-foreground">Χωρίς περιορισμούς</span>}</div></div>
+              <div><p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Αποκλεισμένα υλικά</p><p className="text-sm font-medium text-foreground">{excludedTotal}</p></div>
+              <div><p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Γεύματα</p><p className="text-sm font-medium text-foreground">{(prof.meal_slots||[]).map(k=>SLOT_LABELS[k]||k).join(' · ')||'—'}</p></div>
+            </div>
+          )}
+        </div>
+
+        {/* Nutrition Meeting */}
+        <div className="card p-5 mb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center"><Sparkles style={{width:18,height:18}} className="text-indigo-500"/></div>
+              <div>
+                <p className="font-semibold text-foreground">Nutrition Meeting</p>
+                <p className="text-sm text-muted-foreground">Fullscreen συνάντηση: μέτρηση → σύγκριση → επιλογή γευμάτων → επόμενο ραντεβού</p>
+              </div>
+            </div>
+            <button disabled className="btn btn-secondary opacity-50 cursor-not-allowed flex items-center gap-1.5" title="Ενεργοποιείται στο Στάδιο 3"><Lock className="w-3.5 h-3.5" style={{width:14,height:14}}/> Στάδιο 3 — σύντομα</button>
+          </div>
+        </div>
+
+        {/* Εκκρεμείς παραγγελίες διατροφής */}
+        <div className="card p-5 mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center"><CalendarClock style={{width:18,height:18}} className="text-rose-500"/></div>
+            <div>
+              <p className="font-semibold text-foreground">Παραγγελίες διατροφής</p>
+              <p className="text-sm text-muted-foreground">Meetings που περιμένουν δημιουργία διατροφής</p>
+            </div>
+          </div>
+          {orders.length===0
+            ? <p className="text-sm text-muted-foreground pl-12">Καμία εκκρεμής παραγγελία.</p>
+            : orders.map(o=>(
+                <div key={o.id} className="flex items-center justify-between gap-3 pl-12 py-2 border-t border-border/50 first:border-0">
+                  <div><p className="text-sm font-medium text-foreground">{o.date}</p><p className="text-xs text-muted-foreground">{(o.selected_meals||[]).length} επιλεγμένα γεύματα</p></div>
+                  <button disabled className="btn btn-secondary opacity-50 cursor-not-allowed" title="Ενεργοποιείται στο Στάδιο 4">Δημιουργία διατροφής — Στάδιο 4</button>
+                </div>
+              ))}
+        </div>
+
+        {/* Διατροφές */}
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-semibold text-foreground">Διατροφές ({cPlans.length})</p>
+          <button onClick={()=>setShowWizard(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 transition-colors"><Sparkles className="w-4 h-4"/> Νέα διατροφή (AI Wizard)</button>
+        </div>
+        <div className="space-y-4">
+          {cPlans.map(p=><PlanCard key={p.id} plan={p} onDelete={async id=>{await db.NutritionPlan.delete(id);load();}}/>)}
+          {!cPlans.length&&<div className="text-center py-10 text-muted-foreground text-sm">Καμία διατροφή ακόμα.</div>}
+        </div>
+      </div>
+    );
+  }
+
+  /* ─────────── ΚΕΝΤΡΙΚΗ ΟΨΗ ─────────── */
+  const shown = nutriClients.filter(c=>!search||c.name?.toLowerCase().includes(search.toLowerCase()));
+  const pendingSetup  = nutriClients.filter(c=>!profOf(c.id)?.setup_completed).length;
+  const pendingOrders = meetings.filter(m=>m.status==='ordered').length;
 
   return (
-    <div className="p-8 max-w-5xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-        <div><h1 className="page-title">Nutrition Plans</h1><p className="page-subtitle">{plans.length} plans</p></div>
-        <button onClick={()=>setShowWizard(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 transition-colors" style={{boxShadow:'var(--shadow-sm)'}}>
-          <Sparkles className="w-4 h-4"/> AI Wizard — Create Plan
-        </button>
+    <div className="p-6 md:p-8 max-w-6xl mx-auto animate-fade-in">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
+        <div><h1 className="page-title">Nutrition Center</h1><p className="page-subtitle">{nutriClients.length} πελάτες διατροφής · {pendingSetup} χωρίς Course Planning · {pendingOrders} εκκρεμείς διατροφές</p></div>
       </div>
-      <div className="flex gap-2 mb-6 flex-wrap">
-        <button onClick={()=>setFilterClient('')} className={`tab-btn px-4 ${!filterClient?'active':''}`}>All</button>
-        {clients.map(c=><button key={c.id} onClick={()=>setFilterClient(c.id)} className={`tab-btn px-4 ${filterClient===c.id?'active':''}`}>{c.name}</button>)}
+
+      <div className="relative my-5 max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Αναζήτηση πελάτη…" className="input-base pl-9"/>
       </div>
-      <div className="space-y-4">
-        {filtered.map(p=><PlanCard key={p.id} plan={p} onDelete={async id=>{await db.NutritionPlan.delete(id);load();}}/>)}
-        {!filtered.length&&<div className="text-center py-20 text-muted-foreground"><Sparkles className="w-10 h-10 mx-auto mb-3 opacity-30"/><p className="font-medium">No nutrition plans yet</p><p className="text-sm mt-1">Use AI Wizard to create one</p></div>}
-      </div>
+
+      {shown.length===0 ? (
+        <div className="text-center py-24 text-muted-foreground">
+          <Users className="w-12 h-12 mx-auto mb-3 opacity-30"/>
+          <p className="font-medium">Κανένας πελάτης διατροφής</p>
+          <p className="text-sm mt-1">Οι πελάτες με πρόγραμμα «Διατροφή» ή «Προπόνηση + Διατροφή» εμφανίζονται εδώ.</p>
+        </div>
+      ):(
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {shown.map(c=>{
+            const prof = profOf(c.id);
+            const done = !!prof?.setup_completed;
+            const ord = ordersOf(c.id).length;
+            return (
+              <div key={c.id} onClick={()=>setSel(c.id)} className="card p-5 hover:shadow-md transition-all cursor-pointer group">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground truncate">{c.name}</p>
+                    <p className="text-sm text-muted-foreground">{c.nutrition_meetings_per_month||'—'} συναντήσεις / μήνα</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground opacity-40 group-hover:opacity-100 flex-shrink-0"/>
+                </div>
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  {!done&&<span className="badge" style={{background:'rgba(245,158,11,0.12)',color:'#d97706'}}>Course Planning εκκρεμεί</span>}
+                  {done&&<span className="badge badge-green">Έτοιμος</span>}
+                  {ord>0&&<span className="badge" style={{background:'rgba(244,63,94,0.1)',color:'#e11d48'}}>{ord} εκκρεμής διατροφή</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

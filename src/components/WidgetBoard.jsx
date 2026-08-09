@@ -26,7 +26,7 @@ function SizeThumb({ size, active, tone }) {
 /* ── the board ────────────────────────────────────────────────────────── */
 export default function WidgetBoard({
   slots, saveSlots, WIDGETS, render, theme, rowHeight = 118, columns = 2, gap = 10,
-  storageKey, defaults,
+  storageKey, defaults, square = false,
 }) {
   const [edit, setEdit] = useState(false);
   const [sheet, setSheet] = useState(null);      // { i, mode:'size'|'swap' }
@@ -35,6 +35,24 @@ export default function WidgetBoard({
   const press = useRef(null);
   const moved = useRef(false);
   const cellRefs = useRef([]);
+
+  /* Desktop: keep cells proportional (square base) so widgets don't stretch. */
+  const gridRef = useRef(null);
+  const [cellH, setCellH] = useState(rowHeight);
+  useEffect(() => {
+    if (!square) { setCellH(rowHeight); return; }
+    const el = gridRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      const w = el.clientWidth;
+      const colW = (w - gap * (columns - 1)) / columns;
+      if (colW > 0) setCellH(colW);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [square, columns, gap, rowHeight]);
 
   const T = theme;   // { card, border, text, dim, accent, muted }
 
@@ -131,8 +149,8 @@ export default function WidgetBoard({
 
   return (
     <>
-      <div style={{ display:'grid', gridTemplateColumns:`repeat(${columns},1fr)`,
-        gridAutoRows:`${rowHeight}px`, gap, gridAutoFlow:'dense' }}>
+      <div ref={gridRef} style={{ display:'grid', gridTemplateColumns:`repeat(${columns},1fr)`,
+        gridAutoRows:`${square ? cellH : rowHeight}px`, gap, gridAutoFlow:'dense' }}>
         {slots.map((slot, i) => {
           const W = WIDGETS[slot.w];
           if (!W) return null;
