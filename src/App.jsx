@@ -23,6 +23,7 @@ import LiveTraining from './pages/LiveTraining';
 import CoursePlanning from './pages/CoursePlanning';
 import NutritionMeeting from './pages/NutritionMeeting';
 import PlanCreator from './pages/PlanCreator';
+import WorkoutCreator from './pages/WorkoutCreator';
 import RecipePage from './pages/RecipePage';
 
 import ClientHome from './pages/ClientHome';
@@ -112,6 +113,7 @@ function AppContent() {
         <Route path="/course-planning" element={<CoursePlanning/>}/>
         <Route path="/nutrition-meeting" element={<NutritionMeeting/>}/>
         <Route path="/plan-creator" element={<PlanCreator/>}/>
+        <Route path="/workout-creator" element={<WorkoutCreator/>}/>
         <Route path="*" element={<Navigate to="/" replace/>}/>
       </Routes>
     </ThemeProvider>

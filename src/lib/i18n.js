@@ -7,7 +7,7 @@ export const T = {
   nav_home:        { en:'Home',        el:'Αρχική'       },
   nav_calendar:    { en:'Calendar',    el:'Ημερολόγιο'   },
   nav_clients:     { en:'Clients',     el:'Πελάτες'      },
-  nav_training:    { en:'Training',    el:'Προπόνηση'    },
+  nav_training:    { en:'Training Center', el:'Training Center' },
   nav_nutrition:   { en:'Nutrition',   el:'Διατροφή'     },
   nav_statistics:  { en:'Statistics',  el:'Στατιστικά'   },
   nav_logistics:   { en:'Logistics',   el:'Οικονομικά'   },

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, ChevronRight, Check, AlertCircle, RotateCcw, Edit2, Play } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, ChevronRight, Check, AlertCircle, RotateCcw, Edit2, Play, ArrowLeft, Search, Users, Brain, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { db, callAI } from '../lib/db';
 import { EQUIPMENT, EXERCISE_DB, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
@@ -513,98 +513,201 @@ function PlanModal({ clients, plan, onClose, onSaved }) {
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
+/* ═══════════════ TRAINING CENTER ═══════════════ */
+
+const hasTrainingSvc = (c) => c.services !== 'nutrition_only';
+const TC_TYPES = { upper:{label:'Upper',emoji:'💪',color:'#818cf8'}, lower:{label:'Lower',emoji:'🦵',color:'#34d399'}, full_body:{label:'Full Body',emoji:'🏋️',color:'#f59e0b'}, glutes:{label:'Glutes',emoji:'🍑',color:'#f472b6'} };
+const planType = (p) => p.session_type
+  || (/(glute|γλουτ)/i.test(p.title||'') ? 'glutes'
+    : /(upper|άνω)/i.test(p.title||'') ? 'upper'
+    : /(lower|κάτω|πόδι)/i.test(p.title||'') ? 'lower'
+    : /full/i.test(p.title||'') ? 'full_body' : null);
+const tcDaysAgo = (n) => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; };
+const resultTotals = (p) => {
+  let planned=0, done=0, miss=0;
+  (p.session_results||[]).forEach(r=>{
+    planned += r.sets_planned||0; done += r.sets_done||0;
+    miss += (r.sets||[]).filter(s=>s.completed&&s.target_reps&&!s.hit_target).length + ((r.sets_planned||0)-(r.sets_done||0));
+  });
+  return { planned, done, miss };
+};
+
 export default function TrainingPlans() {
   const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
   const [clients, setClients] = useState([]);
-  const [filterClient, setFilterClient] = useState('');
-  const [showWizard, setShowWizard] = useState(false);
-  const [showManual, setShowManual] = useState(false);
-  const [editing, setEditing] = useState(null);
+  const [appts, setAppts] = useState([]);
+  const [sel, setSel] = useState(null);
+  const [search, setSearch] = useState('');
+  const [editPlan, setEditPlan] = useState(null);
+  const [openId, setOpenId] = useState(null);
 
   const load = async () => {
-    const [p, cAll] = await Promise.all([db.TrainingPlan.list('-date', 200), db.Client.list('name')]);
-    const c = cAll.filter(cl => cl.services !== 'nutrition_only');
-    setPlans(p); setClients(c);
+    const [p, cAll, ap] = await Promise.all([
+      db.TrainingPlan.list('-date', 300),
+      db.Client.list('name'),
+      db.Appointment.list('-date', 400),
+    ]);
+    setPlans(p); setClients(cAll.filter(hasTrainingSvc)); setAppts(ap);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(()=>{ load(); },[]);
 
-  const filtered = filterClient ? plans.filter(p => p.client_id === filterClient) : plans;
-  const toggle = async p => { await db.TrainingPlan.update(p.id, { completed: !p.completed }); load(); };
-  const del = async id => { await db.TrainingPlan.delete(id); load(); };
+  const plansOf = (id) => plans.filter(p=>p.client_id===id);
+  const weekOf = (id) => plansOf(id).filter(p=>p.completed && ((p.completed_date||p.date||'')>=tcDaysAgo(7)));
+  const apptForPlan = (pid) => appts.find(a=>a.plan_id===pid && a.status!=='cancelled');
 
-  if (showWizard) return <AITrainingWizard clients={clients} onSaved={load} onClose={()=>setShowWizard(false)}/>;
+  const client = sel ? clients.find(c=>c.id===sel) : null;
+
+  /* ─────────── ΦΑΚΕΛΟΣ ΠΕΛΑΤΗ ─────────── */
+  if (client) {
+    const cPlans = plansOf(client.id);
+    const week = weekOf(client.id);
+    const wTot = week.reduce((a,p)=>{ const t=resultTotals(p); return { planned:a.planned+t.planned, done:a.done+t.done, miss:a.miss+t.miss }; },{planned:0,done:0,miss:0});
+    const days = Array.from({length:7},(_,i)=>tcDaysAgo(6-i));
+    return (
+      <div className="p-6 md:p-8 max-w-5xl mx-auto animate-fade-in">
+        <button onClick={()=>setSel(null)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-5"><ArrowLeft className="w-4 h-4"/> Training Center</button>
+
+        <div className="flex items-center gap-4 mb-6 flex-wrap">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl" style={{backgroundColor:client.theme_color||'#6366f1'}}>{client.name?.charAt(0)}</div>
+          <div className="flex-1 min-w-0">
+            <h1 className="page-title">{client.name}</h1>
+            <p className="page-subtitle">{client.sessions_per_month?`${client.sessions_per_month} προπονήσεις / μήνα`:client.sessions_per_week?`${client.sessions_per_week}×/εβδομάδα`:'—'}{client.gender==='female'?' · Πλαίσιο: Upper / Lower / Glutes':' · Πλαίσιο: Upper / Lower / Full Body'}</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={()=>setEditPlan({ client_id:client.id, client_name:client.name, date:new Date().toISOString().split('T')[0], title:'', exercises:[], notes:'', completed:false })} className="btn btn-secondary">Χειροκίνητα</button>
+            <button onClick={()=>navigate(`/workout-creator?client=${client.id}`)} className="btn px-4 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center gap-2" style={{background:'linear-gradient(135deg,#9333ea,#7c3aed)',boxShadow:'0 4px 14px rgba(147,51,234,0.35)'}}>
+              <Brain className="w-4 h-4"/> Δημιουργία προπόνησης
+            </button>
+          </div>
+        </div>
+
+        {/* εβδομάδα */}
+        <div className="card p-5 mb-5">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <p className="font-semibold text-foreground">Τελευταίες 7 ημέρες</p>
+            <p className="text-sm text-muted-foreground">{week.length} ολοκληρωμένες{wTot.planned?` · ${wTot.done}/${wTot.planned} σετ`:''}{wTot.miss?` · `:''}{wTot.miss?<span className="text-rose-500 font-semibold">{wTot.miss} κάτω από στόχο</span>:null}</p>
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {days.map(ds=>{
+              const done = week.filter(p=>((p.completed_date||p.date||'').split('T')[0])===ds);
+              const isToday = ds===tcDaysAgo(0);
+              return (
+                <div key={ds} className="rounded-xl border border-border/60 p-2 text-center" style={isToday?{borderColor:'rgba(147,51,234,0.5)'}:{}}>
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold">{new Date(ds+'T12:00').toLocaleDateString('el-GR',{weekday:'short'})}</p>
+                  <p className="text-xs text-muted-foreground mb-1">{ds.slice(8)}</p>
+                  <div className="flex justify-center gap-0.5 min-h-[18px] flex-wrap">
+                    {done.map(p=>{ const t=planType(p); return <span key={p.id} title={TC_TYPES[t]?.label||p.title}>{TC_TYPES[t]?.emoji||'✅'}</span>; })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* προπονήσεις */}
+        <div className="flex items-center justify-between mb-3">
+          <p className="font-semibold text-foreground">Προπονήσεις ({cPlans.length})</p>
+        </div>
+        <div className="space-y-3">
+          {cPlans.map(p=>{
+            const t = planType(p);
+            const tot = resultTotals(p);
+            const appt = apptForPlan(p.id);
+            const open = openId===p.id;
+            return (
+              <div key={p.id} className="card p-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-xl">{TC_TYPES[t]?.emoji||'📋'}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground truncate">{p.title||'Προπόνηση'}</p>
+                    <p className="text-xs text-muted-foreground">{p.date} · {(p.exercises||[]).length} ασκήσεις{t?` · ${TC_TYPES[t].label}`:''}</p>
+                  </div>
+                  {p.completed
+                    ? <span className="badge badge-green">Ολοκληρώθηκε ✓{tot.planned?` ${tot.done}/${tot.planned} σετ`:''}</span>
+                    : appt
+                      ? <span className="badge badge-blue">Προγραμματισμένη · {appt.date} {appt.start_time}</span>
+                      : <span className="badge">Αποθηκευμένη</span>}
+                  {p.completed && tot.miss>0 && <span className="badge" style={{background:'rgba(244,63,94,0.1)',color:'#e11d48'}}>{tot.miss} κάτω από στόχο</span>}
+                  <div className="flex gap-1">
+                    {!p.completed && <button onClick={()=>navigate('/live-training',{state:{plan:p,clientName:p.client_name||client.name}})} className="p-2 rounded-lg hover:bg-secondary" title="Έναρξη Live"><Play className="w-4 h-4 text-emerald-500"/></button>}
+                    <button onClick={()=>setEditPlan(p)} className="p-2 rounded-lg hover:bg-secondary" title="Επεξεργασία"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
+                    <button onClick={async()=>{ await db.TrainingPlan.delete(p.id); load(); }} className="p-2 rounded-lg hover:bg-secondary" title="Διαγραφή"><Trash2 className="w-4 h-4 text-muted-foreground"/></button>
+                    <button onClick={()=>setOpenId(open?null:p.id)} className="p-2 rounded-lg hover:bg-secondary"><ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${open?'rotate-90':''}`}/></button>
+                  </div>
+                </div>
+                {open && (
+                  <div className="mt-3 pt-3 border-t border-border/60 space-y-1.5">
+                    {(p.exercises||[]).map((ex,i)=>{
+                      const res = (p.session_results||[]).find(r=>r.name===ex.name);
+                      const missEx = res ? (res.sets||[]).filter(s=>s.completed&&s.target_reps&&!s.hit_target).length + ((res.sets_planned||0)-(res.sets_done||0)) : 0;
+                      return (
+                        <div key={i} className="flex items-center gap-3 text-sm">
+                          <span className="text-muted-foreground w-5 text-right">{i+1}.</span>
+                          <span className="text-foreground font-medium flex-1 truncate">{ex.name}</span>
+                          <span className="text-muted-foreground">{ex.sets}×{ex.reps}{ex.weight_kg?` · ${ex.weight_kg}kg`:''}</span>
+                          {res && <span className={`text-xs font-semibold ${missEx?'text-rose-500':'text-emerald-500'}`}>{res.sets_done}/{res.sets_planned} σετ{missEx?` · ${missEx}✗`:''}</span>}
+                        </div>
+                      );
+                    })}
+                    {p.notes && <p className="text-xs text-muted-foreground pt-1">{p.notes}</p>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {!cPlans.length && <div className="text-center py-10 text-muted-foreground text-sm">Καμία προπόνηση ακόμα — πάτα «Δημιουργία προπόνησης».</div>}
+        </div>
+
+        {editPlan && <PlanModal clients={clients} plan={editPlan} onClose={()=>setEditPlan(null)} onSaved={load}/>}
+      </div>
+    );
+  }
+
+  /* ─────────── ΚΕΝΤΡΙΚΗ ΟΨΗ ─────────── */
+  const shown = clients.filter(c=>!search||c.name?.toLowerCase().includes(search.toLowerCase()));
+  const weekTotal = plans.filter(p=>p.completed && ((p.completed_date||p.date||'')>=tcDaysAgo(7))).length;
 
   return (
-    <div className="p-8 max-w-5xl mx-auto animate-fade-in">
-      <div className="flex items-center justify-between mb-8">
-        <div><h1 className="page-title">Training Plans</h1><p className="page-subtitle">{plans.length} plans</p></div>
-        <div className="flex gap-2">
-          <button onClick={()=>setShowManual(true)} className="btn btn-secondary"><Plus className="w-4 h-4"/>Manual</button>
-          <button onClick={()=>setShowWizard(true)} className="btn px-4 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center gap-2" style={{background:'linear-gradient(135deg,#9333ea,#7c3aed)',boxShadow:'0 4px 14px rgba(147,51,234,0.35)'}}>
-            <Sparkles className="w-4 h-4"/>AI Wizard
-          </button>
+    <div className="p-6 md:p-8 max-w-6xl mx-auto animate-fade-in">
+      <div><h1 className="page-title">Training Center</h1><p className="page-subtitle">{clients.length} πελάτες προπόνησης · {weekTotal} ολοκληρωμένες αυτή την εβδομάδα</p></div>
+
+      <div className="relative my-5 max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Αναζήτηση πελάτη…" className="input-base pl-9"/>
+      </div>
+
+      {shown.length===0 ? (
+        <div className="text-center py-24 text-muted-foreground">
+          <Users className="w-12 h-12 mx-auto mb-3 opacity-30"/>
+          <p className="font-medium">Κανένας πελάτης προπόνησης</p>
         </div>
-      </div>
-
-      {/* Client filter */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        <button onClick={()=>setFilterClient('')} className={`tab-btn px-4 ${!filterClient?'active':''}`}>All</button>
-        {clients.map(c=><button key={c.id} onClick={()=>setFilterClient(c.id)} className={`tab-btn px-4 ${filterClient===c.id?'active':''}`}>{c.name}</button>)}
-      </div>
-
-      {/* Plans list */}
-      <div className="space-y-3">
-        {filtered.map(plan=>(
-          <div key={plan.id} className={`card p-4 transition-all hover:shadow-md ${plan.completed?'opacity-55':''}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex gap-3 flex-1 min-w-0">
-                <button onClick={()=>toggle(plan)} className="flex-shrink-0 mt-0.5">
-                  {plan.completed?<CheckCircle2 className="w-5 h-5 text-green-500"/>:<Circle className="w-5 h-5 text-border"/>}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={`font-semibold text-foreground ${plan.completed?'line-through':''}`}>{plan.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{plan.client_name||'—'} · {plan.date?format(parseISO(plan.date),'MMM d, yyyy'):''} · {plan.exercises?.length||0} exercises</p>
-                  {/* Equipment badges used */}
-                  {plan.exercises?.length>0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {[...new Set(plan.exercises.map(e=>e.eq).filter(Boolean))].map(eq=><EqBadge key={eq} eqKey={eq} small/>)}
-                    </div>
-                  )}
-                  {/* Exercise chips */}
-                  {plan.exercises?.length>0&&(
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {plan.exercises.slice(0,5).map((ex,i)=>(
-                        <span key={i} className="badge badge-gray text-xs">{ex.name} {ex.sets}×{ex.reps}{ex.weight_kg?` @ ${ex.weight_kg}kg`:''}</span>
-                      ))}
-                      {plan.exercises.length>5&&<span className="text-xs text-muted-foreground">+{plan.exercises.length-5} more</span>}
-                    </div>
-                  )}
+      ):(
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {shown.map(c=>{
+            const week = weekOf(c.id);
+            const last = plansOf(c.id).filter(p=>p.completed).sort((a,b)=>((b.completed_date||b.date||'').localeCompare(a.completed_date||a.date||'')))[0];
+            return (
+              <div key={c.id} onClick={()=>setSel(c.id)} className="card p-5 hover:shadow-md transition-all cursor-pointer group">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground truncate">{c.name}</p>
+                    <p className="text-sm text-muted-foreground">{c.sessions_per_month?`${c.sessions_per_month}× προπ./μήνα`:c.sessions_per_week?`${c.sessions_per_week}×/εβδ.`:'—'}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground opacity-40 group-hover:opacity-100 flex-shrink-0"/>
+                </div>
+                <div className="mt-3 flex gap-2 flex-wrap items-center">
+                  {week.length
+                    ? <span className="badge badge-green">{week.length} αυτή την εβδομάδα {week.map(p=>TC_TYPES[planType(p)]?.emoji||'').join('')}</span>
+                    : <span className="badge" style={{background:'rgba(245,158,11,0.12)',color:'#d97706'}}>Καμία προπόνηση 7 ημερών</span>}
+                  {last && <span className="text-xs text-muted-foreground">Τελευταία: {(last.completed_date||last.date||'').split('T')[0]}</span>}
                 </div>
               </div>
-              <div className="flex gap-1 flex-shrink-0">
-                <button
-                  onClick={()=>navigate('/live-training',{state:{plan,clientName:plan.client_name||''}})}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold text-white"
-                  style={{background:'linear-gradient(135deg,#059669,#047857)',boxShadow:'0 2px 10px rgba(5,150,105,0.4)'}}>
-                  <Play className="w-3.5 h-3.5"/>Start
-                </button>
-                <button onClick={()=>{setEditing(plan);setShowManual(true);}} className="btn-ghost btn-icon"><Edit2 className="w-4 h-4"/></button>
-                <button onClick={()=>del(plan.id)} className="btn-ghost btn-icon hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {filtered.length===0&&(
-          <div className="text-center py-16 text-muted-foreground">
-            <Dumbbell className="w-10 h-10 mx-auto mb-3 opacity-30"/>
-            <p className="font-medium">No training plans yet</p>
-            <p className="text-sm mt-1">Use the AI Wizard — it selects exercises from your gym equipment</p>
-          </div>
-        )}
-      </div>
-
-      {(showManual||editing)&&<PlanModal clients={clients} plan={editing} onClose={()=>{setShowManual(false);setEditing(null);}} onSaved={load}/>}
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
