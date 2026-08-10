@@ -571,7 +571,9 @@ export default function Nutrition() {
                 <p className="text-sm text-muted-foreground">Fullscreen συνάντηση: μέτρηση → σύγκριση → επιλογή γευμάτων → επόμενο ραντεβού</p>
               </div>
             </div>
-            <button disabled className="btn btn-secondary opacity-50 cursor-not-allowed flex items-center gap-1.5" title="Ενεργοποιείται στο Στάδιο 3"><Lock className="w-3.5 h-3.5" style={{width:14,height:14}}/> Στάδιο 3 — σύντομα</button>
+            {setupDone
+              ? <button onClick={()=>navigate(`/nutrition-meeting?client=${client.id}`)} className="btn btn-primary">Έναρξη Meeting</button>
+              : <button disabled className="btn btn-secondary opacity-50 cursor-not-allowed" title="Χρειάζεται πρώτα Course Planning">Έναρξη Meeting</button>}
           </div>
         </div>
 
