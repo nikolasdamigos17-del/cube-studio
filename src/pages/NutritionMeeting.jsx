@@ -270,20 +270,171 @@ function DeltaChip({ d, dir }) {
   );
 }
 
-function Spark({ data, color }) {
-  if (!data || data.length < 2) return null;
-  const W = 560, H = 74, P = 6;
-  const vals = data.map(d => num(d.weight_kg)).filter(v => v != null);
-  if (vals.length < 2) return null;
-  const mn = Math.min(...vals), mx = Math.max(...vals), rng = (mx - mn) || 1;
-  const pts = vals.map((v, i) => [P + i * (W - 2 * P) / (vals.length - 1), H - P - (v - mn) / rng * (H - 2 * P)]);
-  const line = pts.map(p => p.join(',')).join(' ');
+function useCountUp(target, dur = 1150) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    const t0 = performance.now(); let raf;
+    const tick = (now) => {
+      const pr = Math.min(1, (now - t0) / dur);
+      const e = 1 - Math.pow(1 - pr, 3);
+      setV((target || 0) * e);
+      if (pr < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, dur]);
+  return v;
+}
+
+function BigNum({ value, decimals = 1, size = 66, color = '#fff' }) {
+  const v = useCountUp(num(value) || 0);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:74, display:'block' }}>
-      <polyline points={`${P},${H-P} ${line} ${W-P},${H-P}`} fill={color+'22'} stroke="none"/>
-      <polyline points={line} fill="none" stroke={color} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round"/>
-      <circle cx={pts[pts.length-1][0]} cy={pts[pts.length-1][1]} r="4" fill={color}/>
+    <span style={{ fontSize:size, fontWeight:800, letterSpacing:'-.035em', color, lineHeight:1, fontVariantNumeric:'tabular-nums' }}>
+      {num(value) == null ? '—' : v.toFixed(decimals)}
+    </span>
+  );
+}
+
+function RadialGauge({ label, value, max, unit, color, delta, dir, delay = 0 }) {
+  const R = 62, C = 2 * Math.PI * R, span = 0.78 * C;
+  const frac = Math.max(0, Math.min(1, (num(value) || 0) / max));
+  const [off, setOff] = useState(span);
+  useEffect(() => { const t = setTimeout(() => setOff(span * (1 - frac)), 150 + delay * 1000); return () => clearTimeout(t); }, [frac, delay, span]);
+  const v = useCountUp(num(value) || 0);
+  return (
+    <div style={{ textAlign:'center' }}>
+      <svg viewBox="0 0 160 150" style={{ width:'100%', maxWidth:185, display:'block', margin:'0 auto' }}>
+        <g transform="rotate(130 80 80)">
+          <circle cx="80" cy="80" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="11" strokeDasharray={`${span} ${C}`} strokeLinecap="round"/>
+          <circle cx="80" cy="80" r={R} fill="none" stroke={color} strokeWidth="11" strokeDasharray={`${span} ${C}`} strokeDashoffset={off} strokeLinecap="round"
+            style={{ transition:'stroke-dashoffset 1.35s cubic-bezier(.22,1,.36,1)', filter:`drop-shadow(0 0 9px ${color}66)` }}/>
+        </g>
+        <text x="80" y="78" textAnchor="middle" fill="#fff" style={{ fontSize:30, fontWeight:800, fontVariantNumeric:'tabular-nums', fontFamily:'inherit' }}>{num(value) == null ? '—' : v.toFixed(1)}</text>
+        <text x="80" y="98" textAnchor="middle" fill="rgba(255,255,255,0.45)" style={{ fontSize:11, fontFamily:'inherit' }}>{unit}</text>
+      </svg>
+      <p style={{ margin:'0 0 7px', fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.45)', fontWeight:700 }}>{label}</p>
+      <DeltaChip d={delta} dir={dir}/>
+    </div>
+  );
+}
+
+function BarsCompare({ label, unit, prev, now, color, delta, dir, delay = 0 }) {
+  const mx = Math.max(num(prev) || 0, num(now) || 0, 1);
+  const [grow, setGrow] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setGrow(true), 200 + delay * 1000); return () => clearTimeout(t); }, [delay]);
+  const H = 118;
+  const bar = (v, dim, lbl) => (
+    <div key={lbl} style={{ textAlign:'center', flex:1 }}>
+      <div style={{ height:H, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+        <div style={{ width:36, borderRadius:'10px 10px 4px 4px', minHeight:5,
+          height: grow ? `${Math.max(4, (num(v) || 0) / mx * 100)}%` : '4%',
+          background: dim ? 'rgba(255,255,255,0.14)' : `linear-gradient(180deg, ${color}, ${color}77)`,
+          boxShadow: dim ? 'none' : `0 0 18px ${color}55`,
+          transition:'height 1.15s cubic-bezier(.22,1,.36,1)' }}/>
+      </div>
+      <p style={{ margin:'8px 0 0', fontSize:16, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>{num(v) == null ? '—' : v}<span style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}> {unit}</span></p>
+      <p style={{ margin:0, fontSize:10, color:'rgba(255,255,255,0.4)' }}>{lbl}</p>
+    </div>
+  );
+  return (
+    <div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+        <p style={{ margin:0, fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.45)', fontWeight:700 }}>{label}</p>
+        <DeltaChip d={delta} dir={dir}/>
+      </div>
+      <div style={{ display:'flex', gap:14, alignItems:'flex-end' }}>
+        {bar(prev, true, 'Προηγούμενη')}
+        {bar(now, false, 'Τώρα')}
+      </div>
+    </div>
+  );
+}
+
+function WeightJourney({ data, color, color2 }) {
+  const pts = (data || []).map(d => ({ d: d.date, v: num(d.weight_kg) })).filter(x => x.v != null);
+  const [drawn, setDrawn] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setDrawn(true), 250); return () => clearTimeout(t); }, []);
+  if (pts.length < 2) return <p style={{ color:'rgba(255,255,255,0.4)', fontSize:12.5, margin:0 }}>Χρειάζονται ≥2 μετρήσεις για την πορεία.</p>;
+  const W = 640, H = 172, PX = 40, PY = 24;
+  const vals = pts.map(x => x.v);
+  const mn = Math.min(...vals), mx = Math.max(...vals), rng = (mx - mn) || 1;
+  const X = i => PX + i * (W - 2 * PX) / (pts.length - 1);
+  const Y = v => H - PY - (v - mn) / rng * (H - 2 * PY);
+  let dd = `M ${X(0)} ${Y(vals[0])}`;
+  for (let i = 1; i < pts.length; i++) {
+    const px = X(i - 1), py = Y(vals[i - 1]), cx = X(i), cy = Y(vals[i]);
+    dd += ` Q ${px} ${py}, ${(px + cx) / 2} ${(py + cy) / 2}`;
+  }
+  dd += ` L ${X(pts.length - 1)} ${Y(vals[vals.length - 1])}`;
+  const area = dd + ` L ${X(pts.length - 1)} ${H - PY} L ${X(0)} ${H - PY} Z`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', display:'block' }}>
+      <defs>
+        <linearGradient id="wjfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.32"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0"/>
+        </linearGradient>
+        <linearGradient id="wjline" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor={color}/>
+          <stop offset="100%" stopColor={color2 || color}/>
+        </linearGradient>
+      </defs>
+      {[mn, mx].map((g, i) => (
+        <g key={i}>
+          <line x1={PX} x2={W - PX} y1={Y(g)} y2={Y(g)} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 5"/>
+          <text x={PX - 7} y={Y(g) + 4} textAnchor="end" fill="rgba(255,255,255,0.35)" style={{ fontSize:10.5, fontFamily:'inherit', fontVariantNumeric:'tabular-nums' }}>{g.toFixed(1)}</text>
+        </g>
+      ))}
+      <path d={area} fill="url(#wjfill)" style={{ opacity: drawn ? 1 : 0, transition:'opacity 1.2s .4s' }}/>
+      <path d={dd} fill="none" stroke="url(#wjline)" strokeWidth="3" strokeLinecap="round"
+        pathLength="1" strokeDasharray="1" strokeDashoffset={drawn ? 0 : 1}
+        style={{ transition:'stroke-dashoffset 1.5s cubic-bezier(.4,0,.2,1)', filter:`drop-shadow(0 0 7px ${color}66)` }}/>
+      {pts.map((x, i) => i === pts.length - 1 ? null : (
+        <circle key={i} cx={X(i)} cy={Y(x.v)} r="3" fill="#0b0b12" stroke={color} strokeWidth="1.6" style={{ opacity: drawn ? 1 : 0, transition:`opacity .4s ${0.3 + i * 0.07}s` }}/>
+      ))}
+      <circle cx={X(pts.length - 1)} cy={Y(vals[vals.length - 1])} r="5" fill={color2 || color} style={{ filter:`drop-shadow(0 0 8px ${color2 || color})` }}/>
+      <circle cx={X(pts.length - 1)} cy={Y(vals[vals.length - 1])} r="5" fill="none" stroke={color2 || color} strokeWidth="2" className="nmping"/>
+      <text x={X(0)} y={H - 6} textAnchor="start" fill="rgba(255,255,255,0.35)" style={{ fontSize:10, fontFamily:'inherit' }}>{pts[0].d}</text>
+      <text x={X(pts.length - 1)} y={H - 6} textAnchor="end" fill="rgba(255,255,255,0.35)" style={{ fontSize:10, fontFamily:'inherit' }}>{pts[pts.length - 1].d}</text>
     </svg>
+  );
+}
+
+function CompositionDonut({ weight, fatPct, muscleKg, delay = 0 }) {
+  const w = num(weight);
+  const fat = (w != null && num(fatPct) != null) ? w * num(fatPct) / 100 : null;
+  const mus = num(muscleKg);
+  const [on, setOn] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setOn(true), 200 + delay * 1000); return () => clearTimeout(t); }, [delay]);
+  if (w == null || (fat == null && mus == null)) return <p style={{ color:'rgba(255,255,255,0.4)', fontSize:12.5, margin:0, textAlign:'center' }}>Χωρίς δεδομένα σύνθεσης.</p>;
+  const f = fat || 0, m = mus || 0, rest = Math.max(0, w - f - m);
+  const R = 56, C = 2 * Math.PI * R;
+  const segs = [[f, '#f87171', 'Λίπος'], [m, '#34d399', 'Μυς'], [rest, 'rgba(255,255,255,0.14)', 'Λοιπά']];
+  let acc = 0;
+  return (
+    <div style={{ textAlign:'center' }}>
+      <svg viewBox="0 0 150 150" style={{ width:'100%', maxWidth:172, display:'block', margin:'0 auto' }}>
+        <g transform="rotate(-90 75 75)">
+          {segs.map(([val, col], i) => {
+            const len = on ? (val / w) * C : 0;
+            const offAcc = acc; acc += val;
+            return <circle key={i} cx="75" cy="75" r={R} fill="none" stroke={col} strokeWidth="14"
+              strokeDasharray={`${len} ${C}`} strokeDashoffset={-(offAcc / w) * C}
+              style={{ transition:'stroke-dasharray 1.25s cubic-bezier(.22,1,.36,1)' }}/>;
+          })}
+        </g>
+        <text x="75" y="71" textAnchor="middle" fill="#fff" style={{ fontSize:24, fontWeight:800, fontVariantNumeric:'tabular-nums', fontFamily:'inherit' }}>{w.toFixed(1)}</text>
+        <text x="75" y="90" textAnchor="middle" fill="rgba(255,255,255,0.45)" style={{ fontSize:10.5, fontFamily:'inherit' }}>kg σύνολο</text>
+      </svg>
+      <p style={{ margin:'0 0 8px', fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.45)', fontWeight:700 }}>Σύνθεση σώματος</p>
+      <div style={{ display:'flex', justifyContent:'center', gap:12, flexWrap:'wrap' }}>
+        {segs.map(([val, col, lbl]) => (
+          <span key={lbl} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, color:'rgba(255,255,255,0.65)' }}>
+            <span style={{ width:8, height:8, borderRadius:2, background:col, display:'inline-block' }}/>{lbl} {val ? val.toFixed(1) : '0'}kg
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -624,46 +775,80 @@ export default function NutritionMeeting() {
               )}
             </div>
           ) : (
-            <div>
-              <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:18 }}>
+            <div key={current.id}>
+              <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:16 }}>
                 <div>
                   <span style={S.kicker}>Αποτελέσματα μέτρησης</span>
-                  <h2 style={{ fontSize:26, fontWeight:800, margin:'6px 0 0', letterSpacing:'-.02em' }}>{client.name}</h2>
+                  <h2 style={{ fontSize:25, fontWeight:800, margin:'6px 0 0', letterSpacing:'-.02em' }}>{client.name}</h2>
                 </div>
                 <span style={{ ...S.dim, fontSize:12.5 }}>{current.date}{prev ? ` · σύγκριση με ${prev.date}` : ''}</span>
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))', gap:14, marginBottom:16 }}>
-                {[['weight_kg','Βάρος','kg','#818cf8'],['muscle_mass_kg','Μυϊκή μάζα','kg','#34d399'],['body_fat_pct','Λίπος','%','#f87171'],['body_water_pct','Νερό','%','#38bdf8']].map(([k,l,u,col]) => (
-                  <div key={k} style={{ ...S.card, borderTop:`2px solid ${col}66` }}>
-                    <p style={{ ...S.lbl, margin:'0 0 8px' }}>{l}</p>
-                    <div style={{ display:'flex', alignItems:'flex-end', gap:10, justifyContent:'space-between' }}>
-                      <p style={{ fontSize:38, fontWeight:800, margin:0, lineHeight:1, color:'#fff' }}>{num(current[k]) ?? '—'}<span style={{ fontSize:14, color:'rgba(255,255,255,0.4)' }}> {u}</span></p>
-                      <DeltaChip d={dlt(current, prev, k)} dir={goodDir(k, profile?.goal_type)}/>
+              {/* hero: βάρος */}
+              <div className="nmreveal" style={{ ...S.card, textAlign:'center', padding:'28px 22px 24px', marginBottom:14, position:'relative', overflow:'hidden' }}>
+                <div style={{ position:'absolute', inset:'-40% -20%', background:`radial-gradient(closest-side, ${P[0]}18, transparent 70%)`, pointerEvents:'none' }}/>
+                <p style={{ ...S.lbl, margin:'0 0 10px', position:'relative' }}>Βάρος</p>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:16, position:'relative', flexWrap:'wrap' }}>
+                  <div>
+                    <BigNum value={current.weight_kg} size={72}/>
+                    <span style={{ fontSize:17, color:'rgba(255,255,255,0.4)', fontWeight:700, marginLeft:6 }}>kg</span>
+                  </div>
+                  <DeltaChip d={dlt(current, prev, 'weight_kg')} dir={goodDir('weight_kg', profile?.goal_type)}/>
+                </div>
+                {(() => {
+                  const firstW = num(history[0]?.weight_kg), curW = num(current.weight_kg), tgt = num(profile?.target_weight);
+                  if (firstW == null || curW == null || tgt == null || firstW === tgt) return null;
+                  const prog = Math.max(0, Math.min(1, (firstW - curW) / (firstW - tgt)));
+                  return (
+                    <div style={{ maxWidth:520, margin:'20px auto 0', position:'relative' }}>
+                      <div style={{ height:9, borderRadius:999, background:'rgba(255,255,255,0.08)', overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${prog*100}%`, borderRadius:999, background:`linear-gradient(90deg, ${P[0]}, ${P[1]})`, boxShadow:`0 0 14px ${P[1]}66`, transition:'width 1.4s cubic-bezier(.22,1,.36,1)' }}/>
+                      </div>
+                      <div style={{ display:'flex', justifyContent:'space-between', marginTop:7, fontSize:10.5, color:'rgba(255,255,255,0.42)' }}>
+                        <span>Αφετηρία {firstW}kg</span>
+                        <span style={{ color:'#fff', fontWeight:800 }}>{Math.round(prog*100)}% προς τον στόχο</span>
+                        <span>Στόχος {tgt}kg</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* gauges + σύνθεση */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(215px,1fr))', gap:14, marginBottom:14 }}>
+                <div className="nmreveal" style={{ ...S.card, animationDelay:'.1s' }}>
+                  <RadialGauge label="Λίπος" value={current.body_fat_pct} max={45} unit="%" color="#f87171" delta={dlt(current, prev, 'body_fat_pct')} dir={-1} delay={0.15}/>
+                </div>
+                <div className="nmreveal" style={{ ...S.card, animationDelay:'.2s' }}>
+                  <CompositionDonut weight={current.weight_kg} fatPct={current.body_fat_pct} muscleKg={current.muscle_mass_kg} delay={0.25}/>
+                </div>
+                <div className="nmreveal" style={{ ...S.card, animationDelay:'.3s' }}>
+                  <RadialGauge label="Νερό" value={current.body_water_pct} max={70} unit="%" color="#38bdf8" delta={dlt(current, prev, 'body_water_pct')} dir={1} delay={0.35}/>
+                </div>
+              </div>
+
+              {/* μυς + πορεία */}
+              <div style={{ display:'grid', gridTemplateColumns:'minmax(230px,1fr) 2fr', gap:14, marginBottom:14 }}>
+                <div className="nmreveal" style={{ ...S.card, animationDelay:'.38s' }}>
+                  <BarsCompare label="Μυϊκή μάζα" unit="kg" prev={prev?.muscle_mass_kg} now={current.muscle_mass_kg} color="#34d399" delta={dlt(current, prev, 'muscle_mass_kg')} dir={1} delay={0.4}/>
+                </div>
+                <div className="nmreveal" style={{ ...S.card, animationDelay:'.46s' }}>
+                  <p style={{ ...S.lbl, margin:'0 0 10px' }}>Πορεία βάρους</p>
+                  <WeightJourney data={[...history.filter(h => h.id !== current.id), current].slice(-12)} color={P[0]} color2={P[1]}/>
+                </div>
+              </div>
+
+              {/* δευτερεύοντες δείκτες */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12 }}>
+                {[['bmi','BMI'],['bmr','BMR'],['visceral_fat','Σπλαχνικό λίπος'],['bone_mass_kg','Οστική μάζα kg']].map(([k,l], i) => (
+                  <div key={k} className="nmreveal" style={{ ...S.card, padding:'13px 15px', animationDelay:`${0.52 + i*0.07}s` }}>
+                    <p style={{ ...S.lbl, fontSize:9.5, margin:'0 0 6px' }}>{l}</p>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
+                      <span style={{ fontSize:21, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>{num(current[k]) ?? '—'}</span>
+                      <DeltaChip d={dlt(current, prev, k)} dir={0}/>
                     </div>
                   </div>
                 ))}
-              </div>
-
-              <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr', gap:14, alignItems:'stretch' }}>
-                <div style={S.card}>
-                  <p style={{ ...S.lbl, margin:'0 0 10px' }}>Πορεία βάρους</p>
-                  <Spark data={[...history.filter(h => h.id !== current.id), current].slice(-12)} color={ACC}/>
-                </div>
-                <div style={{ ...S.card }}>
-                  <p style={{ ...S.lbl, margin:'0 0 10px' }}>Δευτερεύοντες δείκτες</p>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                    {[['bmi','BMI'],['bmr','BMR'],['visceral_fat','Σπλαχνικό'],['bone_mass_kg','Οστά kg']].map(([k,l]) => (
-                      <div key={k} style={{ background:'rgba(0,0,0,0.3)', borderRadius:12, padding:'10px 12px', border:'1px solid rgba(255,255,255,0.07)' }}>
-                        <p style={{ ...S.lbl, fontSize:9.5, margin:'0 0 4px' }}>{l}</p>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
-                          <span style={{ fontSize:19, fontWeight:800 }}>{num(current[k]) ?? '—'}</span>
-                          <DeltaChip d={dlt(current, prev, k)} dir={0}/>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
               <p style={{ ...S.dim, fontSize:12, textAlign:'center', marginTop:18 }}>Όταν ολοκληρώσετε τη συζήτηση, πάτησε το διακριτικό Next πάνω δεξιά.</p>
             </div>
@@ -1021,6 +1206,10 @@ export default function NutritionMeeting() {
         @keyframes nmpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.07);opacity:.7}}
         @keyframes nmfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
         @keyframes nmshimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+        .nmreveal{animation:nmrev .75s cubic-bezier(.22,1,.36,1) both}
+        @keyframes nmrev{from{opacity:0;transform:translateY(16px) scale(.985)}to{opacity:1;transform:none}}
+        .nmping{animation:nmping 1.8s ease-out infinite;transform-origin:center;transform-box:fill-box}
+        @keyframes nmping{0%{transform:scale(1);opacity:.9}75%,100%{transform:scale(2.4);opacity:0}}
         @media (max-width: 900px){ [style*="grid-template-columns: 290px 1fr"]{ grid-template-columns: 1fr !important; } }
       `}</style>
     </div>

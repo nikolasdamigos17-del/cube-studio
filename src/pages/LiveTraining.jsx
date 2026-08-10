@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { db } from '../lib/db';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { EQUIPMENT } from '../lib/gymEquipment';
 import CubeBackground from '../components/CubeBackground';
@@ -309,8 +310,28 @@ export default function LiveTraining() {
   }, [phase, rep, setIdx, sets.length, commit]);
 
   const afterRest = () => { setSetIdx(i => i + 1); setRep(0); setPhase('active'); };
+  /* μόνιμη αποθήκευση αποτελεσμάτων της live προπόνησης στο πλάνο (in-app tracking) */
+  const saveResults = () => {
+    if (!plan?.id) return;
+    const session_results = exercises.map((ex, i) => {
+      const planned = ex.set_details?.length || ex.sets || 0;
+      const sets = [];
+      let done = 0;
+      for (let sN = 0; sN < planned; sN++) {
+        const reps_done = logged[`${i}-${sN}`] ?? 0;
+        const target = ex.set_details?.[sN]?.reps || parseInt(ex.reps) || 0;
+        const w = ex.set_details?.[sN]?.weight_kg ?? ex.weight_kg ?? 0;
+        if (reps_done > 0) done++;
+        sets.push({ set: sN + 1, reps_done, target_reps: target, weight_kg: w,
+          completed: reps_done > 0, hit_target: target ? reps_done >= target : reps_done > 0 });
+      }
+      return { name: ex.name, sets_planned: planned, sets_done: done, sets };
+    });
+    db.TrainingPlan.update(plan.id, { completed: true, completed_date: new Date().toISOString(), session_results }).catch(() => {});
+  };
+
   const afterExRest = () => {
-    if (exIdx + 1 >= exercises.length) { setScreen('finish'); return; }
+    if (exIdx + 1 >= exercises.length) { saveResults(); setScreen('finish'); return; }
     setExIdx(i => i + 1); setSetIdx(0); setRep(0); setPhase('ready');
   };
 

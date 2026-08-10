@@ -56,7 +56,6 @@ export const db = {
   TodoItem: createEntity('todos'),
   Message: createEntity('messages'),
   Group: createEntity('groups'),
-  HevyWorkout: createEntity('hevy_workouts'),
   ClientReminder: createEntity('client_reminders'),
   AppointmentRequest: createEntity('appointment_requests'),
   NutritionProfile: createEntity('nutrition_profiles'),
@@ -88,7 +87,7 @@ export async function callAI(prompt, systemPrompt) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4000,
+        max_tokens: 4096,
         system: systemPrompt || 'You are a helpful fitness and nutrition assistant.',
         messages: [{ role: 'user', content: prompt }],
       }),

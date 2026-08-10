@@ -88,7 +88,7 @@ export default function LoginGate() {
             Training plans, nutrition, client progress and payments — all in one workspace built for personal trainers.
           </p>
           <div className="mt-8 space-y-3">
-            {['AI-powered training & nutrition plans', 'Hevy workout sync', 'Client portal included', 'Full logistics & billing'].map(f => (
+            {['AI-powered training & nutrition plans', 'Live in-app workout tracking', 'Client portal included', 'Full logistics & billing'].map(f => (
               <div key={f} className="flex items-center gap-3 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 <div className="w-1.5 h-1.5 rounded-full bg-white/40 flex-shrink-0" />
                 {f}

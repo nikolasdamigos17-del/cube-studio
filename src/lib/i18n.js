@@ -11,7 +11,6 @@ export const T = {
   nav_nutrition:   { en:'Nutrition',   el:'Διατροφή'     },
   nav_statistics:  { en:'Statistics',  el:'Στατιστικά'   },
   nav_logistics:   { en:'Logistics',   el:'Οικονομικά'   },
-  nav_hevy:        { en:'Hevy Sync',   el:'Hevy Sync'    },
   nav_messages:    { en:'Messages',    el:'Μηνύματα'     },
 
   // ── App branding ─────────────────────────────────────────────────────────────
@@ -148,22 +147,6 @@ export const T = {
   messages_send:   { en:'Send',                       el:'Αποστολή'                    },
   messages_no_conv:{ en:'Select a conversation',      el:'Επιλογή συνομιλίας'          },
 
-  // ── Hevy ─────────────────────────────────────────────────────────────────────
-  hevy_title:      { en:'Hevy Sync',                  el:'Hevy Sync'                   },
-  hevy_connected:  { en:'Connected',                  el:'Συνδεδεμένο'                 },
-  hevy_monitor:    { en:'Live Training Monitor',      el:'Ζωντανή Παρακολούθηση'       },
-  hevy_history:    { en:'Workout History',            el:'Ιστορικό Προπόνησης'         },
-  hevy_push:       { en:'Push Plans',                 el:'Αποστολή Πλάνων'             },
-  hevy_saved:      { en:'Saved',                      el:'Αποθηκευμένα'                },
-  hevy_start:      { en:'Start',                      el:'Έναρξη'                      },
-  hevy_stop:       { en:'Stop',                       el:'Διακοπή'                     },
-  hevy_watching:   { en:'Watching Hevy every 15 seconds', el:'Παρακολούθηση Hevy κάθε 15 δευτερόλεπτα' },
-  hevy_waiting:    { en:'Waiting for workouts...',    el:'Αναμονή για προπονήσεις...'  },
-  hevy_load:       { en:'Load Workouts',              el:'Φόρτωση Προπονήσεων'         },
-  hevy_refresh:    { en:'Refresh',                    el:'Ανανέωση'                    },
-  hevy_assign:     { en:'Assign to client...',        el:'Ανάθεση σε πελάτη...'        },
-  hevy_push_plan:  { en:'Push to Hevy',               el:'Αποστολή στο Hevy'           },
-  hevy_no_workouts:{ en:'No workouts found in Hevy',  el:'Δεν βρέθηκαν προπονήσεις'   },
 
   // ── Client Portal ────────────────────────────────────────────────────────────
   cp_home:         { en:'Home',                       el:'Αρχική'                      },

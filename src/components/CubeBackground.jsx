@@ -10,7 +10,6 @@ const PAGE_ANGLES = {
   '/Nutrition':         { rotX:  28, rotY: 285 },
   '/Statistics':        { rotX:  13, rotY: 345 },
   '/Logistics':         { rotX:  30, rotY:  62 },
-  '/HevySync':          { rotX:  17, rotY: 188 },
   '/Messages':          { rotX:  26, rotY: 250 },
   '/client-home':       { rotX:  24, rotY:  35 },
   '/client-training':   { rotX:  16, rotY: 105 },

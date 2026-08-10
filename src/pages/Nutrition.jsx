@@ -586,14 +586,21 @@ export default function Nutrition() {
               <p className="text-sm text-muted-foreground">Meetings που περιμένουν δημιουργία διατροφής</p>
             </div>
           </div>
-          {orders.length===0
-            ? <p className="text-sm text-muted-foreground pl-12">Καμία εκκρεμής παραγγελία.</p>
-            : orders.map(o=>(
-                <div key={o.id} className="flex items-center justify-between gap-3 pl-12 py-2 border-t border-border/50 first:border-0">
-                  <div><p className="text-sm font-medium text-foreground">{o.date}</p><p className="text-xs text-muted-foreground">{(o.selected_meals||[]).length} επιλεγμένα γεύματα</p></div>
-                  <button disabled className="btn btn-secondary opacity-50 cursor-not-allowed" title="Ενεργοποιείται στο Στάδιο 4">Δημιουργία διατροφής — Στάδιο 4</button>
+          {(() => {
+            const allOrders = meetings.filter(m => m.client_id===client.id && (m.status==='ordered' || m.status==='plan_created'));
+            if (!allOrders.length) return <p className="text-sm text-muted-foreground pl-12">Καμία εκκρεμής παραγγελία.</p>;
+            return allOrders.map(o => (
+              <div key={o.id} className="flex items-center justify-between gap-3 pl-12 py-2 border-t border-border/50 first:border-0">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{o.date} {o.status==='plan_created' && <span className="badge badge-green ml-1">Διατροφή ✓</span>}</p>
+                  <p className="text-xs text-muted-foreground">{(o.selected_meals||[]).length} επιλεγμένα γεύματα</p>
                 </div>
-              ))}
+                {o.status==='ordered'
+                  ? <button onClick={()=>navigate(`/plan-creator?client=${client.id}&meeting=${o.id}`)} className="btn btn-primary">Δημιουργία διατροφής</button>
+                  : <button onClick={async()=>{ await db.NutritionMeeting.delete(o.id); load(); }} className="btn btn-secondary flex items-center gap-1.5" title="Διαγραφή γευματικών επιλογών (η διατροφή έχει σταλεί)"><Trash2 style={{width:14,height:14}}/> Διαγραφή</button>}
+              </div>
+            ));
+          })()}
         </div>
 
         {/* Διατροφές */}
