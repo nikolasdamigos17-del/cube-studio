@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, X, Loader2, Brain, Flame, Beef, Droplets, Pill, Plus, ArrowLeft, Dumbbell, TrendingDown, Utensils, Sparkles } from 'lucide-react';
+import { Check, X, Loader2, Brain, Flame, Beef, Droplets, Pill, Plus, ArrowLeft, Dumbbell, TrendingDown, Utensils, Sparkles, Pencil } from 'lucide-react';
 import { db, callAI } from '../lib/db';
 
 /* ═══════════ βοηθητικά ═══════════ */
@@ -100,6 +100,17 @@ function fallbackAnalysis({ profile, progress, plans, client }) {
   points.push({ tag:'ΠΡΟΤΑΣΗ', text:`Με βάση BMR ~${bmr} και στόχο «${GOAL_LABELS[goal] || 'υγεία'}», πρόταση ${cal} kcal και ${protein}g πρωτεΐνης/ημέρα.` });
   return { points, calories: cal, protein_g: protein, water_l: water, supplements: [], add_postworkout: false };
 }
+
+/* κλιμάκωση ποσοτήτων συνταγής σε νέο στόχο θερμίδων — τοπικά, επί τόπου */
+const scaleQuantities = (txt, ratio) => (txt || '').replace(/(\d+(?:[.,]\d+)?)(\s*%)?/g, (m, numStr, pct) => {
+  if (pct) return m;                                  // ποσοστά (π.χ. γάλα 1.5%, σοκολάτα 70%) δεν αγγίζονται
+  const v = parseFloat(numStr.replace(',', '.'));
+  if (isNaN(v)) return m;
+  let nv = v * ratio;
+  nv = v >= 20 ? Math.round(nv / 5) * 5 : v >= 5 ? Math.round(nv) : Math.round(nv * 10) / 10;
+  if (nv <= 0) nv = v >= 5 ? 1 : 0.5;
+  return String(nv);
+});
 
 /* ═══════════ Component ═══════════ */
 
@@ -217,6 +228,7 @@ ${secTxt}
 - Προτιμήσεις: ${(profile.liked || []).join(', ') || '—'}.
 - ingredients: μορφή "υλικό ποσότητα, υλικό ποσότητα" (π.χ. "Κοτόπουλο στήθος 180g, Ρύζι 90g (άβραστο), Ελαιόλαδο 10g").
 - description: έως 8 λέξεις.
+- Ονόματα γευμάτων: ΦΥΣΙΚΑ ελληνικά, όπως σε ελληνικό μενού· καθιερωμένοι διεθνείς όροι μένουν αυτούσιοι (pancakes, smoothie, toast, wrap, bowl)· ΟΧΙ κατά λέξη μεταφράσεις.
 Απάντησε ΜΟΝΟ με JSON (χωρίς markdown):
 {"title":"...","meal_sections":[{"section_name":"...","time":"...","options":[{"name":"...","description":"...","ingredients":"...","calories":600,"protein":45,"carbs":55,"fat":18}]}],"notes":"..."}`;
     const r = await callAI(prompt, 'You are an expert dietitian. Return ONLY valid JSON. Start with {');
@@ -247,7 +259,21 @@ ${secTxt}
 
   const editOpt = (sid, oid, k, v) => setSections(p => p.map(s => s._id !== sid ? s : { ...s, options: s.options.map(o => o._id !== oid ? o : { ...o, [k]: v }) }));
   const delOpt = (sid, oid) => setSections(p => p.map(s => s._id !== sid ? s : { ...s, options: s.options.filter(o => o._id !== oid) }));
-  const addOpt = (sid) => setSections(p => p.map(s => s._id !== sid ? s : { ...s, options: [...s.options, { _id: sid + 'o' + Date.now(), name:'', description:'', ingredients:'', calories:'', protein:'', carbs:'', fat:'' }] }));
+  const addOpt = (sid) => setSections(p => p.map(s => s._id !== sid ? s : { ...s, options: [...s.options, { _id: sid + 'o' + Date.now(), name:'', description:'', ingredients:'', calories:'', protein:'', carbs:'', fat:'', _edit:true }] }));
+
+  const applyCal = (sid, oid) => setSections(p => p.map(s => s._id !== sid ? s : { ...s, options: s.options.map(o => {
+    if (o._id !== oid) return o;
+    const target = num(o._calDraft);
+    if (target == null || target <= 0) return o;
+    const base = num(o.calories);
+    if (!base) return { ...o, calories: target, _calDraft: String(target) };
+    const r = target / base;
+    return { ...o, calories: target, _calDraft: String(target),
+      ingredients: scaleQuantities(o.ingredients, r),
+      protein: num(o.protein) != null ? Math.round(num(o.protein) * r) : o.protein,
+      carbs:   num(o.carbs)   != null ? Math.round(num(o.carbs)   * r) : o.carbs,
+      fat:     num(o.fat)     != null ? Math.round(num(o.fat)     * r) : o.fat };
+  }) }));
 
   const approve = async () => {
     setSaving(true);
@@ -256,7 +282,7 @@ ${secTxt}
       client_id: clientId, client_name: client.name, date: todayStr(), title,
       calories: num(calories), protein: num(proteinG), water_liters_daily: num(waterL),
       supplements: sups, notes,
-      meal_sections: sections.map(({ _id, options, ...s }) => ({ ...s, options: options.map(({ _id: oid, ...o }) => ({ ...o, calories: num(o.calories), protein: num(o.protein), carbs: num(o.carbs), fat: num(o.fat) })) })),
+      meal_sections: sections.map(({ _id, options, ...s }) => ({ ...s, options: options.map(({ _id: oid, _edit, _calDraft, ...o }) => ({ ...o, calories: num(o.calories), protein: num(o.protein), carbs: num(o.carbs), fat: num(o.fat) })) })),
     });
     await db.NutritionMeeting.update(meeting.id, { status:'plan_created', plan_id: plan.id });
     navigate('/Nutrition');
@@ -437,27 +463,65 @@ ${secTxt}
                 <button onClick={() => !saving && approve()} style={{ ...S.btn(true), opacity: saving ? 0.6 : 1 }}>{saving ? 'Αποθήκευση…' : 'Έγκριση & Αποστολή'}</button>
               </div>
             </div>
-            <p style={{ ...S.dim, fontSize:11.5, margin:'0 0 14px' }}>Το ημερήσιο σύνολο υπολογίζεται με την 1η επιλογή κάθε κατηγορίας. Επεξεργάσου ποσότητες/νούμερα ελεύθερα — μικρο-επεξεργασία πριν την έγκριση.</p>
+            <p style={{ ...S.dim, fontSize:11.5, margin:'0 0 14px' }}>Το ημερήσιο σύνολο υπολογίζεται με την 1η επιλογή κάθε κατηγορίας. Άλλαξε ΜΟΝΟ το κουτάκι kcal ενός γεύματος και πάτα το ✓ — οι ποσότητες των υλικών προσαρμόζονται αυτόματα επί τόπου.</p>
 
             {sections.map(sec => (
               <div key={sec._id} style={{ ...S.card, marginBottom:12 }}>
-                <p style={{ ...S.lbl, color:ACC, margin:'0 0 10px' }}>{sec.section_name}{sec.time ? ` · ${sec.time}` : ''}</p>
+                <p style={{ ...S.lbl, color:ACC, margin:'0 0 6px' }}>{sec.section_name}{sec.time ? ` · ${sec.time}` : ''}</p>
                 {sec.options.map((o, oi) => (
-                  <div key={o._id} style={{ padding:'10px 0', borderTop:'1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ display:'flex', gap:9, alignItems:'center', marginBottom:7 }}>
-                      <span style={{ ...S.lbl, fontSize:9, flexShrink:0 }}>{oi === 0 ? 'Επιλογή 1 ★' : `Επιλογή ${oi + 1}`}</span>
-                      <input style={{ ...S.inp, padding:'7px 10px', fontWeight:800 }} value={o.name || ''} onChange={e => editOpt(sec._id, o._id, 'name', e.target.value)} placeholder="Όνομα γεύματος"/>
-                      <button onClick={() => delOpt(sec._id, o._id)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, flexShrink:0 }}><X style={{ width:15, height:15, color:'rgba(255,255,255,0.4)' }}/></button>
-                    </div>
-                    <input style={{ ...S.inp, padding:'7px 10px', fontSize:12.5, marginBottom:7 }} value={o.ingredients || ''} onChange={e => editOpt(sec._id, o._id, 'ingredients', e.target.value)} placeholder="Υλικά με ποσότητες (π.χ. Κοτόπουλο 180g, Ρύζι 90g)"/>
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:7 }}>
-                      {[['calories','kcal'],['protein','Πρωτ. g'],['carbs','Υδατ. g'],['fat','Λίπη g']].map(([k, l]) => (
-                        <div key={k}>
-                          <p style={{ ...S.lbl, fontSize:8.5, margin:'0 0 3px' }}>{l}</p>
-                          <input style={{ ...S.inp, padding:'6px 9px', fontSize:13 }} type="number" value={o[k] ?? ''} onChange={e => editOpt(sec._id, o._id, k, e.target.value)}/>
+                  <div key={o._id} style={{ padding:'12px 0', borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                    {o._edit ? (
+                      <div>
+                        <div style={{ display:'flex', gap:9, alignItems:'center', marginBottom:7 }}>
+                          <input style={{ ...S.inp, padding:'7px 10px', fontWeight:800 }} value={o.name || ''} onChange={e => editOpt(sec._id, o._id, 'name', e.target.value)} placeholder="Όνομα γεύματος"/>
+                          <button onClick={() => delOpt(sec._id, o._id)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, flexShrink:0 }}><X style={{ width:15, height:15, color:'rgba(255,255,255,0.4)' }}/></button>
                         </div>
-                      ))}
-                    </div>
+                        <input style={{ ...S.inp, padding:'7px 10px', fontSize:12.5, marginBottom:7 }} value={o.ingredients || ''} onChange={e => editOpt(sec._id, o._id, 'ingredients', e.target.value)} placeholder="Υλικά με ποσότητες (π.χ. Κοτόπουλο 180g, Ρύζι 90g)"/>
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:7, marginBottom:9 }}>
+                          {[['calories','kcal'],['protein','Πρωτ. g'],['carbs','Υδατ. g'],['fat','Λίπη g']].map(([k, l]) => (
+                            <div key={k}>
+                              <p style={{ ...S.lbl, fontSize:8.5, margin:'0 0 3px' }}>{l}</p>
+                              <input style={{ ...S.inp, padding:'6px 9px', fontSize:13 }} type="number" value={o[k] ?? ''} onChange={e => editOpt(sec._id, o._id, k, e.target.value)}/>
+                            </div>
+                          ))}
+                        </div>
+                        <button onClick={() => { editOpt(sec._id, o._id, '_edit', false); editOpt(sec._id, o._id, '_calDraft', String(o.calories ?? '')); }} style={{ ...S.btn(false), padding:'7px 14px', fontSize:12 }}>Έτοιμο</button>
+                      </div>
+                    ) : (
+                      <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:7 }}>
+                            <span style={{ ...S.lbl, fontSize:9, flexShrink:0 }}>{oi === 0 ? '★ Επιλογή 1' : `Επιλογή ${oi + 1}`}</span>
+                            <p style={{ margin:0, fontSize:14.5, fontWeight:800, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{o.name || '—'}</p>
+                            <div style={{ marginLeft:'auto', display:'flex', gap:2, flexShrink:0 }}>
+                              <button onClick={() => editOpt(sec._id, o._id, '_edit', true)} title="Επεξεργασία γεύματος" style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, opacity:.45 }}><Pencil style={{ width:13, height:13, color:'#fff' }}/></button>
+                              <button onClick={() => delOpt(sec._id, o._id)} title="Αφαίρεση" style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, opacity:.45 }}><X style={{ width:14, height:14, color:'#fff' }}/></button>
+                            </div>
+                          </div>
+                          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                            {(o.ingredients || '').split(',').map(x => x.trim()).filter(Boolean).map((ing, ii) => (
+                              <span key={ii} style={{ fontSize:12.5, color:'rgba(255,255,255,0.75)' }}>•&nbsp; {ing}</span>
+                            ))}
+                            {!o.ingredients && <span style={{ ...S.dim, fontSize:12 }}>Χωρίς υλικά — πάτα το μολύβι για επεξεργασία.</span>}
+                          </div>
+                          <p style={{ ...S.dim, fontSize:10.5, margin:'8px 0 0' }}>Πρωτεΐνη {num(o.protein) ?? '—'}g · Υδατ. {num(o.carbs) ?? '—'}g · Λίπη {num(o.fat) ?? '—'}g</p>
+                        </div>
+                        <div style={{ width:132, flexShrink:0, textAlign:'center' }}>
+                          <p style={{ ...S.lbl, fontSize:8.5, margin:'0 0 5px' }}>Θερμίδες γεύματος</p>
+                          <div style={{ display:'flex', gap:6, alignItems:'center', justifyContent:'center' }}>
+                            <input style={{ ...S.inp, padding:'8px 6px', fontSize:15.5, fontWeight:800, textAlign:'center', width:80 }} type="number"
+                              value={o._calDraft ?? o.calories ?? ''} onChange={e => editOpt(sec._id, o._id, '_calDraft', e.target.value)}/>
+                            {num(o._calDraft) != null && num(o._calDraft) !== num(o.calories) ? (
+                              <button onClick={() => applyCal(sec._id, o._id)} title="Προσαρμογή ποσοτήτων στις νέες θερμίδες"
+                                style={{ width:34, height:34, borderRadius:10, border:'none', cursor:'pointer', flexShrink:0, display:'grid', placeItems:'center', background:'#22c55e', boxShadow:'0 0 12px rgba(34,197,94,0.45)' }}>
+                                <Check style={{ width:17, height:17, color:'#06110a' }}/>
+                              </button>
+                            ) : <span style={{ width:34, flexShrink:0 }}/>}
+                          </div>
+                          <p style={{ ...S.dim, fontSize:9.5, margin:'6px 0 0' }}>kcal — άλλαξέ το & πάτα ✓</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button onClick={() => addOpt(sec._id)} style={{ ...S.btn(false), marginTop:10, padding:'8px 14px', fontSize:12 }}><Plus style={{ width:13, height:13, verticalAlign:'-2px' }}/> Προσθήκη επιλογής</button>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Minus, ArrowLeft, ArrowRight, Loader2, Scale, RotateCcw, Pencil, Plus, CalendarDays, Clock } from 'lucide-react';
 import { db, callAI } from '../lib/db';
@@ -40,69 +41,101 @@ const GOAL_LABELS = { fat_loss:'Απώλεια λίπους', muscle_gain:'Μυ�
 
 const FALLBACK = {
   breakfast: [
-    { name:'Γιαούρτι με βρώμη & μέλι', main_ingredients:['Γιαούρτι στραγγιστό','Βρώμη','Μέλι','Μύρτιλα'], calories:420, protein:28 },
-    { name:'Ομελέτα λαχανικών', main_ingredients:['Αυγά','Πιπεριά','Ντομάτα','Φέτα'], calories:380, protein:26 },
-    { name:'Τοστ ολικής με αβοκάντο & αυγό', main_ingredients:['Ψωμί ολικής','Αβοκάντο','Αυγά'], calories:410, protein:20 },
-    { name:'Porridge βρώμης με μπανάνα', main_ingredients:['Βρώμη','Γάλα','Μπανάνα','Κανέλα'], calories:390, protein:16 },
-    { name:'Pancakes βρώμης με φρούτα', main_ingredients:['Βρώμη','Αυγά','Μπανάνα','Φράουλες'], calories:450, protein:24 },
-    { name:'Smoothie πρωτεΐνης με φρούτα', main_ingredients:['Πρωτεΐνη','Μπανάνα','Φράουλες','Γάλα'], calories:350, protein:32 },
-    { name:'Αυγά scrambled με ψωμί ολικής', main_ingredients:['Αυγά','Ψωμί ολικής','Ελαιόλαδο'], calories:400, protein:24 },
-    { name:'Cottage με φρούτα & καρύδια', main_ingredients:['Cottage','Ροδάκινο','Καρύδια'], calories:360, protein:27 },
-    { name:'Τορτίγια πρωινού με γαλοπούλα', main_ingredients:['Αραβική πίτα','Γαλοπούλα','Αυγά','Ντομάτα'], calories:430, protein:30 },
-    { name:'Ρυζογκοφρέτες με φυστικοβούτυρο & μπανάνα', main_ingredients:['Ρυζογκοφρέτες','Φυστικοβούτυρο','Μπανάνα'], calories:340, protein:12 },
+    { name:'Στραγγιστό γιαούρτι με μέλι, βρώμη & μύρτιλα', main_ingredients:['Γιαούρτι στραγγιστό 2%','Βρώμη','Μέλι','Μύρτιλα'] },
+    { name:'Ομελέτα με ντομάτα & φέτα', main_ingredients:['Αυγά','Ντομάτα','Φέτα','Ελαιόλαδο'] },
+    { name:'Avocado toast με αυγό ποσέ', main_ingredients:['Ψωμί προζύμι ολικής','Αβοκάντο','Αυγό','Λεμόνι'] },
+    { name:'Protein pancakes με μπανάνα & μέλι', main_ingredients:['Βρώμη','Αυγά','Μπανάνα','Πρωτεΐνη βανίλια'] },
+    { name:'Overnight oats με μήλο & κανέλα', main_ingredients:['Βρώμη','Γάλα','Γιαούρτι','Μήλο','Κανέλα'] },
+    { name:'Τορτίγια πρωινού με γαλοπούλα & τυρί', main_ingredients:['Τορτίγια ολικής','Γαλοπούλα βραστή','Τυρί light','Ντομάτα'] },
+    { name:'Light πίτσα πρωινού σε αραβική πίτα', main_ingredients:['Αραβική πίτα','Σάλτσα ντομάτας','Μοτσαρέλα light','Γαλοπούλα'] },
+    { name:'Ρυζογκοφρέτες με φυστικοβούτυρο & μπανάνα', main_ingredients:['Ρυζογκοφρέτες','Φυστικοβούτυρο','Μπανάνα'] },
+    { name:'Smoothie bowl φράουλα με granola', main_ingredients:['Φράουλες','Μπανάνα','Γιαούρτι','Granola'] },
+    { name:'Κουλούρι Θεσσαλονίκης με τυρί κρέμα light', main_ingredients:['Κουλούρι','Τυρί κρέμα light','Ντομάτα'] },
+    { name:'Scrambled eggs σε ψωμί ολικής', main_ingredients:['Αυγά','Ψωμί ολικής','Λίγο βούτυρο'] },
+    { name:'Χυλός βρώμης με ταχίνι & μέλι', main_ingredients:['Βρώμη','Γάλα','Ταχίνι','Μέλι'] },
+    { name:'Acai bowl με φρούτα εποχής', main_ingredients:['Acai','Μπανάνα','Φράουλες','Granola'] },
+    { name:'Τοστ ολικής με γαλοπούλα & τυρί', main_ingredients:['Ψωμί ολικής','Γαλοπούλα','Τυρί light'] },
   ],
-  snack: [
-    { name:'Γιαούρτι με μέλι', main_ingredients:['Γιαούρτι στραγγιστό','Μέλι'], calories:220, protein:18 },
-    { name:'Φρούτο με ξηρούς καρπούς', main_ingredients:['Μήλο','Αμύγδαλα'], calories:230, protein:6 },
-    { name:'Protein bar σπιτικό', main_ingredients:['Βρώμη','Πρωτεΐνη','Φυστικοβούτυρο'], calories:260, protein:20 },
-    { name:'Τοστ με γαλοπούλα', main_ingredients:['Ψωμί ολικής','Γαλοπούλα','Τυρί'], calories:280, protein:19 },
-    { name:'Smoothie φρούτων', main_ingredients:['Μπανάνα','Φράουλες','Γάλα'], calories:210, protein:8 },
-    { name:'Αυγά βραστά με κράκερς', main_ingredients:['Αυγά','Κράκερς ολικής'], calories:240, protein:15 },
-    { name:'Cottage με ντομάτα', main_ingredients:['Cottage','Ντομάτα','Ρίγανη'], calories:180, protein:20 },
-    { name:'Χούμους με λαχανικά', main_ingredients:['Ρεβίθια','Καρότο','Αγγούρι'], calories:200, protein:9 },
+  snack1: [
+    { name:'Φρούτο εποχής με λίγα αμύγδαλα', main_ingredients:['Μήλο ή ροδάκινο','Αμύγδαλα'] },
+    { name:'Μπάρα δημητριακών', main_ingredients:['Μπάρα βρώμης'] },
+    { name:'Γιαούρτι με μέλι', main_ingredients:['Γιαούρτι στραγγιστό','Μέλι'] },
+    { name:'Μπανάνα με φυστικοβούτυρο', main_ingredients:['Μπανάνα','Φυστικοβούτυρο'] },
+    { name:'Τοστ με γαλοπούλα', main_ingredients:['Ψωμί ολικής','Γαλοπούλα','Τυρί light'] },
+    { name:'Ρυζογκοφρέτες με άλειμμα φουντουκιού χωρίς ζάχαρη', main_ingredients:['Ρυζογκοφρέτες','Άλειμμα φουντουκιού'] },
+    { name:'Χούμους με στικς λαχανικών', main_ingredients:['Χούμους','Καρότο','Αγγούρι'] },
+    { name:'Energy balls με χουρμά & κακάο', main_ingredients:['Χουρμάδες','Βρώμη','Κακάο'] },
+    { name:'Φρουτοσαλάτα με λίγη κανέλα', main_ingredients:['Φρούτα εποχής','Κανέλα'] },
+    { name:'Κριτσίνια ολικής με τυρί', main_ingredients:['Κριτσίνια ολικής','Τυρί light'] },
   ],
   lunch: [
-    { name:'Κοτόπουλο σχάρας με ρύζι', main_ingredients:['Κοτόπουλο στήθος','Ρύζι','Μπρόκολο'], calories:620, protein:48 },
-    { name:'Μοσχαρίσιος κιμάς με ζυμαρικά ολικής', main_ingredients:['Κιμάς μοσχαρίσιος','Ζυμαρικά','Σάλτσα ντομάτας'], calories:680, protein:45 },
-    { name:'Σολομός με γλυκοπατάτα', main_ingredients:['Σολομός','Γλυκοπατάτα','Σπαράγγια'], calories:640, protein:42 },
-    { name:'Μπολ κοτόπουλο-κινόα', main_ingredients:['Κοτόπουλο','Κινόα','Αβοκάντο','Λαχανικά'], calories:600, protein:44 },
-    { name:'Γεμιστά με κιμά', main_ingredients:['Πιπεριές','Ρύζι','Κιμάς'], calories:560, protein:32 },
-    { name:'Φακές σαλάτα με τόνο', main_ingredients:['Φακές','Τόνος','Ντομάτα','Κρεμμύδι'], calories:520, protein:38 },
-    { name:'Σουβλάκι κοτόπουλο με πίτα', main_ingredients:['Κοτόπουλο','Αραβική πίτα','Γιαούρτι','Ντομάτα'], calories:640, protein:46 },
-    { name:'Μπριζόλα χοιρινή με πατάτες φούρνου', main_ingredients:['Χοιρινό','Πατάτα','Λεμόνι'], calories:700, protein:44 },
-    { name:'Ρεβιθάδα με ψωμί ολικής', main_ingredients:['Ρεβίθια','Κρεμμύδι','Ψωμί ολικής'], calories:540, protein:24 },
-    { name:'Γαλοπούλα stir-fry με ρύζι', main_ingredients:['Γαλοπούλα','Ρύζι','Πιπεριά','Σόγια sauce'], calories:590, protein:46 },
+    { name:'Κοτόπουλο σχάρας με ρύζι μπασμάτι & μπρόκολο', main_ingredients:['Κοτόπουλο στήθος','Ρύζι μπασμάτι','Μπρόκολο'] },
+    { name:'Μοσχαρίσια μπιφτέκια φούρνου με πατάτες', main_ingredients:['Κιμάς μοσχαρίσιος','Πατάτες','Ρίγανη'] },
+    { name:'Παστίτσιο light με κιμά γαλοπούλας', main_ingredients:['Ζυμαρικά ολικής','Κιμάς γαλοπούλας','Μπεσαμέλ light'] },
+    { name:'Σολομός φούρνου με γλυκοπατάτα', main_ingredients:['Σολομός','Γλυκοπατάτα','Σπαράγγια'] },
+    { name:'Γεμιστά με ρύζι & κιμά', main_ingredients:['Πιπεριές','Ντομάτες','Ρύζι','Κιμάς'] },
+    { name:'Σαλάτα φακές με τόνο', main_ingredients:['Φακές','Τόνος','Ντομάτα','Κρεμμύδι'] },
+    { name:'Σουβλάκι κοτόπουλο με πίτα ολικής & τζατζίκι', main_ingredients:['Κοτόπουλο','Πίτα ολικής','Τζατζίκι','Ντομάτα'] },
+    { name:'Chicken buddha bowl με κινόα & αβοκάντο', main_ingredients:['Κοτόπουλο','Κινόα','Αβοκάντο','Λαχανικά'] },
+    { name:'Κοτόπουλο λεμονάτο κατσαρόλας με πατάτες', main_ingredients:['Κοτόπουλο','Πατάτες','Λεμόνι'] },
+    { name:'Μακαρόνια ολικής με κιμά', main_ingredients:['Ζυμαρικά ολικής','Κιμάς μοσχαρίσιος','Σάλτσα ντομάτας'] },
+    { name:'Ψαρονέφρι με ρύζι & πράσινη σαλάτα', main_ingredients:['Ψαρονέφρι','Ρύζι','Μαρούλι'] },
+    { name:'Μπριάμ με φέτα & ψωμί ολικής', main_ingredients:['Κολοκύθι','Μελιτζάνα','Πατάτα','Φέτα'] },
+    { name:'Wrap κοτόπουλο με λαχανικά & γιαούρτι', main_ingredients:['Τορτίγια ολικής','Κοτόπουλο','Λαχανικά','Σως γιαουρτιού'] },
+    { name:'Ρεβιθάδα λεμονάτη με ψωμί ολικής', main_ingredients:['Ρεβίθια','Κρεμμύδι','Λεμόνι','Ψωμί ολικής'] },
+  ],
+  snack2: [
+    { name:'Φρούτο εποχής με λίγους ξηρούς καρπούς', main_ingredients:['Φρούτο εποχής','Καρύδια'] },
+    { name:'Μπάρα πρωτεΐνης', main_ingredients:['Μπάρα πρωτεΐνης'] },
+    { name:'Ρυζόγαλο light με κανέλα', main_ingredients:['Ρύζι','Γάλα 1.5%','Κανέλα'] },
+    { name:'Σπιτικά energy balls με χουρμά & κακάο', main_ingredients:['Χουρμάδες','Βρώμη','Κακάο','Ταχίνι'] },
+    { name:'Γιαούρτι με μέλι & καρύδια', main_ingredients:['Γιαούρτι στραγγιστό','Μέλι','Καρύδια'] },
+    { name:'Κρέπα βρώμης με άλειμμα πρωτεΐνης', main_ingredients:['Κρέπα βρώμης','Άλειμμα πρωτεΐνης κακάο'] },
+    { name:'Frozen yogurt με φράουλες', main_ingredients:['Παγωμένο γιαούρτι','Φράουλες'] },
+    { name:'Σπιτική μηλόπιτα light (1 κομμάτι)', main_ingredients:['Μήλο','Βρώμη','Κανέλα','Μέλι'] },
+    { name:'Μικρό κομμάτι χαλβάς με πορτοκάλι', main_ingredients:['Χαλβάς','Πορτοκάλι'] },
+    { name:'Smoothie φρούτων', main_ingredients:['Μπανάνα','Φράουλες','Γάλα ή νερό'] },
+    { name:'Ρυζογκοφρέτες με μαύρη σοκολάτα', main_ingredients:['Ρυζογκοφρέτες','Μαύρη σοκολάτα'] },
+    { name:'Τοστ με ταχίνι & μέλι', main_ingredients:['Ψωμί ολικής','Ταχίνι','Μέλι'] },
   ],
   dinner: [
-    { name:'Ψητό κοτόπουλο με σαλάτα', main_ingredients:['Κοτόπουλο','Μαρούλι','Ντομάτα','Φέτα'], calories:480, protein:42 },
-    { name:'Τσιπούρα σχάρας με χόρτα', main_ingredients:['Τσιπούρα','Χόρτα','Λεμόνι'], calories:450, protein:38 },
-    { name:'Ομελέτα με μανιτάρια', main_ingredients:['Αυγά','Μανιτάρια','Τυρί'], calories:420, protein:28 },
-    { name:'Γαρίδες σωτέ με κολοκυθάκια', main_ingredients:['Γαρίδες','Κολοκύθι','Σκόρδο'], calories:400, protein:34 },
-    { name:'Μπιφτέκια γαλοπούλας με σαλάτα', main_ingredients:['Γαλοπούλα','Μαρούλι','Ντομάτα'], calories:470, protein:40 },
-    { name:'Τόνος με φασολάκια', main_ingredients:['Τόνος','Φασολάκια','Ελαιόλαδο'], calories:430, protein:36 },
-    { name:'Κοτόσουπα με λαχανικά', main_ingredients:['Κοτόπουλο','Καρότο','Κολοκύθι'], calories:390, protein:32 },
-    { name:'Σαλάτα με αυγά & αβοκάντο', main_ingredients:['Αυγά','Αβοκάντο','Σπανάκι'], calories:410, protein:22 },
-    { name:'Λαβράκι φούρνου με λαχανικά', main_ingredients:['Λαβράκι','Πιπεριά','Κρεμμύδι'], calories:460, protein:38 },
-    { name:'Μανιτάρια γεμιστά με cottage', main_ingredients:['Μανιτάρια','Cottage','Σπανάκι'], calories:340, protein:26 },
+    { name:'Ντάκος με ντομάτα & φέτα', main_ingredients:['Κρίθινο παξιμάδι','Ντομάτα','Φέτα','Ελαιόλαδο','Ρίγανη'] },
+    { name:'Καλαμάκια κοτόπουλο με σαλάτα & τζατζίκι', main_ingredients:['Κοτόπουλο','Μαρούλι','Τζατζίκι'] },
+    { name:'Γιαούρτι με βρώμη, μέλι & φρούτα', main_ingredients:['Γιαούρτι στραγγιστό','Βρώμη','Μέλι','Φρούτα'] },
+    { name:'Σαλάτα Caesar με κοτόπουλο σχάρας', main_ingredients:['Κοτόπουλο','Μαρούλι','Παρμεζάνα','Κρουτόν ολικής'] },
+    { name:'Ομελέτα λαχανικών με λίγο τυρί', main_ingredients:['Αυγά','Πιπεριά','Μανιτάρια','Τυρί light'] },
+    { name:'Τσιπούρα σχάρας με χόρτα & λεμόνι', main_ingredients:['Τσιπούρα','Χόρτα','Λεμόνι'] },
+    { name:'Ελληνική σαλάτα με τόνο & παξιμάδι', main_ingredients:['Τόνος','Ντομάτα','Αγγούρι','Φέτα','Παξιμάδι'] },
+    { name:'Καλαμάκια χοιρινά με πίτα ολικής', main_ingredients:['Χοιρινό','Πίτα ολικής','Ντομάτα','Κρεμμύδι'] },
+    { name:'Γαρίδες σωτέ με κολοκυθάκια', main_ingredients:['Γαρίδες','Κολοκύθι','Σκόρδο','Ελαιόλαδο'] },
+    { name:'Μπιφτέκια γαλοπούλας με πράσινη σαλάτα', main_ingredients:['Γαλοπούλα','Μαρούλι','Ντομάτα'] },
+    { name:'Κοτόσουπα αυγολέμονο (ελαφριά)', main_ingredients:['Κοτόπουλο','Ρύζι','Αυγό','Λεμόνι'] },
+    { name:'Cottage bowl με ντομάτα, αγγούρι & παξιμάδι', main_ingredients:['Cottage','Ντομάτα','Αγγούρι','Παξιμάδι'] },
+    { name:'Λαβράκι στον ατμό με βραστά λαχανικά', main_ingredients:['Λαβράκι','Μπρόκολο','Καρότο','Λεμόνι'] },
+    { name:'Wrap με κοτόπουλο & σως γιαουρτιού', main_ingredients:['Τορτίγια ολικής','Κοτόπουλο','Λαχανικά','Γιαούρτι'] },
   ],
   preworkout: [
-    { name:'Μπανάνα με φυστικοβούτυρο', main_ingredients:['Μπανάνα','Φυστικοβούτυρο'], calories:250, protein:7 },
-    { name:'Τοστ με μέλι', main_ingredients:['Ψωμί ολικής','Μέλι'], calories:220, protein:6 },
-    { name:'Βρώμη με μπανάνα', main_ingredients:['Βρώμη','Μπανάνα'], calories:280, protein:9 },
-    { name:'Ρυζογκοφρέτες με μαρμελάδα', main_ingredients:['Ρυζογκοφρέτες','Μαρμελάδα'], calories:180, protein:3 },
-    { name:'Smoothie μπανάνα-βρώμη', main_ingredients:['Μπανάνα','Βρώμη','Γάλα'], calories:290, protein:11 },
-    { name:'Χουρμάδες με αμύγδαλα', main_ingredients:['Χουρμάδες','Αμύγδαλα'], calories:230, protein:5 },
+    { name:'Μπανάνα', main_ingredients:['Μπανάνα'] },
+    { name:'Ρυζογκοφρέτες με μέλι', main_ingredients:['Ρυζογκοφρέτες','Μέλι'] },
+    { name:'2-3 χουρμάδες', main_ingredients:['Χουρμάδες'] },
+    { name:'Τοστ με μαρμελάδα', main_ingredients:['Ψωμί ολικής','Μαρμελάδα'] },
+    { name:'Φρυγανιές με μέλι', main_ingredients:['Φρυγανιές','Μέλι'] },
+    { name:'Μικρό smoothie μπανάνας με νερό', main_ingredients:['Μπανάνα','Νερό','Πάγος'] },
+    { name:'Φρέσκος χυμός πορτοκάλι με φρυγανιά', main_ingredients:['Πορτοκάλια','Φρυγανιά'] },
+    { name:'Μικρή μερίδα βρώμης με νερό & μέλι', main_ingredients:['Βρώμη','Νερό','Μέλι'] },
   ],
   postworkout: [
-    { name:'Protein shake με μπανάνα', main_ingredients:['Πρωτεΐνη','Μπανάνα','Γάλα'], calories:320, protein:34 },
-    { name:'Γιαούρτι με μέλι & βρώμη', main_ingredients:['Γιαούρτι στραγγιστό','Μέλι','Βρώμη'], calories:340, protein:26 },
-    { name:'Αυγά με ρύζι', main_ingredients:['Αυγά','Ρύζι'], calories:380, protein:22 },
-    { name:'Smoothie πρωτεΐνης με φρούτα', main_ingredients:['Πρωτεΐνη','Φράουλες','Γάλα'], calories:300, protein:32 },
-    { name:'Τορτίγια με κοτόπουλο', main_ingredients:['Αραβική πίτα','Κοτόπουλο','Λαχανικά'], calories:420, protein:36 },
-    { name:'Cottage με φρούτα', main_ingredients:['Cottage','Ροδάκινο'], calories:250, protein:24 },
+    { name:'Protein shake με νερό', main_ingredients:['Πρωτεΐνη ορού γάλακτος','Νερό'] },
+    { name:'Protein shake με μπανάνα', main_ingredients:['Πρωτεΐνη','Μπανάνα','Νερό'] },
+    { name:'Γιαούρτι στραγγιστό με μέλι', main_ingredients:['Γιαούρτι στραγγιστό','Μέλι'] },
+    { name:'Σοκολατούχο γάλα light', main_ingredients:['Σοκολατούχο γάλα light'] },
+    { name:'Smoothie πρωτεΐνης με φράουλες', main_ingredients:['Πρωτεΐνη','Φράουλες','Νερό'] },
+    { name:'Cottage με μέλι', main_ingredients:['Cottage','Μέλι'] },
+    { name:'Ασπράδια scrambled με ρυζογκοφρέτες', main_ingredients:['Ασπράδια αυγών','Ρυζογκοφρέτες'] },
+    { name:'Γάλα με πρωτεΐνη & λίγη βρώμη', main_ingredients:['Γάλα','Πρωτεΐνη','Βρώμη'] },
   ],
 };
-const slotFallback = (k) => FALLBACK[k] || (k==='snack1'||k==='snack2' ? FALLBACK.snack : FALLBACK.lunch);
+const slotFallback = (k) => FALLBACK[k] || FALLBACK.lunch;
 
 const num = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
 const dlt = (a,b,k) => { const x=num(a?.[k]), y=num(b?.[k]); if(x==null||y==null) return null; return parseFloat((x-y).toFixed(1)); };
@@ -117,8 +150,17 @@ function DualChaseBorder({ pairIdx }) {
     const ctx = cv.getContext('2d');
     const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
     let raf, t = 0, last = performance.now(), run = true;
-    const resize = () => { cv.width = window.innerWidth * DPR; cv.height = window.innerHeight * DPR; };
-    resize(); window.addEventListener('resize', resize);
+    const vv = window.visualViewport;
+    const sync = () => {
+      const w = vv ? vv.width : window.innerWidth;
+      const h = vv ? vv.height : window.innerHeight;
+      cv.style.width = w + 'px'; cv.style.height = h + 'px';
+      cv.style.transform = vv ? `translate(${vv.offsetLeft}px, ${vv.offsetTop}px)` : 'none';
+      cv.width = Math.round(w * DPR); cv.height = Math.round(h * DPR);
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    if (vv) { vv.addEventListener('resize', sync); vv.addEventListener('scroll', sync); }
     const P = PAIRS[pairIdx % PAIRS.length];
     const draw = (now) => {
       if (!run) return;
@@ -156,9 +198,17 @@ function DualChaseBorder({ pairIdx }) {
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
-    return () => { run = false; cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
+    return () => {
+      run = false; cancelAnimationFrame(raf);
+      window.removeEventListener('resize', sync);
+      if (vv) { vv.removeEventListener('resize', sync); vv.removeEventListener('scroll', sync); }
+    };
   }, [pairIdx]);
-  return <canvas ref={ref} style={{ position:'fixed', inset:0, width:'100vw', height:'100vh', pointerEvents:'none', zIndex:6 }}/>;
+  /* portal στο body: κανένας πρόγονος/scroll δεν μπορεί να το μετακινήσει — μόνιμο στεφάνι στο ορατό viewport */
+  return createPortal(
+    <canvas ref={ref} style={{ position:'fixed', top:0, left:0, pointerEvents:'none', zIndex:6 }}/>,
+    document.body
+  );
 }
 
 /* ═══════════════ Κύβος χαιρετισμού (μόνο πρώτη οθόνη) ═══════════════ */
@@ -215,31 +265,44 @@ function parseJsonArr(txt) {
     return arr.filter(x => x && x.name).map(x => ({
       name: String(x.name),
       main_ingredients: Array.isArray(x.main_ingredients) ? x.main_ingredients.map(String).slice(0,5) : [],
-      calories: num(x.calories), protein: num(x.protein),
     }));
   } catch { return null; }
 }
 
+const SLOT_STYLE = {
+  breakfast: 'Ελληνικά & μοντέρνα πρωινά: ομελέτες, στραγγιστό γιαούρτι με toppings, protein pancakes, overnight oats, avocado toast, τοστ/τορτίγια, light πίτσα πρωινού, ρυζογκοφρέτες με αλείμματα, smoothie/acai bowls, κουλούρι με τυρί κρέμα, χυλός βρώμης.',
+  snack1: 'Ελαφριά δεκατιανά: φρούτο, μπάρα, γιαούρτι, τοστ, ρυζογκοφρέτες με άλειμμα, λίγοι ξηροί καρποί, energy balls.',
+  lunch: 'Κυρίως πιάτα μεσογειακής/ελληνικής κουζίνας με ΠΟΙΚΙΛΙΑ: κοτόπουλο/μοσχάρι/χοιρινό/ψάρι με ρύζι, πατάτες ή ζυμαρικά ολικής, λαδερά με φέτα, όσπρια, γεμιστά, σουβλάκι με πίτα ολικής, buddha bowls, wraps, παστίτσιο light.',
+  snack2: 'Απογευματινό ΕΛΑΦΡΥ όπως συνηθίζεται στην Ελλάδα: φρούτο, μπάρα, γιαούρτι με μέλι, ελαφρύ ή σπιτικό χειροποίητο γλυκό (ρυζόγαλο, μηλόπιτα light, energy balls, κρέπα light, frozen yogurt), ρυζογκοφρέτες με σοκολάτα. ΟΧΙ βαριά πιάτα, ΟΧΙ κυρίως γεύματα.',
+  dinner: 'Βραδινά με ποικιλία σαν το μεσημεριανό ΑΛΛΑ πάντα και αρκετές ελαφριές επιλογές: ντάκος, σαλάτες με πρωτεΐνη, καλαμάκια κρέατος, γιαούρτι με βρώμη, ομελέτα, ψάρι σχάρας, σούπα αυγολέμονο, cottage bowl.',
+  preworkout: 'Προ-προπονητικό: ΠΟΛΥ ελαφρύ, κυρίως γρήγορος υδατάνθρακας, ελάχιστο λίπος και πρωτεΐνη: μπανάνα, ρυζογκοφρέτες με μέλι, χουρμάδες, φρυγανιά με μαρμελάδα, μικρό smoothie με νερό.',
+  postworkout: 'Μετα-προπονητικό: γρήγορη απορρόφηση πρωτεΐνης, ΟΧΙ βαρύ: protein shake, γιαούρτι στραγγιστό με μέλι, σοκολατούχο γάλα light, cottage, ασπράδια, smoothie πρωτεΐνης.',
+};
+
 async function genForSlot(slotKey, ctxData, avoid) {
-  const { profile, client } = ctxData;
+  const { profile } = ctxData;
   const banned = [
     ...(profile.excluded_auto || []), ...(profile.excluded_ingredients || []),
     ...(profile.disliked || []), ...(profile.never_meals || []),
   ];
   const flagsOn = Object.entries(profile.flags || {}).filter(([,v]) => v).map(([k]) => k).join(', ') || 'κανένα';
-  const prompt = `Πρότεινε ΑΚΡΙΒΩΣ 10 διαφορετικές συνταγές/γεύματα για: ${SLOT_META[slotKey]?.label || slotKey}.
-Πελάτης: στόχος ${GOAL_LABELS[profile.goal_type] || 'γενική υγεία'}${client?.gender ? ', φύλο ' + client.gender : ''}.
+  const prompt = `Πρότεινε ΑΚΡΙΒΩΣ 10 γεύματα για: ${SLOT_META[slotKey]?.label || slotKey}.
+
+ΥΦΟΣ & ΠΕΡΙΕΧΟΜΕΝΟ ΚΑΤΗΓΟΡΙΑΣ: ${SLOT_STYLE[slotKey] || 'Μεσογειακή κουζίνα.'}
+Γενική κατεύθυνση: αυθεντική μεσογειακή/ελληνική διατροφή + μοντέρνες τάσεις (acai bowl, avocado toast, overnight oats, buddha bowl, protein pancakes) όπου ταιριάζει στην κατηγορία. Δώσε ΠΟΙΚΙΛΙΑ μέσα στη δεκάδα (ζεστά/κρύα, γλυκά/αλμυρά όπου έχει νόημα).
+
+ΟΝΟΜΑΣΙΑ — ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ: Φυσικά ελληνικά ονόματα, όπως θα τα έγραφε ελληνικό μενού ή Έλληνας διατροφολόγος. Καθιερωμένοι διεθνείς όροι μένουν ΑΥΤΟΥΣΙΟΙ στα αγγλικά (pancakes, smoothie, toast, wrap, bowl, tortilla, cottage, light, granola). ΑΠΑΓΟΡΕΥΟΝΤΑΙ αδέξιες κατά λέξη μεταφράσεις και τεχνητά ονόματα.
+
 Διατροφικό προφίλ (flags): ${flagsOn}.
-ΑΠΑΓΟΡΕΥΜΕΝΑ υλικά/γεύματα (ΜΗΝ τα χρησιμοποιήσεις ΠΟΥΘΕΝΑ, ούτε παράγωγά τους): ${banned.join(', ') || 'κανένα'}.
-Προτιμήσεις που αρέσουν (δώσε τους προτεραιότητα όπου ταιριάζει): ${(profile.liked || []).join(', ') || '—'}.
-ΜΗΝ επαναλάβεις αυτά τα γεύματα: ${avoid.join(', ') || '—'}.
-Κάθε γεύμα: ελληνικό όνομα, 3-5 ΧΑΡΑΚΤΗΡΙΣΤΙΚΑ υλικά (ΟΧΙ αλάτι, πιπέρι, νερό ή αυτονόητα), θερμίδες, πρωτεΐνη σε γραμμάρια.
-Απάντησε ΜΟΝΟ με JSON array, χωρίς markdown, χωρίς κείμενο πριν ή μετά:
-[{"name":"...","main_ingredients":["...","..."],"calories":500,"protein":40}]`;
-  const r = await callAI(prompt, 'You are a sports nutrition expert. Return ONLY a valid JSON array. No markdown. Start with [');
+ΑΠΑΓΟΡΕΥΜΕΝΑ υλικά/γεύματα (ΠΟΥΘΕΝΑ, ούτε παράγωγά τους): ${banned.join(', ') || 'κανένα'}.
+Αρέσουν στον πελάτη — ΧΑΛΑΡΗ έμπνευση μόνο: το πολύ 1-2 σχετικές προτάσεις στη δεκάδα, ΜΗΝ τα επαναλαμβάνεις παντού: ${(profile.liked || []).join(', ') || '—'}.
+ΜΗΝ επαναλάβεις αυτά: ${avoid.join(', ') || '—'}.
+Κάθε γεύμα: όνομα + 3-5 ΧΑΡΑΚΤΗΡΙΣΤΙΚΑ υλικά (όχι αλάτι/πιπέρι/αυτονόητα). ΧΩΡΙΣ θερμίδες ή μακροθρεπτικά.
+Απάντησε ΜΟΝΟ με JSON array, χωρίς markdown, χωρίς κείμενο:
+[{"name":"...","main_ingredients":["...","..."]}]`;
+  const r = await callAI(prompt, 'You are a Greek sports-nutrition chef who knows Mediterranean cuisine and modern food trends. Return ONLY a valid JSON array. Start with [');
   const parsed = parseJsonArr(r);
   if (parsed && parsed.length >= 5) return parsed.slice(0, 10);
-  /* fallback: τοπική βάση φιλτραρισμένη από αποκλεισμούς */
   const ban = banned.map(b => b.toLowerCase());
   const ok = slotFallback(slotKey).filter(m =>
     !ban.some(b => m.name.toLowerCase().includes(b) || m.main_ingredients.some(i => i.toLowerCase().includes(b))) &&
@@ -594,7 +657,7 @@ export default function NutritionMeeting() {
     const id = `ai::${slotKey}::${meal.name}`;
     setCart(p => p.find(x => x.id === id)
       ? p.filter(x => x.id !== id)
-      : [...p, { id, slot: label, name: meal.name, main_ingredients: meal.main_ingredients || [], calories: meal.calories, protein: meal.protein, source: 'ai' }]);
+      : [...p, { id, slot: label, name: meal.name, main_ingredients: meal.main_ingredients || [], source: 'ai' }]);
   };
 
   /* ημερολόγιο */
@@ -975,11 +1038,6 @@ export default function NutritionMeeting() {
                         <div style={{ flex:1, minWidth:0 }}>
                           <p style={{ margin:0, fontSize:14.5, fontWeight:800 }}>{meal.name}</p>
                           <p style={{ ...S.dim, fontSize:12, margin:'5px 0 0', lineHeight:1.5 }}>{(meal.main_ingredients || []).join(' · ')}</p>
-                          {(meal.calories || meal.protein) && (
-                            <p style={{ fontSize:11, margin:'7px 0 0', color:'rgba(255,255,255,0.4)' }}>
-                              {meal.calories ? `${meal.calories} kcal` : ''}{meal.calories && meal.protein ? ' · ' : ''}{meal.protein ? `${meal.protein}g πρωτεΐνη` : ''}
-                            </p>
-                          )}
                         </div>
                         <button onClick={() => togglePick(activeSlot, meal)}
                           style={{ width:38, height:38, borderRadius:'50%', cursor:'pointer', flexShrink:0, display:'grid', placeItems:'center', transition:'all .15s',
@@ -1002,7 +1060,11 @@ export default function NutritionMeeting() {
         {screen === 'summary' && (
           <div>
             <span style={S.kicker}>Σύνοψη ραντεβού</span>
-            <h2 style={{ fontSize:26, fontWeight:800, margin:'8px 0 18px', letterSpacing:'-.02em' }}>Ωραία δουλειά, {client.name?.split(' ')[0]} 💪</h2>
+            <h2 style={{ fontSize:26, fontWeight:800, margin:'8px 0 14px', letterSpacing:'-.02em' }}>Ωραία δουλειά, {client.name?.split(' ')[0]} 💪</h2>
+
+            <div className="nmreveal" style={{ ...S.card, borderColor:`${ACC}44`, textAlign:'center', padding:'20px 26px', marginBottom:16, background:`linear-gradient(180deg, ${ACC}10, rgba(255,255,255,0.03))` }}>
+              <p style={{ fontSize:16.5, fontWeight:700, fontStyle:'italic', margin:0, lineHeight:1.6, color:'#fff' }}>“{quote}”</p>
+            </div>
 
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, alignItems:'start' }}>
               <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -1034,9 +1096,6 @@ export default function NutritionMeeting() {
                   ))}
                 </div>
 
-                <div style={{ ...S.card, borderColor:`${ACC}44`, textAlign:'center', padding:'22px 20px' }}>
-                  <p style={{ fontSize:15.5, fontWeight:700, fontStyle:'italic', margin:0, lineHeight:1.6, color:'#fff' }}>“{quote}”</p>
-                </div>
               </div>
 
               {/* ραντεβού */}
