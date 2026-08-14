@@ -25,8 +25,10 @@ const sStart = () => { beep(440, .08, .2); setTimeout(() => beep(660, .08, .25),
 const sEnd   = () => { beep(550, .1, .25); setTimeout(() => beep(750, .15, .35), 120); };
 
 /* ── shared bits ──────────────────────────────────────────────────────── */
-const ACCENT = 'var(--cp-accent,#22c55e)';
-const DONE   = '#22c55e';
+const ACCENT = '#e0457b';           /* Παλμός: φούξια */
+const ACCENT2 = '#8b5cf6';          /* βιολετί */
+const DONE   = '#e0457b';
+const PULSE_BG = 'radial-gradient(130% 90% at 50% 118%, #2a1140 0%, #140a24 46%, #0b0714 100%)';
 
 const setsOf = (ex) => ex.set_details?.length
   ? ex.set_details
@@ -67,7 +69,7 @@ function ExerciseStrip({ exercises, current, doneMap }) {
             {i > 0 && <span style={{ width:1, background:'rgba(255,255,255,.14)', margin:'2px 11px 2px' }}/>}
             <div style={{ minWidth:0 }}>
               <div style={{ fontSize:11.5, fontWeight:isNow ? 700 : 500, whiteSpace:'nowrap',
-                color: isNow ? '#fff' : i < current ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.4)',
+                color: isNow ? ACCENT : i < current ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.4)',
                 marginBottom:5 }}>
                 {ex.name}
               </div>
@@ -80,20 +82,42 @@ function ExerciseStrip({ exercises, current, doneMap }) {
   );
 }
 
-/* ── the rep grid: circles that fill in as reps are logged ────────────── */
-function RepGrid({ target, done, columns }) {
-  const cols = columns || (target > 12 ? 5 : target > 8 ? 4 : 3);
+/* ── ο παλμός: δαχτυλίδι επαναλήψεων που "χτυπάει" σε κάθε rep ─────────── */
+function RepRing({ target, done, pulseKey }) {
+  const size = 'min(74vw, 340px)';
+  const R = 132, C = 2 * Math.PI * R;
+  const frac = target ? Math.min(1, done / target) : 0;
+  const boxSet = target > 0 && done >= target;
   return (
-    <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},1fr)`,
-      gap:'clamp(9px,2.6vw,15px)', justifyItems:'center' }}>
-      {Array.from({ length: target }, (_, i) => (
-        <span key={i} style={{ width:'clamp(30px,8.4vw,46px)', height:'clamp(30px,8.4vw,46px)',
-          borderRadius:'50%',
-          background: i < done ? DONE : 'transparent',
-          border: i < done ? 'none' : '1.5px solid rgba(255,255,255,.32)',
-          transition:'background .18s cubic-bezier(.34,1.56,.64,1), transform .18s',
-          transform: i === done - 1 ? 'scale(1.08)' : 'scale(1)' }}/>
-      ))}
+    <div style={{ position:'relative', width:size, height:size, margin:'0 auto',
+      display:'grid', placeItems:'center' }}>
+      {/* παλμικό δαχτυλίδι που σκάει σε κάθε επανάληψη */}
+      <span key={pulseKey} style={{ position:'absolute', width:'86%', height:'86%', borderRadius:'50%',
+        border:`1.5px solid ${ACCENT}66`, animation: pulseKey ? 'ltPulse .62s cubic-bezier(.2,.8,.3,1)' : 'none',
+        pointerEvents:'none' }}/>
+      <svg viewBox="0 0 300 300" style={{ width:'100%', height:'100%', transform:'rotate(-90deg)' }}>
+        <circle cx="150" cy="150" r={R} fill="none" stroke="rgba(224,69,123,.14)" strokeWidth="11"/>
+        <circle cx="150" cy="150" r={R} fill="none" stroke="url(#ltgrad)" strokeWidth="11" strokeLinecap="round"
+          strokeDasharray={C} strokeDashoffset={C * (1 - frac)}
+          style={{ transition:'stroke-dashoffset .28s cubic-bezier(.22,1,.36,1)',
+            filter:`drop-shadow(0 0 13px ${ACCENT}aa)` }}/>
+        <defs>
+          <linearGradient id="ltgrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={ACCENT}/><stop offset="100%" stopColor={ACCENT2}/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div style={{ position:'absolute', textAlign:'center' }}>
+        <div key={'n'+done} style={{ fontSize:'clamp(72px,20vw,120px)', fontWeight:800, lineHeight:1,
+          fontFamily:'var(--cp-font)', fontVariantNumeric:'tabular-nums',
+          background:`linear-gradient(180deg,#fff, #f0d9ec)`, WebkitBackgroundClip:'text',
+          backgroundClip:'text', color:'transparent',
+          animation: boxSet ? 'none' : (pulseKey ? 'ltBump .18s ease' : 'none') }}>
+          {done}
+        </div>
+        <div style={{ fontSize:13, letterSpacing:'.22em', color:'rgba(224,69,123,.85)',
+          fontWeight:700, marginTop:6 }}>ΑΠΟ {target}</div>
+      </div>
     </div>
   );
 }
@@ -118,8 +142,8 @@ function ProgressRing({ pct, size = 74, stroke = 7 }) {
   );
 }
 
-/* ── rest countdown, sits in the footer next to the ring ──────────────── */
-function RestPanel({ seconds, onDone, nextLabel }) {
+/* ── ξεκούραση: πλήρης κατάληψη οθόνης ────────────────────────────────── */
+function RestTakeover({ seconds, onDone, nextLabel, isExChange, onSkip }) {
   const [left, setLeft] = useState(seconds);
   useEffect(() => {
     if (left <= 0) { sStart(); onDone(); return; }
@@ -127,28 +151,39 @@ function RestPanel({ seconds, onDone, nextLabel }) {
     const t = setTimeout(() => setLeft(l => l - 1), 1000);
     return () => clearTimeout(t);
   }, [left]);
-  const pct = ((seconds - left) / seconds) * 100;
-  const urgent = left <= 3;
+  const frac = (seconds - left) / seconds;
+  const R = 150, C = 2 * Math.PI * R;
   return (
-    <div style={{ flex:1, minWidth:0, background:'rgba(255,255,255,.06)',
-      border:'1px solid rgba(255,255,255,.14)', borderRadius:16, padding:'10px 14px' }}>
-      <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-        <span style={{ fontSize:11, letterSpacing:'.14em', textTransform:'uppercase',
-          color:'rgba(255,255,255,.5)' }}>Ξεκούραση</span>
-        <span style={{ marginLeft:'auto', fontSize:26, fontWeight:800, fontFamily:'var(--cp-font)',
-          color: urgent ? '#f87171' : '#fff', fontVariantNumeric:'tabular-nums', lineHeight:1 }}>
-          {left}<span style={{ fontSize:12, opacity:.6 }}>s</span>
-        </span>
+    <div onClick={onSkip} style={{ position:'fixed', inset:0, zIndex:20, cursor:'pointer',
+      background:'radial-gradient(circle at 50% 42%, #3a1250 0%, #140a24 55%, #0b0714 100%)',
+      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+      textAlign:'center', padding:'32px 22px', animation:'ltFade .3s ease' }}>
+      <p style={{ fontSize:11, letterSpacing:'.36em', textTransform:'uppercase',
+        color:'rgba(224,69,123,.9)', fontWeight:700, margin:'0 0 22px' }}>
+        {isExChange ? 'Αλλαγή άσκησης' : 'Ξεκούραση'}
+      </p>
+      <div style={{ position:'relative', width:'min(74vw,330px)', height:'min(74vw,330px)', display:'grid', placeItems:'center' }}>
+        <svg viewBox="0 0 330 330" style={{ width:'100%', height:'100%', transform:'rotate(-90deg)' }}>
+          <circle cx="165" cy="165" r={R} fill="none" stroke="rgba(224,69,123,.14)" strokeWidth="6"/>
+          <circle cx="165" cy="165" r={R} fill="none" stroke="url(#ltrest)" strokeWidth="6" strokeLinecap="round"
+            strokeDasharray={C} strokeDashoffset={C * frac}
+            style={{ transition:'stroke-dashoffset .95s linear', filter:'drop-shadow(0 0 14px rgba(224,69,123,.7))' }}/>
+          <defs><linearGradient id="ltrest" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#e0457b"/><stop offset="100%" stopColor="#8b5cf6"/>
+          </linearGradient></defs>
+        </svg>
+        <div style={{ position:'absolute' }}>
+          <div style={{ fontSize:'clamp(96px,26vw,180px)', fontWeight:800, lineHeight:1,
+            fontFamily:'var(--cp-font)', fontVariantNumeric:'tabular-nums', color: left <= 3 ? '#ff9db8' : '#fff',
+            textShadow:'0 0 40px rgba(224,69,123,.5)' }}>{left}</div>
+        </div>
       </div>
-      <div style={{ height:5, borderRadius:5, background:'rgba(255,255,255,.12)',
-        overflow:'hidden', margin:'8px 0 7px' }}>
-        <div style={{ height:'100%', width:`${pct}%`, borderRadius:5,
-          background: urgent ? '#f87171' : ACCENT, transition:'width .9s linear' }}/>
+      <div style={{ marginTop:30, padding:'14px 22px', border:'1px solid rgba(224,69,123,.35)',
+        borderRadius:16, background:'rgba(20,10,36,.6)', maxWidth:340 }}>
+        <p style={{ margin:0, fontSize:13, color:'rgba(240,224,236,.9)', lineHeight:1.55 }}>{nextLabel}</p>
       </div>
-      <div style={{ fontSize:11.5, color:'rgba(255,255,255,.62)', overflow:'hidden',
-        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-        {nextLabel}
-      </div>
+      <p style={{ fontSize:11, letterSpacing:'.14em', textTransform:'uppercase',
+        color:'rgba(255,255,255,.32)', fontWeight:700, marginTop:26 }}>πάτα για συνέχεια νωρίτερα</p>
     </div>
   );
 }
@@ -193,7 +228,8 @@ function Welcome({ plan, clientName, onStart }) {
 
         <button onClick={onStart} style={{ width:'100%', padding:16, borderRadius:15, border:'none',
           cursor:'pointer', background:ACCENT, color:'#04140a', fontSize:15, fontWeight:800,
-          fontFamily:'var(--cp-font)', letterSpacing:'.02em' }}>
+          fontFamily:'var(--cp-font)', letterSpacing:'.02em',
+          background:'linear-gradient(180deg,#e0457b,#b52f78)', boxShadow:'0 6px 26px rgba(224,69,123,.45)' }}>
           ▶ ΕΝΑΡΞΗ ΠΡΟΠΟΝΗΣΗΣ
         </button>
         <p style={{ fontSize:10, color:'rgba(255,255,255,.3)', marginTop:9 }}>
@@ -459,17 +495,18 @@ export default function LiveTraining() {
 
       {screen === 'run' && ex && (
         <div style={{ position:'relative', zIndex:1, minHeight:'100vh', display:'flex',
-          flexDirection:'column', padding:'14px 16px 0' }}>
+          flexDirection:'column', padding:'14px 16px 0', background:PULSE_BG }}>
 
           {/* ── 1. every exercise with its set dots ── */}
           <ExerciseStrip exercises={exercises} current={exIdx} doneMap={doneMap}/>
 
           {/* ── 2. current exercise, highlighted ── */}
           <div style={{ margin:'16px 0 14px' }}>
-            <span style={{ display:'inline-block', background:ACCENT, color:'#04140a',
+            <span style={{ display:'inline-block',
+              background:'linear-gradient(135deg,#e0457b,#8b5cf6)', color:'#fff',
               padding:'5px 14px 6px', borderRadius:8, fontFamily:'var(--cp-font)',
               fontSize:'clamp(24px,6.4vw,34px)', fontWeight:800, letterSpacing:'-.02em',
-              lineHeight:1.15 }}>
+              lineHeight:1.15, boxShadow:'0 4px 20px rgba(224,69,123,.35)' }}>
               {exIdx + 1}/{exercises.length} : {ex.name}
             </span>
           </div>
@@ -484,7 +521,7 @@ export default function LiveTraining() {
                   <div style={{ width:'clamp(26px,7vw,38px)', height:'clamp(26px,7vw,38px)',
                     borderRadius:'50%',
                     background: isDone ? DONE : 'transparent',
-                    border: isDone ? 'none' : `2px solid ${isNow ? '#fff' : 'rgba(255,255,255,.3)'}`,
+                    border: isDone ? 'none' : `2px solid ${isNow ? ACCENT : 'rgba(255,255,255,.3)'}`,
                     transition:'background .25s' }}/>
                   <div style={{ fontSize:11, marginTop:4,
                     color: isNow ? '#fff' : 'rgba(255,255,255,.42)',
@@ -500,9 +537,9 @@ export default function LiveTraining() {
             Σετ {setIdx + 1}: {cur?.weight_kg || 0}kg / {target} επαν.
           </div>
 
-          {/* ── 5. the rep grid ── */}
-          <div style={{ marginBottom:20 }}>
-            <RepGrid target={target} done={phase === 'active' ? rep : (logged[`${exIdx}-${setIdx}`] ?? 0)}/>
+          {/* ── 5. ο παλμός: δαχτυλίδι επαναλήψεων ── */}
+          <div style={{ margin:'8px 0 20px' }}>
+            <RepRing target={target} done={phase === 'active' ? rep : (logged[`${exIdx}-${setIdx}`] ?? 0)} pulseKey={rep}/>
           </div>
 
           {/* ── 6. what's coming ── */}
@@ -523,19 +560,17 @@ export default function LiveTraining() {
               paddingBottom:'calc(16px + env(safe-area-inset-bottom))' }}>
               <ProgressRing pct={pct}/>
 
-              {phase === 'rest' && (
-                <RestPanel key={`r${exIdx}-${setIdx}`} seconds={rest}
-                  onDone={afterRest} nextLabel={nextSetLabel}/>
-              )}
-              {phase === 'restEx' && (
-                <RestPanel key={`re${exIdx}`} seconds={restEx}
-                  onDone={afterExRest} nextLabel={nextSetLabel}/>
+              {(phase === 'rest' || phase === 'restEx') && (
+                <div style={{ flex:1, minWidth:0, color:'rgba(255,255,255,.5)', fontSize:13, fontWeight:600 }}>
+                  Σε ξεκούραση…
+                </div>
               )}
 
               {phase === 'ready' && (
                 <button onClick={addRep} style={{ flex:1, padding:'16px 0', borderRadius:16,
-                  border:'none', cursor:'pointer', background:ACCENT, color:'#04140a',
-                  fontSize:15, fontWeight:800, fontFamily:'var(--cp-font)' }}>
+                  border:'none', cursor:'pointer', color:'#fff',
+                  fontSize:15, fontWeight:800, fontFamily:'var(--cp-font)',
+                  background:'linear-gradient(180deg,#e0457b,#b52f78)', boxShadow:'0 4px 20px rgba(224,69,123,.4)' }}>
                   ▶ ΕΝΑΡΞΗ ΣΕΤ {setIdx + 1}
                 </button>
               )}
@@ -545,7 +580,7 @@ export default function LiveTraining() {
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:10, letterSpacing:'.12em', textTransform:'uppercase',
                       color:'rgba(255,255,255,.42)' }}>Επανάληψη</div>
-                    <div style={{ fontSize:26, fontWeight:900, color:'#fff', fontFamily:'var(--cp-font)',
+                    <div style={{ fontSize:26, fontWeight:900, color:ACCENT, fontFamily:'var(--cp-font)',
                       lineHeight:1.05, fontVariantNumeric:'tabular-nums' }}>
                       {rep}<span style={{ fontSize:13, color:'rgba(255,255,255,.35)' }}>/{target}</span>
                     </div>
@@ -562,14 +597,29 @@ export default function LiveTraining() {
                   </button>
                   <button onClick={addRep} aria-label="Rep"
                     style={{ width:58, height:46, borderRadius:13, border:'none', cursor:'pointer',
-                      background:ACCENT, color:'#04140a', fontSize:19, fontWeight:800,
-                      boxShadow:'0 3px 18px rgba(34,197,94,.4)' }}>▲</button>
+                      background:'linear-gradient(180deg,#e0457b,#b52f78)', color:'#fff', fontSize:19, fontWeight:800,
+                      boxShadow:'0 3px 18px rgba(224,69,123,.5)' }}>▲</button>
                 </div>
               )}
             </div>
           </div>
+
+          {phase === 'rest' && (
+            <RestTakeover key={`r${exIdx}-${setIdx}`} seconds={rest}
+              onDone={afterRest} onSkip={afterRest} nextLabel={nextSetLabel} isExChange={false}/>
+          )}
+          {phase === 'restEx' && (
+            <RestTakeover key={`re${exIdx}`} seconds={restEx}
+              onDone={afterExRest} onSkip={afterExRest} nextLabel={nextSetLabel} isExChange={true}/>
+          )}
         </div>
       )}
+
+      <style>{`
+        @keyframes ltPulse{0%{transform:scale(.9);opacity:.85}100%{transform:scale(1.5);opacity:0}}
+        @keyframes ltBump{0%{transform:scale(1)}40%{transform:scale(1.12)}100%{transform:scale(1)}}
+        @keyframes ltFade{from{opacity:0}to{opacity:1}}
+      `}</style>
     </div>
   );
 }
