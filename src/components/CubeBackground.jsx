@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 // ── Page → camera angle ───────────────────────────────────────────────────────
@@ -88,6 +88,16 @@ export default function CubeBackground() {
   });
   const rafRef = useRef(null);
   const prevPath = useRef(loc.pathname);
+
+  // ── Cube off toggle (read from <html data-cube-off>, set by ThemeContext) ──
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('cube_off') === '1'; } catch { return false; } });
+  useEffect(() => {
+    const read = () => setHidden(document.documentElement.dataset.cubeOff === '1');
+    read();
+    const obs = new MutationObserver(read);
+    obs.observe(document.documentElement, { attributes:true, attributeFilter:['data-cube-off'] });
+    return () => obs.disconnect();
+  }, []);
 
   // ── Read theme from data attribute set by ThemeContext ──────────────────────
   useEffect(() => {
@@ -421,7 +431,9 @@ export default function CubeBackground() {
       clearInterval(spawn);
       window.removeEventListener('resize', resize);
     };
-  }, []);
+  }, [hidden]);
+
+  if (hidden) return null;
 
   return (
     <canvas ref={canvasRef} style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none', maxWidth:'100vw', maxHeight:'100vh' }}/>

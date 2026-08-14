@@ -196,8 +196,16 @@ export function ThemeProvider({ children, isClient = false }) {
 
   const switchTheme = (name) => setThemeName(name);
 
+  // ── Cube off: κρύβει τον κύβο στο φόντο, κρατώντας το επιλεγμένο theme ──
+  const [cubeOff, setCubeOff] = useState(() => localStorage.getItem('cube_off') === '1');
+  useEffect(() => {
+    document.documentElement.dataset.cubeOff = cubeOff ? '1' : '0';
+    localStorage.setItem('cube_off', cubeOff ? '1' : '0');
+  }, [cubeOff]);
+  const toggleCubeOff = () => setCubeOff(v => !v);
+
   return (
-    <ThemeContext.Provider value={{ themeName, switchTheme, isClient, themes: isClient ? CLIENT_THEMES : MASTER_THEMES }}>
+    <ThemeContext.Provider value={{ themeName, switchTheme, isClient, cubeOff, toggleCubeOff, themes: isClient ? CLIENT_THEMES : MASTER_THEMES }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -205,6 +213,6 @@ export function ThemeProvider({ children, isClient = false }) {
 
 export const useTheme = () => {
   const ctx = useContext(ThemeContext);
-  if (!ctx) return { themeName:'dark', switchTheme:()=>{}, isClient:false, themes:MASTER_THEMES };
+  if (!ctx) return { themeName:'dark', switchTheme:()=>{}, isClient:false, cubeOff:false, toggleCubeOff:()=>{}, themes:MASTER_THEMES };
   return ctx;
 };

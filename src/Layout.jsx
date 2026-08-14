@@ -53,7 +53,7 @@ function Clock({ visible }) {
    the aside's stacking context, and it also disappeared the moment the pointer
    left the aside and collapsed it. */
 function DesktopSettings({ open: sidebarOpen, onHoldOpen }) {
-  const { themeName, switchTheme, themes } = useTheme();
+  const { themeName, switchTheme, themes, cubeOff, toggleCubeOff } = useTheme();
   const { lang, toggle } = useLang();
   const [open, setOpen] = React.useState(false);
   const [pos, setPos] = React.useState({ left:74, bottom:16 });
@@ -124,6 +124,17 @@ function DesktopSettings({ open: sidebarOpen, onHoldOpen }) {
                   size={34} title={t.name} onClick={() => switchTheme(k)}/>
               ))}
             </div>
+            <div style={{ marginTop:14, paddingTop:12, borderTop:'1px solid hsl(var(--border))', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+              <div>
+                <p className="text-[11px] font-bold" style={{ color:'hsl(var(--foreground))', margin:0 }}>Cube off</p>
+                <p className="text-[9px]" style={{ color:'hsl(var(--muted-foreground))', margin:0 }}>Χωρίς κύβο στο φόντο</p>
+              </div>
+              <button onClick={toggleCubeOff} aria-pressed={cubeOff} title="Cube off"
+                style={{ width:42, height:24, borderRadius:999, border:'none', cursor:'pointer', position:'relative', flexShrink:0,
+                  background: cubeOff ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground)/0.3)', transition:'background .2s' }}>
+                <span style={{ position:'absolute', top:3, left: cubeOff ? 21 : 3, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
+              </button>
+            </div>
           </div>
         </>, document.body)}
     </>
@@ -134,7 +145,7 @@ function BottomBar({ unread, requests }) {
   const loc = useLocation();
   const { tr, lang, toggle } = useLang();
   const { logout } = useAppContext();
-  const { themeName, switchTheme, themes } = useTheme();
+  const { themeName, switchTheme, themes, cubeOff, toggleCubeOff } = useTheme();
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreTab, setMoreTab] = useState('menu'); // 'menu' | 'settings'
   const { accent, tab: tabActive, idle, idleLabel } = useBarColors();
@@ -244,6 +255,17 @@ function BottomBar({ unread, requests }) {
                     <ThemeSwatch key={k} name={k} isDark={false} active={themeName===k}
                       title={t.name} onClick={()=>switchTheme(k)}/>
                   ))}
+                </div>
+                <div style={{ marginTop:14, paddingTop:14, borderTop:'1px solid hsl(var(--border))', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+                  <div>
+                    <p className="text-[13px] font-bold" style={{ color:'hsl(var(--foreground))', margin:0 }}>Cube off</p>
+                    <p className="text-[11px]" style={{ color:'hsl(var(--muted-foreground))', margin:0 }}>Χωρίς κύβο στο φόντο</p>
+                  </div>
+                  <button onClick={toggleCubeOff} aria-pressed={cubeOff} title="Cube off"
+                    style={{ width:48, height:28, borderRadius:999, border:'none', cursor:'pointer', position:'relative', flexShrink:0,
+                      background: cubeOff ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground)/0.3)', transition:'background .2s' }}>
+                    <span style={{ position:'absolute', top:3, left: cubeOff ? 23 : 3, width:22, height:22, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
+                  </button>
                 </div>
               </>
             )}
