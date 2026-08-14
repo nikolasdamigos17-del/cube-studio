@@ -8,7 +8,7 @@ const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#8b
 const SERVICE_LABELS = { personal_training:'Personal Training', personal_training_nutrition:'PT + Nutrition', nutrition_only:'Nutrition Only', group_training:'Group Training' };
 
 function AddClientModal({ onClose, onSaved, client }) {
-  const [f, setF] = useState(client||{ name:'', phone:'', email:'', services:'personal_training', sessions_per_month:12, nutrition_meetings_per_month:2, monthly_price:'', active:true });
+  const [f, setF] = useState(client||{ name:'', phone:'', email:'', services:'personal_training', sessions_per_week:3, nutrition_meetings_per_month:2, monthly_price:'', active:true });
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setF(p=>({...p,[k]:v}));
   const hasTraining  = ['personal_training','personal_training_nutrition','group_training'].includes(f.services);
@@ -27,8 +27,8 @@ function AddClientModal({ onClose, onSaved, client }) {
       payload.portal_password = `${(f.name||'Cube').trim().split(' ')[0]}${new Date().getFullYear()}!`;
       payload.gender = payload.gender || 'male';
     }
-    if (hasTraining && payload.sessions_per_month)
-      payload.sessions_per_week = Math.max(1, Math.round(payload.sessions_per_month/4)); // συμβατότητα με ημερολόγιο/οικονομικά
+    if (hasTraining && payload.sessions_per_week)
+      payload.sessions_per_month = Math.max(1, Math.round(payload.sessions_per_week * 4)); // πλάνο: εβδομάδα ×4
     if (!hasNutrition) payload.nutrition_meetings_per_month = 0;
     if (client?.id) await db.Client.update(client.id, payload);
     else await db.Client.create(payload);
@@ -63,7 +63,7 @@ function AddClientModal({ onClose, onSaved, client }) {
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-5">
-          {hasTraining&&<div><label className="text-xs font-medium text-gray-500 uppercase">Προπονήσεις / μήνα</label><input type="number" min="1" value={f.sessions_per_month||''} onChange={e=>set('sessions_per_month',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}
+          {hasTraining&&<div><label className="text-xs font-medium text-gray-500 uppercase">Προπονήσεις / εβδομάδα</label><input type="number" min="1" value={f.sessions_per_week||''} onChange={e=>set('sessions_per_week',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}
           {hasNutrition&&<div><label className="text-xs font-medium text-gray-500 uppercase">Διατροφικές συναντήσεις / μήνα</label><input type="number" min="1" value={f.nutrition_meetings_per_month||''} onChange={e=>set('nutrition_meetings_per_month',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}
           <div className={hasTraining&&hasNutrition?'col-span-2':''}><label className="text-xs font-medium text-gray-500 uppercase">Μηνιαία τιμή (€)</label><input type="number" value={f.monthly_price||''} onChange={e=>set('monthly_price',parseFloat(e.target.value)||'')} className="input-base mt-1"/></div>
         </div>
@@ -129,6 +129,8 @@ export default function Clients() {
   useEffect(()=>{ load(); },[]);
 
   const filteredClients = clients.filter(c=>c.name?.toLowerCase().includes(search.toLowerCase())||c.email?.toLowerCase().includes(search.toLowerCase()));
+  const activeClients = filteredClients.filter(c=>!c.frozen);
+  const frozenClients = filteredClients.filter(c=>c.frozen);
   const filteredGroups = groups.filter(g=>g.name?.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -149,9 +151,9 @@ export default function Clients() {
       </div>
 
       {tab==='clients'&&(
-        filteredClients.length===0 ? <div className="text-center py-20 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-30"/><p>No clients yet</p></div> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredClients.map(c=>(
+        activeClients.length===0 && frozenClients.length===0 ? <div className="text-center py-20 text-gray-400"><Users className="w-12 h-12 mx-auto mb-3 opacity-30"/><p>No clients yet</p></div> : (<>
+          {activeClients.length>0 && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activeClients.map(c=>(
               <div key={c.id} onClick={()=>navigate(`/ClientProfile?id=${c.id}`)} className="card p-5 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
@@ -166,7 +168,25 @@ export default function Clients() {
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
+
+          {frozenClients.length>0 && (
+            <div className="mt-8">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">Ανενεργοί ({frozenClients.length})</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 opacity-75">
+                {frozenClients.map(c=>(
+                  <div key={c.id} onClick={()=>navigate(`/ClientProfile?id=${c.id}`)} className="card p-5 cursor-pointer group border-dashed">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0 grayscale" style={{backgroundColor:c.theme_color||'#94a3b8'}}>{c.name?.charAt(0)}</div>
+                      <div className="flex-1 min-w-0"><p className="font-semibold text-gray-500 truncate">{c.name} ❄️</p><p className="text-sm text-gray-400">{SERVICE_LABELS[c.services]||'—'}</p></div>
+                      <button onClick={async(e)=>{e.stopPropagation(); await db.Client.update(c.id,{frozen:false}); load();}} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-sky-50 text-sky-600 hover:bg-sky-100 flex-shrink-0">Unfreeze</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
         )
       )}
 

@@ -3,7 +3,6 @@ import { AppProvider, useAppContext } from './lib/AppContext';
 import { ThemeProvider } from './lib/ThemeContext';
 import { LangProvider } from './lib/LangContext';
 import CubeBackground from './components/CubeBackground';
-import PageTransition from './components/PageTransition';
 import TranslateLayer from './components/TranslateLayer';
 import { useEffect, Component } from 'react';
 import { seedDemoData } from './lib/db';
@@ -129,9 +128,9 @@ export default function App() {
           <CubeBackground/>
           <TranslateLayer/>
           <ErrorBoundary>
-            <PageTransition>
+            
               <AppContent/>
-            </PageTransition>
+            
           </ErrorBoundary>
         </Router>
       </AppProvider>

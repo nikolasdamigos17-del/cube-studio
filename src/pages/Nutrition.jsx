@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Trash2, X, Sparkles, ChevronRight, ChevronDown, ExternalLink, Loader2, Check, AlertCircle, Pencil, RotateCcw, Plus, Minus, ArrowLeft, Users, ClipboardList, CalendarClock, Lock, Search } from 'lucide-react';
 import { db, callAI } from '../lib/db';
+import { addCredit, getBalance } from '../lib/credits';
 
 const MEAL_TYPES = [
   { id:'breakfast', label:'Breakfast', emoji:'🌅', time:'08:00' },
@@ -487,8 +488,49 @@ const GOAL_LABELS = { fat_loss:'Απώλεια λίπους', muscle_gain:'Μυ�
 const FLAG_LABELS = { vegetarian:'Vegetarian', vegan:'Vegan', lactose_free:'Lactose-free', nut_allergy:'Χωρίς ξηρούς καρπούς' };
 const SLOT_LABELS = { breakfast:'Πρωινό', snack1:'Δεκατιανό', lunch:'Μεσημεριανό', snack2:'Απογ. σνακ', dinner:'Βραδινό', preworkout:'Pre-workout', postworkout:'Post-workout' };
 
+/* ── Επιβεβαίωση χρέωσης μετά από nutrition meeting ── */
+function DeductModal({ fm, onDone }) {
+  const [phase, setPhase] = useState('ask'); // ask | done
+  const [left, setLeft] = useState(null);
+  const yes = async () => {
+    await addCredit(fm.client_id, 'nutrition', -1, 'meeting', fm.meeting_id, '');
+    const b = await getBalance(fm.client_id);
+    setLeft(b.nutrition); setPhase('done');
+  };
+  return (
+    <div className="fixed inset-0 z-50 bg-black/55 flex items-center justify-center p-5">
+      <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl">
+        {phase === 'ask' ? (
+          <>
+            <div className="text-3xl mb-2">🥗</div>
+            <p className="font-bold text-foreground mb-1">Ολοκληρώθηκε διατροφική συνάντηση με {fm.client_name}</p>
+            <p className="text-sm text-muted-foreground mb-5">Αφαίρεση 1 διατροφικής από το υπόλοιπό του;</p>
+            <div className="flex gap-2">
+              <button onClick={onDone} className="flex-1 btn btn-secondary">Όχι</button>
+              <button onClick={yes} className="flex-1 btn btn-primary">Ναι, αφαίρεση</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="w-11 h-11 mx-auto mb-3 rounded-full bg-green-500 flex items-center justify-center text-white text-xl">✓</div>
+            <p className="font-bold text-foreground mb-1">Αφαιρέθηκε.</p>
+            <p className="text-sm text-muted-foreground mb-5">Νέο υπόλοιπο: <b className="text-foreground">{left} διατροφικές συναντήσεις</b></p>
+            <button onClick={onDone} className="btn btn-primary w-full">Εντάξει</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Nutrition() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [finMtg, setFinMtg] = useState(null);
+  useEffect(() => {
+    const fm = location.state?.finishedMeeting;
+    if (fm) { setFinMtg(fm); navigate('/Nutrition', { replace: true }); }
+  }, [location.state]); // eslint-disable-line
   const [plans, setPlans] = useState([]);
   const [clients, setClients] = useState([]);
   const [profiles, setProfiles] = useState([]);
@@ -526,6 +568,7 @@ export default function Nutrition() {
     const excludedTotal = (prof?.excluded_ingredients?.length||0) + (prof?.excluded_auto?.length||0);
     return (
       <div className="p-6 md:p-8 max-w-5xl mx-auto animate-fade-in">
+        {finMtg && <DeductModal fm={finMtg} onDone={()=>setFinMtg(null)}/>}
         <button onClick={()=>setSel(null)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-5"><ArrowLeft className="w-4 h-4"/> Nutrition Center</button>
 
         <div className="flex items-center gap-4 mb-7">
@@ -623,6 +666,7 @@ export default function Nutrition() {
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto animate-fade-in">
+        {finMtg && <DeductModal fm={finMtg} onDone={()=>setFinMtg(null)}/>}
       <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
         <div><h1 className="page-title">Nutrition Center</h1><p className="page-subtitle">{nutriClients.length} πελάτες διατροφής · {pendingSetup} χωρίς Course Planning · {pendingOrders} εκκρεμείς διατροφές</p></div>
       </div>

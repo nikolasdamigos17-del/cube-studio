@@ -61,6 +61,8 @@ export default function ClientProfile() {
   const clientId = params.get('id');
   const [client, setClient] = useState(null);
   const [tab, setTab] = useState('overview');
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [planEdit, setPlanEdit] = useState(null);
   const [progress, setProgress] = useState([]);
   const [plans, setPlans] = useState([]);
   const [nutrition, setNutrition] = useState([]);
@@ -115,8 +117,43 @@ export default function ClientProfile() {
             </div>
           </div>
         </div>
-        <button onClick={()=>setShowRecord(true)} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800"><Plus className="w-4 h-4" /> Add Record</button>
+        <div className="flex gap-2 flex-wrap justify-end">
+          <button onClick={()=>setPlanEdit({ sessions_per_week:client.sessions_per_week||3, nutrition_meetings_per_month:client.nutrition_meetings_per_month||0, monthly_price:client.monthly_price||'', session_duration_hours:client.session_duration_hours||1 })} className="flex items-center gap-1.5 border border-gray-200 bg-white px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">📦 Πλάνο</button>
+          <button onClick={async()=>{ const nf=!client.frozen; await db.Client.update(client.id,{frozen:nf}); setClient({...client, frozen:nf}); }} className={`flex items-center gap-1.5 border px-3 py-2.5 rounded-xl text-sm font-medium ${client.frozen?'border-sky-200 bg-sky-50 text-sky-600':'border-gray-200 bg-white hover:bg-gray-50'}`}>{client.frozen?'🔓 Unfreeze':'❄️ Freeze'}</button>
+          <button onClick={()=>setConfirmDel(true)} className="flex items-center gap-1.5 border border-rose-200 bg-rose-50 text-rose-600 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-rose-100">🗑 Διαγραφή</button>
+          <button onClick={()=>setShowRecord(true)} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800"><Plus className="w-4 h-4" /> Add Record</button>
+        </div>
       </div>
+
+      {client.frozen && <div className="mb-4 px-4 py-2.5 rounded-xl bg-sky-50 border border-sky-100 text-sky-700 text-sm font-medium">❄️ Ο πελάτης είναι σε κατάσταση freeze (ανενεργός) — δεν μετράει στα ενεργά στατιστικά.</div>}
+
+      {confirmDel && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-5" onClick={()=>setConfirmDel(false)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center" onClick={e=>e.stopPropagation()}>
+            <p className="font-bold text-gray-900 mb-1">Διαγραφή πελάτη;</p>
+            <p className="text-sm text-gray-500 mb-5">Ο/Η {client.name} θα διαγραφεί οριστικά από τη λίστα πελατών.</p>
+            <div className="flex gap-2">
+              <button onClick={()=>setConfirmDel(false)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium">Ακύρωση</button>
+              <button onClick={async()=>{ await db.Client.delete(client.id); navigate('/Clients'); }} className="flex-1 bg-rose-600 text-white rounded-xl py-2.5 text-sm font-semibold">Ναι, διαγραφή</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {planEdit && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-5" onClick={()=>setPlanEdit(null)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm" onClick={e=>e.stopPropagation()}>
+            <p className="font-bold text-gray-900 mb-4">Πλάνο πελάτη</p>
+            <div className="space-y-3">
+              {[['sessions_per_week','Προπονήσεις / εβδομάδα'],['session_duration_hours','Διάρκεια session (ώρες)'],['nutrition_meetings_per_month','Διατροφές / μήνα'],['monthly_price','Μηνιαία τιμή (€)']].map(([k,l])=>(
+                <div key={k}><label className="text-xs font-medium text-gray-500">{l}</label>
+                  <input type="number" step={k==='session_duration_hours'?'0.5':'1'} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1" value={planEdit[k]} onChange={e=>setPlanEdit(pp=>({...pp,[k]:e.target.value}))}/></div>
+              ))}
+            </div>
+            <button onClick={async()=>{ const w=parseInt(planEdit.sessions_per_week)||0; const patch={ sessions_per_week:w, sessions_per_month:w*4, session_duration_hours:parseFloat(planEdit.session_duration_hours)||1, nutrition_meetings_per_month:parseInt(planEdit.nutrition_meetings_per_month)||0, monthly_price:parseFloat(planEdit.monthly_price)||0 }; await db.Client.update(client.id,patch); setClient({...client,...patch}); setPlanEdit(null); }} className="w-full mt-5 bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold">Αποθήκευση πλάνου</button>
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats */}
       {latest && (

@@ -113,7 +113,6 @@ export const T = {
   stats_subtitle:  { en:'Track and analyze client progress', el:'Παρακολούθηση προόδου πελατών' },
   stats_select:    { en:'Select a client',            el:'Επιλογή πελάτη'              },
   stats_add:       { en:'Add Record',                 el:'Προσθήκη Εγγραφής'           },
-  stats_withings:  { en:'Withings Import',            el:'Εισαγωγή Withings'           },
   stats_summary:   { en:'Session Summary',            el:'Σύνοψη Συνεδρίας'            },
   stats_weight:    { en:'Weight',                     el:'Βάρος'                       },
   stats_fat:       { en:'Body Fat',                   el:'Σωματικό Λίπος'              },

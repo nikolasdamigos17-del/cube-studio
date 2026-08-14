@@ -53,6 +53,7 @@ export const db = {
   ClientProgress: createEntity('client_progress'),
   ClientNote: createEntity('client_notes'),
   Payment: createEntity('payments'),
+  CreditEntry: createEntity('credit_entries'),
   TodoItem: createEntity('todos'),
   Message: createEntity('messages'),
   Group: createEntity('groups'),

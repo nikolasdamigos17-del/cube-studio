@@ -108,7 +108,7 @@ export default function Home() {
     else if (a==='record') navigate('/Statistics');
     else if (a==='training') navigate('/TrainingPlans');
     else if (a==='nutrition') navigate('/Nutrition');
-    else if (a==='payment') setModal('payment');
+    else if (a==='payment') navigate('/Logistics',{state:{openLogPay:true}});
     else if (a==='assistant') setModal('assistant');
   };
 
@@ -344,7 +344,6 @@ export default function Home() {
 
       {/* Modals */}
       {modal==='event'&&<SimpleModal title="New Event" onClose={()=>setModal(null)}><EventForm clients={clients} onSave={async d=>{await db.Appointment.create(d);load();setModal(null);}}/></SimpleModal>}
-      {modal==='payment'&&<SimpleModal title="Log Payment" onClose={()=>setModal(null)}><PaymentForm clients={clients} onSave={async d=>{await db.Payment.create(d);load();setModal(null);}}/></SimpleModal>}
     </div>
   );
 }

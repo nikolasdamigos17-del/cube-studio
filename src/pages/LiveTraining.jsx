@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../lib/db';
+import { addCredit, getBalance } from '../lib/credits';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { EQUIPMENT } from '../lib/gymEquipment';
 import CubeBackground from '../components/CubeBackground';
@@ -203,8 +204,51 @@ function Welcome({ plan, clientName, onStart }) {
   );
 }
 
+/* ── results preview (επεξεργάσιμο) ───────────────────────────────────── */
+function ResultsReview({ draft, onEdit, onConfirm, saving }) {
+  const inp = { width:'100%', background:'rgba(0,0,0,.5)', border:'1px solid rgba(255,255,255,.16)', borderRadius:9,
+    color:'#fff', padding:'7px 6px', fontSize:14, fontWeight:700, textAlign:'center', fontFamily:'inherit', outline:'none' };
+  return (
+    <div style={{ minHeight:'100vh', position:'relative', zIndex:1, padding:'30px 16px 44px', maxWidth:600, margin:'0 auto' }}>
+      <p style={{ fontSize:10, letterSpacing:'.3em', color:ACCENT, fontWeight:800, textTransform:'uppercase', margin:'0 0 8px' }}>Αποτελέσματα προπόνησης</p>
+      <h1 style={{ fontSize:23, fontWeight:800, color:'#fff', margin:'0 0 6px', fontFamily:'var(--cp-font)' }}>Έλεγχος πριν την αποθήκευση</h1>
+      <p style={{ fontSize:12.5, color:'rgba(255,255,255,.5)', margin:'0 0 20px' }}>Αν κάτι δεν ισχύει, διόρθωσε επαναλήψεις ή κιλά — μετά πάτησε Επιβεβαίωση.</p>
+
+      {draft.map((exd, i) => (
+        <div key={i} style={{ background:'rgba(0,0,0,.55)', backdropFilter:'blur(8px)', border:'1px solid rgba(255,255,255,.1)', borderRadius:16, padding:'14px 14px 10px', marginBottom:12 }}>
+          <p style={{ margin:'0 0 10px', fontSize:14.5, fontWeight:800, color:'#fff' }}>{i+1}. {exd.name}</p>
+          <div style={{ display:'grid', gridTemplateColumns:'44px 1fr 64px 1fr 40px', gap:8, marginBottom:6 }}>
+            {['ΣΕΤ','ΕΠΑΝ.','ΣΤΟΧΟΣ','ΚΙΛΑ',''].map(h=>(
+              <span key={h} style={{ fontSize:8.5, letterSpacing:'.12em', color:'rgba(255,255,255,.35)', fontWeight:800, textAlign:'center' }}>{h}</span>
+            ))}
+          </div>
+          {exd.rows.map((r, si) => {
+            const rd = parseInt(r.reps_done) || 0;
+            const hit = r.target ? rd >= r.target : rd > 0;
+            const badge = rd === 0 ? ['✗','#f87171'] : hit ? ['✓','#4ade80'] : ['↓','#fbbf24'];
+            return (
+              <div key={si} style={{ display:'grid', gridTemplateColumns:'44px 1fr 64px 1fr 40px', gap:8, alignItems:'center', marginBottom:7 }}>
+                <span style={{ fontSize:12.5, color:'rgba(255,255,255,.55)', fontWeight:800, textAlign:'center' }}>{si+1}</span>
+                <input style={inp} type="number" value={r.reps_done} onChange={e=>onEdit(i, si, 'reps_done', e.target.value)}/>
+                <span style={{ fontSize:12.5, color:'rgba(255,255,255,.45)', textAlign:'center' }}>/ {r.target || '—'}</span>
+                <input style={inp} type="number" step="0.5" value={r.weight_kg} onChange={e=>onEdit(i, si, 'weight_kg', e.target.value)}/>
+                <span style={{ fontSize:15, fontWeight:900, color:badge[1], textAlign:'center' }}>{badge[0]}</span>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+
+      <button onClick={onConfirm} disabled={saving} style={{ width:'100%', padding:15, borderRadius:14, border:'none', cursor:'pointer',
+        background:ACCENT, color:'#04140a', fontSize:14.5, fontWeight:800, opacity:saving?0.6:1, fontFamily:'inherit' }}>
+        {saving ? 'Αποθήκευση…' : 'Επιβεβαίωση'}
+      </button>
+    </div>
+  );
+}
+
 /* ── finish ───────────────────────────────────────────────────────────── */
-function Finish({ plan, clientName, totals, onClose }) {
+function Finish({ plan, clientName, totals, deduction, onClose }) {
   return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', justifyContent:'center',
       alignItems:'center', padding:'40px 20px', position:'relative', zIndex:1, textAlign:'center' }}>
@@ -229,9 +273,15 @@ function Finish({ plan, clientName, totals, onClose }) {
             </div>
           ))}
         </div>
+        <div style={{ background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.35)', borderRadius:15, padding:'14px 16px', marginBottom:18, textAlign:'left' }}>
+          <p style={{ margin:0, fontSize:12.5, color:'rgba(255,255,255,.85)', lineHeight:1.55 }}>✅ Τα δεδομένα της προπόνησης αποθηκεύτηκαν στην καρτέλα του πελάτη για μελλοντικά πλάνα.</p>
+          {deduction && (
+            <p style={{ margin:'8px 0 0', fontSize:12.5, color:'rgba(255,255,255,.85)', lineHeight:1.55 }}>🏋️ Αφαιρέθηκε <b>1 προπόνηση</b> από το υπόλοιπο — Νέο υπόλοιπο: <b style={{ color:ACCENT }}>{deduction.left} προπονήσεις</b></p>
+          )}
+        </div>
         <button onClick={onClose} style={{ width:'100%', padding:14, borderRadius:14, border:'none',
           cursor:'pointer', background:ACCENT, color:'#04140a', fontSize:14, fontWeight:800 }}>
-          ← Πίσω στα πλάνα
+          Τέλος
         </button>
       </div>
     </div>
@@ -252,6 +302,9 @@ export default function LiveTraining() {
   const [rep, setRep] = useState(0);
   const [phase, setPhase] = useState('ready');       // ready | active | rest | restEx
   const [logged, setLogged] = useState({});          // `${ex}-${set}` -> reps done
+  const [resultsDraft, setResultsDraft] = useState([]);
+  const [deduction, setDeduction] = useState(null);
+  const [savingRes, setSavingRes] = useState(false);
 
   const ex = exercises[exIdx];
   const sets = ex ? setsOf(ex) : [];
@@ -310,28 +363,44 @@ export default function LiveTraining() {
   }, [phase, rep, setIdx, sets.length, commit]);
 
   const afterRest = () => { setSetIdx(i => i + 1); setRep(0); setPhase('active'); };
-  /* μόνιμη αποθήκευση αποτελεσμάτων της live προπόνησης στο πλάνο (in-app tracking) */
-  const saveResults = () => {
-    if (!plan?.id) return;
-    const session_results = exercises.map((ex, i) => {
-      const planned = ex.set_details?.length || ex.sets || 0;
-      const sets = [];
-      let done = 0;
-      for (let sN = 0; sN < planned; sN++) {
-        const reps_done = logged[`${i}-${sN}`] ?? 0;
-        const target = ex.set_details?.[sN]?.reps || parseInt(ex.reps) || 0;
-        const w = ex.set_details?.[sN]?.weight_kg ?? ex.weight_kg ?? 0;
-        if (reps_done > 0) done++;
-        sets.push({ set: sN + 1, reps_done, target_reps: target, weight_kg: w,
-          completed: reps_done > 0, hit_target: target ? reps_done >= target : reps_done > 0 });
+  /* ── αποτελέσματα live: preview → επιβεβαίωση → αποθήκευση + αφαίρεση 1 προπόνησης ── */
+  const buildDraft = () => exercises.map((ex2, i) => {
+    const sd = setsOf(ex2);
+    return { name: ex2.name, rows: sd.map((d, sn) => ({
+      reps_done: logged[`${i}-${sn}`] ?? 0,
+      target: repTargetOf(d) || 0,
+      weight_kg: d.weight_kg ?? ex2.weight_kg ?? 0,
+    })) };
+  });
+  const openResults = () => { setResultsDraft(buildDraft()); setScreen('results'); };
+  const editDraft = (i, si, field, val) => setResultsDraft(p => p.map((exd, j) => j !== i ? exd : {
+    ...exd, rows: exd.rows.map((r, k) => k !== si ? r : { ...r, [field]: val }),
+  }));
+  const confirmResults = async () => {
+    if (savingRes) return;
+    setSavingRes(true);
+    const session_results = resultsDraft.map(exd => ({
+      name: exd.name,
+      sets_planned: exd.rows.length,
+      sets_done: exd.rows.filter(r => (parseInt(r.reps_done) || 0) > 0).length,
+      sets: exd.rows.map((r, si) => { const rd = parseInt(r.reps_done) || 0; return {
+        set: si + 1, reps_done: rd, target_reps: r.target || 0, weight_kg: parseFloat(r.weight_kg) || 0,
+        completed: rd > 0, hit_target: r.target ? rd >= r.target : rd > 0 }; }),
+    }));
+    try {
+      if (plan?.id) await db.TrainingPlan.update(plan.id, { completed: true, completed_date: new Date().toISOString(), session_results });
+      if (plan?.client_id) {
+        await addCredit(plan.client_id, 'training', -1, 'session', plan.id, plan.title || '');
+        const b = await getBalance(plan.client_id);
+        setDeduction({ left: b.training });
       }
-      return { name: ex.name, sets_planned: planned, sets_done: done, sets };
-    });
-    db.TrainingPlan.update(plan.id, { completed: true, completed_date: new Date().toISOString(), session_results }).catch(() => {});
+    } catch {}
+    setSavingRes(false);
+    setScreen('finish');
   };
 
   const afterExRest = () => {
-    if (exIdx + 1 >= exercises.length) { saveResults(); setScreen('finish'); return; }
+    if (exIdx + 1 >= exercises.length) { openResults(); return; }
     setExIdx(i => i + 1); setSetIdx(0); setRep(0); setPhase('ready');
   };
 
@@ -381,8 +450,11 @@ export default function LiveTraining() {
         <Welcome plan={plan} clientName={clientName} onStart={() => setScreen('run')}/>
       )}
 
+      {screen === 'results' && (
+        <ResultsReview draft={resultsDraft} onEdit={editDraft} onConfirm={confirmResults} saving={savingRes}/>
+      )}
       {screen === 'finish' && (
-        <Finish plan={plan} clientName={clientName} totals={totals} onClose={() => nav(-1)}/>
+        <Finish plan={plan} clientName={clientName} totals={totals} deduction={deduction} onClose={() => nav(-1)}/>
       )}
 
       {screen === 'run' && ex && (

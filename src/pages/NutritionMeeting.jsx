@@ -700,7 +700,7 @@ export default function NutritionMeeting() {
       const merged = Array.from(new Set([...(profile.never_meals || []), ...never]));
       await db.NutritionProfile.update(profile.id, { never_meals: merged });
     }
-    await db.NutritionMeeting.create({
+    const mtg = await db.NutritionMeeting.create({
       client_id: clientId, client_name: client.name, date: todayStr(),
       progress_id: current?.id || null, prev_progress_id: prev?.id || null,
       measurement: current ? { weight_kg: current.weight_kg, body_fat_pct: current.body_fat_pct, muscle_mass_kg: current.muscle_mass_kg, body_water_pct: current.body_water_pct } : null,
@@ -708,7 +708,7 @@ export default function NutritionMeeting() {
       selected_meals: cart.map(({ slot, name, main_ingredients, calories, protein, source }) => ({ slot, name, main_ingredients, calories, protein, source })),
       next_appointment_id: booked?.id || null, status: 'ordered',
     });
-    navigate('/Nutrition');
+    navigate('/Nutrition', { state: { finishedMeeting: { client_id: clientId, client_name: client.name, meeting_id: mtg.id } } });
   };
 
   /* ── στυλ ── */

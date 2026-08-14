@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parseISO, subDays } from 'date-fns';
-import { BarChart2, Plus, Trash2, X, Watch, Sparkles, Loader2 } from 'lucide-react';
-import SessionPresentation from './SessionPresentation';
+import { BarChart2, Plus, Trash2, X, Loader2 } from 'lucide-react';
 import { db } from '../lib/db';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -19,214 +18,6 @@ const METRICS = [
   { key:'water_liters',  label:'Water',        unit:'L',    color:'#06b6d4', icon:'🥤' },
 ];
 
-// ── Withings Import Modal ─────────────────────────────────────────────────────
-function WithingsModal({ clientId, clientName, onClose, onSaved }) {
-  const [step, setStep] = useState('connect'); // connect | manual | parsing | done
-  const [csvText, setCsvText] = useState('');
-  const [parsed, setParsed] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const fileRef = useRef();
-
-  const parseWithingsCSV = (text) => {
-    const lines = text.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,'').toLowerCase());
-    const rows = lines.slice(1).map(l => {
-      const vals = l.split(',').map(v => v.trim().replace(/"/g,''));
-      return Object.fromEntries(headers.map((h,i) => [h, vals[i]]));
-    });
-    // Map Withings field names → our field names
-    const fieldMap = {
-      'weight (kg)':'weight_kg','weight':'weight_kg',
-      'fat mass (kg)':'fat_mass_kg','fat mass weight (kg)':'fat_mass_kg',
-      'fat mass (%)':'body_fat_pct','fat ratio (%)':'body_fat_pct','fat ratio':'body_fat_pct',
-      'muscle mass (kg)':'muscle_mass_kg','muscle mass weight (kg)':'muscle_mass_kg',
-      'hydration (%)':'body_water_pct','hydration':'body_water_pct',
-      'bone mass (kg)':'bone_mass_kg','bone mass weight (kg)':'bone_mass_kg',
-      'basal metabolic rate (kcal)':'bmr','basal metabolic rate':'bmr',
-      'bmi':'bmi',
-      'visceral fat':'visceral_fat','visceral fat index':'visceral_fat',
-    };
-    // Find date column
-    const dateCol = headers.find(h => h.includes('date') || h.includes('time') || h === 'datetime');
-    const results = rows.map(row => {
-      const record = {};
-      if (dateCol && row[dateCol]) {
-        const d = row[dateCol].split(' ')[0];
-        try { record.date = format(new Date(d), 'yyyy-MM-dd'); } catch { record.date = d; }
-      }
-      Object.entries(fieldMap).forEach(([wKey, ourKey]) => {
-        if (row[wKey] !== undefined && row[wKey] !== '' && !isNaN(parseFloat(row[wKey]))) {
-          record[ourKey] = parseFloat(row[wKey]);
-        }
-      });
-      // Calculate body_fat_pct from fat_mass_kg if needed
-      if (!record.body_fat_pct && record.fat_mass_kg && record.weight_kg) {
-        record.body_fat_pct = parseFloat(((record.fat_mass_kg / record.weight_kg) * 100).toFixed(1));
-      }
-      // Calculate muscle_mass_kg from body fat if not present
-      if (!record.muscle_mass_kg && record.weight_kg && record.body_fat_pct) {
-        const fatKg = record.weight_kg * (record.body_fat_pct / 100);
-        record.muscle_mass_kg = parseFloat((record.weight_kg - fatKg).toFixed(1));
-      }
-      if (!record.bmi && record.weight_kg) {
-        // Can't calc BMI without height, leave blank
-      }
-      return record;
-    }).filter(r => r.date && Object.keys(r).length > 1);
-    return results;
-  };
-
-  const handleFile = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target.result;
-      setCsvText(text);
-      setStep('parsing');
-      try {
-        const data = parseWithingsCSV(text);
-        setParsed(data);
-        setStep('preview');
-      } catch(err) {
-        setStep('error');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleManualPaste = () => {
-    setStep('parsing');
-    try {
-      const data = parseWithingsCSV(csvText);
-      setParsed(data);
-      setStep('preview');
-    } catch { setStep('error'); }
-  };
-
-  const save = async () => {
-    setSaving(true);
-    const existing = await db.ClientProgress.filter({ client_id: clientId });
-    const existingDates = new Set(existing.map(r => r.date));
-    let imported = 0;
-    for (const record of parsed) {
-      if (!existingDates.has(record.date)) {
-        await db.ClientProgress.create({ ...record, client_id: clientId });
-        imported++;
-      }
-    }
-    setSaving(false); onSaved(); onClose();
-    alert(`✅ Imported ${imported} new records (${parsed.length - imported} already existed)`);
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box max-w-xl p-0 overflow-hidden w-full" onClick={e=>e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center"><Watch className="w-5 h-5 text-blue-600"/></div>
-            <div><h2 className="font-bold text-foreground">Withings Import</h2><p className="text-xs text-muted-foreground">Body Smart Scale — {clientName}</p></div>
-          </div>
-          <button onClick={onClose} className="btn-ghost btn-icon"><X className="w-4 h-4"/></button>
-        </div>
-
-        <div className="p-6">
-          {step === 'connect' && (
-            <div className="space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-2xl p-4 text-sm text-blue-800 dark:text-blue-300">
-                <p className="font-semibold mb-2">📱 How to export from Withings:</p>
-                <ol className="space-y-1 list-decimal list-inside text-xs leading-relaxed">
-                  <li>Open the <strong>Withings Health Mate</strong> app</li>
-                  <li>Go to <strong>Profile → Export Data</strong></li>
-                  <li>Select <strong>Weight measurements</strong></li>
-                  <li>Choose the date range and export as <strong>CSV</strong></li>
-                  <li>Email or AirDrop the CSV file to this computer</li>
-                  <li>Import it below</li>
-                </ol>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={()=>fileRef.current?.click()} className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-border rounded-xl hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer">
-                  <span className="text-2xl">📁</span>
-                  <span className="text-sm font-medium text-foreground">Upload CSV File</span>
-                  <span className="text-xs text-muted-foreground">from Withings export</span>
-                </button>
-                <button onClick={()=>setStep('paste')} className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-border rounded-xl hover:border-blue-400 hover:bg-blue-50/50 transition-all cursor-pointer">
-                  <span className="text-2xl">📋</span>
-                  <span className="text-sm font-medium text-foreground">Paste CSV Text</span>
-                  <span className="text-xs text-muted-foreground">copy-paste the data</span>
-                </button>
-              </div>
-              <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFile}/>
-              <p className="text-center text-xs text-muted-foreground">Supports Withings Health Mate CSV export format</p>
-            </div>
-          )}
-
-          {step === 'paste' && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">Paste your Withings CSV export below:</p>
-              <textarea value={csvText} onChange={e=>setCsvText(e.target.value)} rows={8} placeholder={'Date,Weight (kg),Fat ratio (%),Muscle mass (kg),...\n2024-01-15,82.3,18.5,65.2,...'} className="input-base resize-none font-mono text-xs w-full"/>
-              <div className="flex gap-2">
-                <button onClick={()=>setStep('connect')} className="btn btn-secondary flex-1">Back</button>
-                <button onClick={handleManualPaste} disabled={!csvText.trim()} className="btn btn-primary flex-1">Parse Data</button>
-              </div>
-            </div>
-          )}
-
-          {step === 'parsing' && (
-            <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500"/><p className="mt-2 text-muted-foreground">Parsing Withings data…</p></div>
-          )}
-
-          {step === 'error' && (
-            <div className="text-center py-8">
-              <p className="text-red-500 font-medium">Could not parse this file</p>
-              <p className="text-sm text-muted-foreground mt-1">Make sure it's a Withings CSV export</p>
-              <button onClick={()=>setStep('connect')} className="btn btn-secondary mt-4">Try Again</button>
-            </div>
-          )}
-
-          {step === 'preview' && parsed && (
-            <div className="space-y-4">
-              <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-3 text-sm text-green-700 dark:text-green-400">
-                ✅ Found <strong>{parsed.length} records</strong> from {parsed[0]?.date} to {parsed[parsed.length-1]?.date}
-              </div>
-              <div className="max-h-48 overflow-y-auto border border-border rounded-xl">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted sticky top-0"><tr>
-                    <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Date</th>
-                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Weight</th>
-                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Fat%</th>
-                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Muscle</th>
-                    <th className="px-3 py-2 text-right font-semibold text-muted-foreground">BMR</th>
-                  </tr></thead>
-                  <tbody className="divide-y divide-border">
-                    {parsed.slice(0,20).map((r,i)=>(
-                      <tr key={i} className="hover:bg-muted/40">
-                        <td className="px-3 py-1.5 font-medium text-foreground">{r.date}</td>
-                        <td className="px-3 py-1.5 text-right">{r.weight_kg||'—'}</td>
-                        <td className="px-3 py-1.5 text-right">{r.body_fat_pct||'—'}</td>
-                        <td className="px-3 py-1.5 text-right">{r.muscle_mass_kg||'—'}</td>
-                        <td className="px-3 py-1.5 text-right">{r.bmr||'—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {parsed.length > 20 && <p className="text-xs text-muted-foreground text-center">Showing first 20 of {parsed.length}</p>}
-              <div className="flex gap-2">
-                <button onClick={()=>setStep('connect')} className="btn btn-secondary flex-1">Back</button>
-                <button onClick={save} disabled={saving} className="btn btn-primary flex-1">
-                  {saving ? <><Loader2 className="w-4 h-4 animate-spin"/>Importing…</> : `Import ${parsed.length} Records`}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Add Record Modal ──────────────────────────────────────────────────────────
 function AddRecordModal({ clientId, clientName, onClose, onSaved }) {
   const [f, setF] = useState({ date:format(new Date(),'yyyy-MM-dd'), weight_kg:'', body_fat_pct:'', muscle_mass_kg:'', body_water_pct:'', bone_mass_kg:'', bmr:'', bmi:'', visceral_fat:'', steps:'', sleep_hours:'', water_liters:'', notes:'' });
   const [saving, setSaving] = useState(false);
@@ -267,8 +58,6 @@ export default function Statistics() {
   const [progress, setProgress] = useState([]);
   const [activeMetric, setActiveMetric] = useState('weight_kg');
   const [showAdd, setShowAdd] = useState(false);
-  const [showWithings, setShowWithings] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
 
   const loadClients = () => db.Client.list('name').then(setClients);
   const loadProgress = (cid) => db.ClientProgress.filter({ client_id:cid }, 'date').then(setProgress);
@@ -283,7 +72,6 @@ export default function Statistics() {
   const first = progress[0];
   const delta = latest && first && latest[activeMetric] && first[activeMetric] ? (parseFloat(latest[activeMetric]) - parseFloat(first[activeMetric])).toFixed(1) : null;
 
-  if (showSummary) return <SessionPresentation client={client} allProgress={progress} onBack={()=>setShowSummary(false)}/>;
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto animate-fade-in">
@@ -291,17 +79,9 @@ export default function Statistics() {
         <div><h1 className="page-title">Statistics</h1><p className="page-subtitle">Track and analyze client progress</p></div>
         {selectedClient && (
           <div className="flex gap-2 flex-wrap">
-            <button onClick={()=>setShowWithings(true)} className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors">
-              <Watch className="w-4 h-4 text-blue-500"/>Withings Import
-            </button>
             <button onClick={()=>setShowAdd(true)} className="flex items-center gap-2 border border-border bg-card px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors">
               <Plus className="w-4 h-4"/>Add Record
             </button>
-            {progress.length > 0 && (
-              <button onClick={()=>setShowSummary(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors" style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',boxShadow:'0 4px 14px rgba(99,102,241,0.4)'}}>
-                <Sparkles className="w-4 h-4"/>Session Summary
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -317,9 +97,7 @@ export default function Statistics() {
       {selectedClient && progress.length === 0 && (
         <div className="text-center py-20 text-muted-foreground">
           <p className="font-medium mb-2">No records yet</p>
-          <p className="text-sm mb-4">Import from Withings or add manually</p>
           <div className="flex gap-3 justify-center">
-            <button onClick={()=>setShowWithings(true)} className="flex items-center gap-2 btn btn-primary"><Watch className="w-4 h-4"/>Import from Withings</button>
             <button onClick={()=>setShowAdd(true)} className="btn btn-secondary">Add Manually</button>
           </div>
         </div>
@@ -383,7 +161,6 @@ export default function Statistics() {
       )}
 
       {showAdd && <AddRecordModal clientId={selectedClient} clientName={client?.name} onClose={()=>setShowAdd(false)} onSaved={()=>loadProgress(selectedClient)}/>}
-      {showWithings && <WithingsModal clientId={selectedClient} clientName={client?.name} onClose={()=>setShowWithings(false)} onSaved={()=>loadProgress(selectedClient)}/>}
     </div>
   );
 }
