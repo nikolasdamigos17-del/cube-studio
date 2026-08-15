@@ -483,7 +483,7 @@ function PlanCard({ plan, onDelete }) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 /* ═══════════════ NUTRITION CENTER ═══════════════ */
 
-const hasNutritionSvc = (c) => c.services==='nutrition_only' || c.services==='personal_training_nutrition';
+const hasNutritionSvc = (c) => c.services==='nutrition_only' || c.services==='personal_training_nutrition' || c.services==='group_training_nutrition';
 const GOAL_LABELS = { fat_loss:'Απώλεια λίπους', muscle_gain:'Μυϊκή ανάπτυξη', recomp:'Ανασύνθεση', maintain:'Συντήρηση / Υγεία', performance:'Απόδοση' };
 const FLAG_LABELS = { vegetarian:'Vegetarian', vegan:'Vegan', lactose_free:'Lactose-free', nut_allergy:'Χωρίς ξηρούς καρπούς' };
 const SLOT_LABELS = { breakfast:'Πρωινό', snack1:'Δεκατιανό', lunch:'Μεσημεριανό', snack2:'Απογ. σνακ', dinner:'Βραδινό', preworkout:'Pre-workout', postworkout:'Post-workout' };

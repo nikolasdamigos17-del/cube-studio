@@ -53,7 +53,7 @@ function AddRecordModal({ clientId, clientName, onClose, onSaved }) {
   );
 }
 
-const SERVICE_LABELS = { personal_training:'Personal Training', personal_training_nutrition:'PT + Nutrition', nutrition_only:'Nutrition Only', group_training:'Group Training' };
+const SERVICE_LABELS = { personal_training:'Personal Training', personal_training_nutrition:'PT + Nutrition', nutrition_only:'Nutrition Only', group_training:'Group Training', group_training_nutrition:'Group + Nutrition' };
 
 export default function ClientProfile() {
   const [params] = useSearchParams();
