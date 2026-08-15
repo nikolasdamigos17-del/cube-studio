@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import ClientLayout from '../components/client-portal/ClientLayout';
 import { useAppContext } from '../lib/AppContext';
 import { db } from '../lib/db';
-import { creditBalance, REASON_LABELS } from '../lib/credits';
+import { creditBalance, REASON_LABELS, getGroupTrainingBalance } from '../lib/credits';
 
 const METHOD_EMOJI = { cash:'💵', card:'💳', transfer:'🏦', other:'📄' };
 
@@ -11,6 +11,7 @@ export default function ClientFinancial() {
   const [client, setClient] = useState(null);
   const [payments, setPayments] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [groupTraining, setGroupTraining] = useState(null);   // κοινό υπόλοιπο αν είναι μέλος group
 
   useEffect(() => {
     if (!clientUser?.clientId) return;
@@ -21,10 +22,13 @@ export default function ClientFinancial() {
     ]).then(([c, p, e]) => {
       setClient(c); setPayments(p);
       setEntries([...e].sort((a, b) => ((b.date || '') + (b.id || '')).localeCompare((a.date || '') + (a.id || ''))));
+      if (c?.group_id) db.Group.get(c.group_id).then(g => g && getGroupTrainingBalance(g).then(setGroupTraining));
     });
   }, [clientUser]);
 
   const bal = creditBalance(entries);
+  const inGroup = !!client?.group_id;
+  const trainingBal = inGroup && groupTraining !== null ? groupTraining : bal.training;
   const hasNutri = (client?.nutrition_meetings_per_month > 0) || bal.nutrition !== 0;
 
   return (
@@ -36,8 +40,8 @@ export default function ClientFinancial() {
           <p className="text-xs font-medium text-white/70 mb-2">Το υπόλοιπό μου</p>
           <div className="flex gap-8">
             <div>
-              <p className="text-4xl font-bold text-white leading-none">{bal.training}</p>
-              <p className="text-xs text-white/75 mt-1.5">🏋️ Προπονήσεις</p>
+              <p className="text-4xl font-bold text-white leading-none">{trainingBal}</p>
+              <p className="text-xs text-white/75 mt-1.5">🏋️ Προπονήσεις{inGroup?' (group)':''}</p>
             </div>
             {hasNutri && (
               <div>
@@ -46,7 +50,7 @@ export default function ClientFinancial() {
               </div>
             )}
           </div>
-          <p className="text-[11px] text-white/60 mt-3">Με κάθε αγορά πακέτου προστίθενται · με κάθε ολοκληρωμένο session αφαιρείται 1.</p>
+          <p className="text-[11px] text-white/60 mt-3">{inGroup?'Οι προπονήσεις είναι κοινές για το group σου · ':''}Με κάθε αγορά πακέτου προστίθενται · με κάθε ολοκληρωμένο session αφαιρείται 1.</p>
         </div>
 
         {/* My Plan */}

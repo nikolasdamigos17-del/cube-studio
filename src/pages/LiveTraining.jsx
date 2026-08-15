@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../lib/db';
-import { addCredit, getBalance } from '../lib/credits';
+import { addCredit, getBalance, addGroupCredit, getGroupTrainingBalance } from '../lib/credits';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { EQUIPMENT } from '../lib/gymEquipment';
 import CubeBackground from '../components/CubeBackground';
@@ -312,7 +312,7 @@ function Finish({ plan, clientName, totals, deduction, onClose }) {
         <div style={{ background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.35)', borderRadius:15, padding:'14px 16px', marginBottom:18, textAlign:'left' }}>
           <p style={{ margin:0, fontSize:12.5, color:'rgba(255,255,255,.85)', lineHeight:1.55 }}>✅ Τα δεδομένα της προπόνησης αποθηκεύτηκαν στην καρτέλα του πελάτη για μελλοντικά πλάνα.</p>
           {deduction && (
-            <p style={{ margin:'8px 0 0', fontSize:12.5, color:'rgba(255,255,255,.85)', lineHeight:1.55 }}>🏋️ Αφαιρέθηκε <b>1 προπόνηση</b> από το υπόλοιπο — Νέο υπόλοιπο: <b style={{ color:ACCENT }}>{deduction.left} προπονήσεις</b></p>
+            <p style={{ margin:'8px 0 0', fontSize:12.5, color:'rgba(255,255,255,.85)', lineHeight:1.55 }}>🏋️ Αφαιρέθηκε <b>1 προπόνηση</b> — Νέο υπόλοιπο{deduction.group?' group':''}: <b style={{ color:ACCENT }}>{deduction.left} προπονήσεις</b></p>
           )}
         </div>
         <button onClick={onClose} style={{ width:'100%', padding:14, borderRadius:14, border:'none',
@@ -426,9 +426,18 @@ export default function LiveTraining() {
     try {
       if (plan?.id) await db.TrainingPlan.update(plan.id, { completed: true, completed_date: new Date().toISOString(), session_results });
       if (plan?.client_id) {
-        await addCredit(plan.client_id, 'training', -1, 'session', plan.id, plan.title || '');
-        const b = await getBalance(plan.client_id);
-        setDeduction({ left: b.training });
+        const c = await db.Client.get(plan.client_id);
+        if (c?.group_id) {
+          // Μέλος group → η προπόνηση αφαιρείται από το ΚΟΙΝΟ υπόλοιπο του group
+          const g = await db.Group.get(c.group_id);
+          await addGroupCredit(c.group_id, -1, 'session', plan.id, plan.title || '');
+          const left = g ? await getGroupTrainingBalance(g) : 0;
+          setDeduction({ left, group: true });
+        } else {
+          await addCredit(plan.client_id, 'training', -1, 'session', plan.id, plan.title || '');
+          const b = await getBalance(plan.client_id);
+          setDeduction({ left: b.training });
+        }
       }
     } catch {}
     setSavingRes(false);

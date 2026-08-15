@@ -3,7 +3,8 @@ import { useLocation } from 'react-router-dom';
 import { format, parseISO, differenceInDays, addMonths, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from 'date-fns';
 import { Plus, Trash2, X, Euro, Edit3, Settings, TrendingUp, Calendar, AlertTriangle, ChevronRight, Check, CreditCard, Users, BarChart2, Loader2, Undo2, Wallet } from 'lucide-react';
 import { db } from '../lib/db';
-import { creditBalance, addCredit, REASON_LABELS } from '../lib/credits';
+import { creditBalance, addCredit, REASON_LABELS, addGroupCredit, getGroupTrainingBalance, getBalance, groupTrainingBalance } from '../lib/credits';
+import { groupDisplayName, firstName, GROUP_CAP, isIndividual } from '../lib/groups';
 
 const METHOD_EMOJI = { cash:'💵', card:'💳', transfer:'🏦', other:'📄' };
 const METHOD_COLOR = { cash:'bg-green-50 text-green-700 border-green-100', card:'bg-blue-50 text-blue-700 border-blue-100', transfer:'bg-purple-50 text-purple-700 border-purple-100', other:'bg-gray-100 text-gray-600 border-gray-200' };
@@ -211,56 +212,91 @@ function RevenueChart({ payments }) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 /* ═══════════════ Log Payment — 3 βήματα ═══════════════ */
 
-function LogPayWizard({ clients, onClose, onSaved }) {
+function LogPayWizard({ individuals, groups, allClients, onClose, onSaved }) {
   const [step, setStep] = useState(1);
-  const [clientId, setClientId] = useState('');
+  const [tType, setTType] = useState('client');       // 'client' | 'group'
+  const [tId, setTId] = useState('');
   const [months, setMonths] = useState(1);
   const [trainings, setTrainings] = useState(0);
-  const [nutrition, setNutrition] = useState(0);
+  const [nutrition, setNutrition] = useState(0);       // individual
+  const [memberNutri, setMemberNutri] = useState({});  // group: {memberId:count}
   const [amount, setAmount] = useState(0);
   const [method, setMethod] = useState('cash');
   const [payDate, setPayDate] = useState(format(new Date(),'yyyy-MM-dd'));
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(null);
 
-  const client = clients.find(c=>c.id===clientId);
   const weekOf = (c) => c.sessions_per_week || (c.sessions_per_month ? Math.round(c.sessions_per_month/4) : 0);
+  const client = tType==='client' ? (individuals.find(c=>c.id===tId) || allClients.find(c=>c.id===tId)) : null;
+  const group  = tType==='group'  ? groups.find(g=>g.id===tId) : null;
+  const members = group ? (group.member_ids||[]).map(id=>allClients.find(c=>c.id===id)).filter(Boolean) : [];
+  const nutriMembers = members.filter(m=>m.services==='group_training_nutrition' || m.nutrition_meetings_per_month>0);
 
   const pickClient = (c) => {
-    setClientId(c.id); setMonths(1);
-    setTrainings(weekOf(c)*4);
-    setNutrition(c.nutrition_meetings_per_month||0);
-    setAmount(c.monthly_price||0);
+    setTType('client'); setTId(c.id); setMonths(1);
+    setTrainings(weekOf(c)*4); setNutrition(c.nutrition_meetings_per_month||0);
+    setAmount(parseFloat(c.monthly_price)||0); setStep(2);
+  };
+  const pickGroup = (g) => {
+    const mem = (g.member_ids||[]).map(id=>allClients.find(c=>c.id===id)).filter(Boolean);
+    setTType('group'); setTId(g.id); setMonths(1);
+    setTrainings((mem[0]?weekOf(mem[0]):0)*4);
+    const mn={}; mem.forEach(m=>{ if(m.services==='group_training_nutrition'||m.nutrition_meetings_per_month>0) mn[m.id]=m.nutrition_meetings_per_month||0; });
+    setMemberNutri(mn);
+    setAmount(mem.reduce((s,m)=>s+(parseFloat(m.monthly_price)||0),0));
     setStep(2);
   };
   const applyMonths = (m) => {
-    if (!client) return;
     setMonths(m);
-    setTrainings(weekOf(client)*4*m);
-    setNutrition((client.nutrition_meetings_per_month||0)*m);
-    setAmount((parseFloat(client.monthly_price)||0)*m);
+    if (tType==='client' && client) {
+      setTrainings(weekOf(client)*4*m); setNutrition((client.nutrition_meetings_per_month||0)*m);
+      setAmount((parseFloat(client.monthly_price)||0)*m);
+    } else if (group) {
+      setTrainings((members[0]?weekOf(members[0]):0)*4*m);
+      const mn={}; nutriMembers.forEach(x=>mn[x.id]=(x.nutrition_meetings_per_month||0)*m); setMemberNutri(mn);
+      setAmount(members.reduce((s,x)=>s+(parseFloat(x.monthly_price)||0),0)*m);
+    }
   };
 
+  const monthWord = months===1?'μήνας':'μήνες';
   const confirm = async () => {
     if (saving) return;
     setSaving(true);
-    const tN = parseInt(trainings)||0, nN = parseInt(nutrition)||0;
-    const pay = await db.Payment.create({
-      client_id: client.id, client_name: client.name,
-      amount: parseFloat(amount)||0, currency:'EUR',
-      description: `Πακέτο ${months} μήν${months===1?'α':'ες'} — ${tN} προπ.${nN?` + ${nN} διατρ.`:''}`,
-      paid_date: payDate, method, months,
-      item_trainings: tN, item_nutrition: nN, item_type: 'package',
-    });
-    if (tN>0) await addCredit(client.id,'training', tN,'purchase', pay.id, `${months} μήνες πακέτου`);
-    if (nN>0) await addCredit(client.id,'nutrition', nN,'purchase', pay.id, `${months} μήνες πακέτου`);
-    await db.Message.create({
-      thread_id: client.id, thread_type:'client', client_id: client.id, client_name: client.name,
-      sender:'trainer', read:false,
-      content: `🧾 Νέα αγορά πακέτου: ${tN} προπονήσεις${nN>0?` + ${nN} διατροφικές συναντήσεις`:''} (${months} μήν${months===1?'ας':'ες'}). Το υπόλοιπό σου ενημερώθηκε — καλή συνέχεια! 💪`,
-    });
-    const entries = await db.CreditEntry.filter({ client_id: client.id });
-    setDone(creditBalance(entries));
+    const tN = parseInt(trainings)||0;
+    if (tType==='client' && client) {
+      const nN = parseInt(nutrition)||0;
+      const pay = await db.Payment.create({
+        client_id: client.id, client_name: client.name, amount: parseFloat(amount)||0, currency:'EUR',
+        description:`Πακέτο ${months} ${monthWord} — ${tN} προπ.${nN?` + ${nN} διατρ.`:''}`,
+        paid_date: payDate, method, months, item_trainings:tN, item_nutrition:nN, item_type:'package',
+      });
+      if (tN>0) await addCredit(client.id,'training', tN,'purchase', pay.id, `${months} ${monthWord} πακέτου`);
+      if (nN>0) await addCredit(client.id,'nutrition', nN,'purchase', pay.id, `${months} ${monthWord} πακέτου`);
+      await db.Message.create({ thread_id: client.id, thread_type:'client', client_id: client.id, client_name: client.name, sender:'trainer', read:false,
+        content:`🧾 Νέα αγορά πακέτου: ${tN} προπονήσεις${nN>0?` + ${nN} διατροφικές συναντήσεις`:''} (${months} ${monthWord}). Το υπόλοιπό σου ενημερώθηκε — καλή συνέχεια! 💪` });
+      const entries = await db.CreditEntry.filter({ client_id: client.id });
+      const b = creditBalance(entries);
+      setDone({ isGroup:false, training:b.training, nutrition:b.nutrition, showNutri:(client.nutrition_meetings_per_month>0||b.nutrition!==0) });
+    } else if (group) {
+      const totalNutri = Object.values(memberNutri).reduce((a,v)=>a+(parseInt(v)||0),0);
+      const gname = groupDisplayName(group, allClients);
+      const pay = await db.Payment.create({
+        group_id: group.id, client_id:'', client_name: gname, amount: parseFloat(amount)||0, currency:'EUR',
+        description:`Group πακέτο ${months} ${monthWord} — ${tN} κοιν. προπ.${totalNutri?` + ${totalNutri} διατρ.`:''}`,
+        paid_date: payDate, method, months, item_trainings:tN, item_nutrition:totalNutri, item_type:'group_package',
+      });
+      if (tN>0) await addGroupCredit(group.id, tN, 'purchase', pay.id, `${months} ${monthWord} group πακέτου`);
+      for (const m of nutriMembers) { const c=parseInt(memberNutri[m.id])||0; if (c>0) await addCredit(m.id,'nutrition', c,'purchase', pay.id, `${months} ${monthWord} (group)`); }
+      for (const m of members) {
+        await db.Message.create({ thread_id: m.id, thread_type:'client', client_id: m.id, client_name: m.name, sender:'trainer', read:false,
+          content:`🧾 Νέα αγορά group πακέτου: ${tN} κοινές προπονήσεις${(parseInt(memberNutri[m.id])||0)>0?` + ${memberNutri[m.id]} δικές σου διατροφικές`:''} (${months} ${monthWord}). 💪` });
+      }
+      await db.Message.create({ thread_id: group.id, thread_type:'group', client_id:'', client_name: gname, sender:'trainer', read:false,
+        content:`🧾 Το group απέκτησε ${tN} κοινές προπονήσεις (${months} ${monthWord}). Καλή συνέχεια! 💪` });
+      const gbal = await getGroupTrainingBalance(group);
+      const nm = await Promise.all(nutriMembers.map(async m=>({ name:firstName(m.name), n:(await getBalance(m.id)).nutrition })));
+      setDone({ isGroup:true, training:gbal, nutriMembers:nm });
+    }
     setSaving(false);
     onSaved();
   };
@@ -274,8 +310,18 @@ function LogPayWizard({ clients, onClose, onSaved }) {
             <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-green-500 flex items-center justify-center"><Check className="w-6 h-6 text-white"/></div>
             <p className="font-bold text-foreground text-lg mb-1">Καταχωρήθηκε!</p>
             <p className="text-sm text-muted-foreground mb-1">Το ποσό εισπράχθηκε και το υπόλοιπο «φορτίστηκε».</p>
-            <p className="text-sm font-semibold text-foreground mb-1">Νέο υπόλοιπο: 🏋️ {done.training} προπονήσεις{(client?.nutrition_meetings_per_month>0||done.nutrition!==0)?` · 🥗 ${done.nutrition} διατροφικές`:''}</p>
-            <p className="text-xs text-muted-foreground mb-5">Στάλθηκε ειδοποίηση στην εφαρμογή του πελάτη.</p>
+            {done.isGroup ? (
+              <>
+                <p className="text-sm font-semibold text-foreground mb-1">Νέο υπόλοιπο group: 🏋️ {done.training} κοινές προπονήσεις</p>
+                {done.nutriMembers?.length>0 && <p className="text-sm text-foreground mb-1">{done.nutriMembers.map(x=>`🥗 ${x.name}: ${x.n}`).join('  ·  ')}</p>}
+                <p className="text-xs text-muted-foreground mb-5">Στάλθηκε ειδοποίηση στα μέλη του group.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-foreground mb-1">Νέο υπόλοιπο: 🏋️ {done.training} προπονήσεις{done.showNutri?` · 🥗 ${done.nutrition} διατροφικές`:''}</p>
+                <p className="text-xs text-muted-foreground mb-5">Στάλθηκε ειδοποίηση στην εφαρμογή του πελάτη.</p>
+              </>
+            )}
             <button onClick={onClose} className="btn btn-primary w-full">Κλείσιμο</button>
           </div>
         ) : (
@@ -283,27 +329,34 @@ function LogPayWizard({ clients, onClose, onSaved }) {
           <div className="flex items-center justify-between mb-5">
             <p className="font-bold text-foreground">Log Payment</p>
             <div className="flex items-center gap-1.5">
-              {[1,2,3].map(n=>(
-                <span key={n} className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center ${step>=n?'bg-primary text-primary-foreground':'bg-muted text-muted-foreground'}`}>{n}</span>
-              ))}
+              {[1,2,3].map(n=>(<span key={n} className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center ${step>=n?'bg-primary text-primary-foreground':'bg-muted text-muted-foreground'}`}>{n}</span>))}
               <button onClick={onClose} className="ml-2 p-1.5 rounded-lg hover:bg-muted"><X className="w-4 h-4 text-muted-foreground"/></button>
             </div>
           </div>
 
           {step===1 && (
             <div>
-              <p className="text-sm text-muted-foreground mb-3">Βήμα 1 — Για ποιον πελάτη;</p>
-              <div className="space-y-2 max-h-[52vh] overflow-y-auto pr-1">
-                {clients.map(c=>(
+              <p className="text-sm text-muted-foreground mb-3">Βήμα 1 — Για ποιον;</p>
+              <div className="space-y-2 max-h-[54vh] overflow-y-auto pr-1">
+                {individuals.map(c=>(
                   <button key={c.id} onClick={()=>pickClient(c)} className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted text-left">
                     <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{weekOf(c)}×/εβδ.{c.nutrition_meetings_per_month?` · ${c.nutrition_meetings_per_month} διατρ./μήνα`:''} · €{c.monthly_price||0}/μήνα</p>
-                    </div>
+                    <div className="flex-1 min-w-0"><p className="text-sm font-semibold text-foreground truncate">{c.name}</p><p className="text-xs text-muted-foreground">{weekOf(c)}×/εβδ.{c.nutrition_meetings_per_month?` · ${c.nutrition_meetings_per_month} διατρ./μήνα`:''} · €{c.monthly_price||0}/μήνα</p></div>
                     <ChevronRight className="w-4 h-4 text-muted-foreground"/>
                   </button>
                 ))}
+                {groups.length>0 && <p className="text-xs font-semibold text-muted-foreground uppercase pt-2 pb-1">Groups</p>}
+                {groups.map(g=>{
+                  const mem=(g.member_ids||[]).map(id=>allClients.find(c=>c.id===id)).filter(Boolean);
+                  return (
+                    <button key={g.id} onClick={()=>pickGroup(g)} className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted text-left">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>👥</div>
+                      <div className="flex-1 min-w-0"><p className="text-sm font-semibold text-foreground truncate">{groupDisplayName(g, allClients)}</p><p className="text-xs text-muted-foreground">{mem.length}/{GROUP_CAP} μέλη · κοινές προπονήσεις</p></div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground"/>
+                    </button>
+                  );
+                })}
+                {individuals.length===0 && groups.length===0 && <p className="text-sm text-muted-foreground text-center py-4">Κανένας διαθέσιμος.</p>}
               </div>
             </div>
           )}
@@ -316,50 +369,146 @@ function LogPayWizard({ clients, onClose, onSaved }) {
               </div>
               <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Μήνες</p>
               <div className="grid grid-cols-6 gap-1.5 mb-4">
-                {Array.from({length:12},(_,i)=>i+1).map(m=>(
-                  <button key={m} onClick={()=>applyMonths(m)} className={`py-2 rounded-lg text-sm font-bold border ${months===m?'bg-primary text-primary-foreground border-primary':'border-border hover:bg-muted text-foreground'}`}>{m}</button>
-                ))}
+                {Array.from({length:12},(_,i)=>i+1).map(m=>(<button key={m} onClick={()=>applyMonths(m)} className={`py-2 rounded-lg text-sm font-bold border ${months===m?'bg-primary text-primary-foreground border-primary':'border-border hover:bg-muted text-foreground'}`}>{m}</button>))}
               </div>
               <div className="grid grid-cols-3 gap-3 mb-5">
                 <div><label className="text-xs font-medium text-muted-foreground">🏋️ Προπονήσεις</label><input type="number" className={inp+" mt-1"} value={trainings} onChange={e=>setTrainings(e.target.value)}/></div>
                 <div><label className="text-xs font-medium text-muted-foreground">🥗 Διατροφές</label><input type="number" className={inp+" mt-1"} value={nutrition} onChange={e=>setNutrition(e.target.value)}/></div>
                 <div><label className="text-xs font-medium text-muted-foreground">€ Σύνολο</label><input type="number" step="0.5" className={inp+" mt-1"} value={amount} onChange={e=>setAmount(e.target.value)}/></div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={()=>setStep(1)} className="btn btn-secondary flex-1">Πίσω</button>
-                <button onClick={()=>setStep(3)} className="btn btn-primary flex-1">Συνέχεια</button>
-              </div>
+              <div className="flex gap-2"><button onClick={()=>setStep(1)} className="btn btn-secondary flex-1">Πίσω</button><button onClick={()=>setStep(3)} className="btn btn-primary flex-1">Συνέχεια</button></div>
             </div>
           )}
 
-          {step===3 && client && (
+          {step===2 && group && (
+            <div>
+              <p className="text-sm text-muted-foreground mb-3">Βήμα 2 — Group «{groupDisplayName(group, allClients)}» & διάρκεια</p>
+              <div className="rounded-xl border border-border p-3 mb-4 text-sm text-muted-foreground">
+                <b className="text-foreground">{members[0]?weekOf(members[0]):0} κοινές προπ./εβδ.</b> · μέλη: <b className="text-foreground">{members.map(m=>firstName(m.name)).join(', ')}</b> · <b className="text-foreground">€{members.reduce((s,m)=>s+(parseFloat(m.monthly_price)||0),0)}/μήνα</b>
+              </div>
+              <p className="text-[11px] text-muted-foreground mb-3">Οι προπονήσεις είναι κοινές για το group· οι διατροφές χρεώνονται ξεχωριστά σε κάθε μέλος.</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Μήνες</p>
+              <div className="grid grid-cols-6 gap-1.5 mb-4">
+                {Array.from({length:12},(_,i)=>i+1).map(m=>(<button key={m} onClick={()=>applyMonths(m)} className={`py-2 rounded-lg text-sm font-bold border ${months===m?'bg-primary text-primary-foreground border-primary':'border-border hover:bg-muted text-foreground'}`}>{m}</button>))}
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div><label className="text-xs font-medium text-muted-foreground">🏋️ Κοινές προπονήσεις</label><input type="number" className={inp+" mt-1"} value={trainings} onChange={e=>setTrainings(e.target.value)}/></div>
+                <div><label className="text-xs font-medium text-muted-foreground">€ Σύνολο</label><input type="number" step="0.5" className={inp+" mt-1"} value={amount} onChange={e=>setAmount(e.target.value)}/></div>
+              </div>
+              {nutriMembers.length>0 && (
+                <div className="mb-5">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">🥗 Διατροφές ανά άτομο</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {nutriMembers.map(m=>(
+                      <div key={m.id}><label className="text-xs font-medium text-muted-foreground">{firstName(m.name)}</label><input type="number" className={inp+" mt-1"} value={memberNutri[m.id]??0} onChange={e=>setMemberNutri(mn=>({...mn,[m.id]:e.target.value}))}/></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-2"><button onClick={()=>setStep(1)} className="btn btn-secondary flex-1">Πίσω</button><button onClick={()=>setStep(3)} className="btn btn-primary flex-1">Συνέχεια</button></div>
+            </div>
+          )}
+
+          {step===3 && (client || group) && (
             <div>
               <p className="text-sm text-muted-foreground mb-3">Βήμα 3 — Εξόφληση</p>
               <div className="rounded-xl border border-border p-4 mb-4">
                 <p className="text-sm font-semibold text-foreground mb-2">Σύνοψη</p>
                 <div className="text-sm text-muted-foreground space-y-1">
-                  <div className="flex justify-between"><span>Πελάτης</span><b className="text-foreground">{client.name}</b></div>
-                  <div className="flex justify-between"><span>Πακέτο</span><b className="text-foreground">{months} μήν{months===1?'ας':'ες'}</b></div>
-                  <div className="flex justify-between"><span>Προπονήσεις</span><b className="text-foreground">{trainings}</b></div>
-                  {parseInt(nutrition)>0 && <div className="flex justify-between"><span>Διατροφικές</span><b className="text-foreground">{nutrition}</b></div>}
+                  <div className="flex justify-between"><span>{group?'Group':'Πελάτης'}</span><b className="text-foreground">{group?groupDisplayName(group, allClients):client.name}</b></div>
+                  <div className="flex justify-between"><span>Πακέτο</span><b className="text-foreground">{months} {monthWord}</b></div>
+                  <div className="flex justify-between"><span>{group?'Κοινές προπονήσεις':'Προπονήσεις'}</span><b className="text-foreground">{trainings}</b></div>
+                  {group
+                    ? nutriMembers.map(m=>((parseInt(memberNutri[m.id])||0)>0 && <div key={m.id} className="flex justify-between"><span>🥗 {firstName(m.name)}</span><b className="text-foreground">{memberNutri[m.id]}</b></div>))
+                    : (parseInt(nutrition)>0 && <div className="flex justify-between"><span>Διατροφικές</span><b className="text-foreground">{nutrition}</b></div>)}
                   <div className="flex justify-between pt-2 border-t border-border mt-2"><span>Σύνολο</span><b className="text-foreground text-base">€{amount}</b></div>
                 </div>
               </div>
               <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Τρόπος πληρωμής</p>
               <div className="grid grid-cols-3 gap-2 mb-4">
-                {[['cash','💵 Μετρητά'],['card','💳 Κάρτα'],['transfer','🏦 Κατάθεση']].map(([k,l])=>(
-                  <button key={k} onClick={()=>setMethod(k)} className={`py-2.5 rounded-xl text-sm font-semibold border ${method===k?'bg-primary text-primary-foreground border-primary':'border-border hover:bg-muted text-foreground'}`}>{l}</button>
-                ))}
+                {[['cash','💵 Μετρητά'],['card','💳 Κάρτα'],['transfer','🏦 Κατάθεση']].map(([k,l])=>(<button key={k} onClick={()=>setMethod(k)} className={`py-2.5 rounded-xl text-sm font-semibold border ${method===k?'bg-primary text-primary-foreground border-primary':'border-border hover:bg-muted text-foreground'}`}>{l}</button>))}
               </div>
               <div className="mb-5"><label className="text-xs font-medium text-muted-foreground">Ημερομηνία</label><input type="date" className={inp+" mt-1"} value={payDate} onChange={e=>setPayDate(e.target.value)}/></div>
-              <div className="flex gap-2">
-                <button onClick={()=>setStep(2)} className="btn btn-secondary flex-1">Πίσω</button>
-                <button onClick={confirm} disabled={saving} className="btn btn-primary flex-1">{saving?'Καταχώρηση…':'Επιβεβαίωση'}</button>
-              </div>
+              <div className="flex gap-2"><button onClick={()=>setStep(2)} className="btn btn-secondary flex-1">Πίσω</button><button onClick={confirm} disabled={saving} className="btn btn-primary flex-1">{saving?'Καταχώρηση…':'Επιβεβαίωση'}</button></div>
             </div>
           )}
         </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ Group ledger — κοινές προπονήσεις + διατροφές ανά μέλος ═══════════════ */
+
+function GroupLedgerModal({ group, allClients, onClose, onChanged }) {
+  const [tEntries, setTEntries] = useState([]);            // training (group + members)
+  const [memEntries, setMemEntries] = useState({});        // {memberId: nutrition entries}
+  const [adjT, setAdjT] = useState('');
+  const [adjN, setAdjN] = useState({});                    // {memberId: value}
+  const members = (group.member_ids||[]).map(id=>allClients.find(c=>c.id===id)).filter(Boolean);
+  const nutriMembers = members.filter(m=>m.services==='group_training_nutrition' || m.nutrition_meetings_per_month>0);
+
+  const load = async () => {
+    const parts = await Promise.all([ db.CreditEntry.filter({ group_id: group.id }), ...members.map(m=>db.CreditEntry.filter({ client_id: m.id })) ]);
+    const sortD = (a,b)=>((b.date||'')+(b.id||'')).localeCompare((a.date||'')+(a.id||''));
+    setTEntries(parts.flat().filter(e=>e.kind!=='nutrition').sort(sortD));
+    const me={}; members.forEach((m,i)=>{ me[m.id]=(parts[i+1]||[]).filter(e=>e.kind==='nutrition').sort(sortD); });
+    setMemEntries(me);
+  };
+  useEffect(()=>{ load(); },[group.id]);
+
+  const tBal = tEntries.reduce((a,e)=>a+(Number(e.delta)||0),0);
+  const undo = async (e) => { await db.CreditEntry.delete(e.id); await load(); onChanged(); };
+  const adjustT = async () => { const d=parseInt(adjT); if(!d) return; await addGroupCredit(group.id, d, 'adjust', null, 'χειροκίνητη'); setAdjT(''); await load(); onChanged(); };
+  const adjustN = async (m) => { const d=parseInt(adjN[m.id]); if(!d) return; await addCredit(m.id,'nutrition', d,'adjust', null,'χειροκίνητη'); setAdjN(x=>({...x,[m.id]:''})); await load(); onChanged(); };
+  const nBal = (id) => (memEntries[id]||[]).reduce((a,e)=>a+(Number(e.delta)||0),0);
+
+  const Row = ({ e }) => (
+    <div className="flex items-center gap-2.5 py-2 border-t border-border/60 text-sm">
+      <span>{e.kind==='nutrition'?'🥗':'🏋️'}</span>
+      <div className="flex-1 min-w-0"><p className="text-foreground font-medium truncate">{REASON_LABELS[e.reason]||e.reason}{e.note?` — ${e.note}`:''}</p><p className="text-xs text-muted-foreground">{e.date}</p></div>
+      <span className={`font-bold ${((e.delta||0)>=0)?'text-green-600':'text-rose-600'}`}>{(e.delta||0)>0?`+${e.delta}`:e.delta}</span>
+      {(e.delta||0)<0 && e.reason!=='purchase' && <button onClick={()=>undo(e)} title="Αναίρεση" className="p-1.5 rounded-lg hover:bg-muted"><Undo2 className="w-4 h-4 text-muted-foreground"/></button>}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>👥</div>
+          <div className="flex-1 min-w-0"><p className="font-bold text-foreground truncate">{groupDisplayName(group, allClients)}</p><p className="text-xs text-muted-foreground">Κοινές προπονήσεις: 🏋️ <b className="text-foreground">{tBal}</b>{nutriMembers.map(m=><span key={m.id}> · 🥗 {firstName(m.name)} <b className="text-foreground">{nBal(m.id)}</b></span>)}</p></div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted"><X className="w-4 h-4 text-muted-foreground"/></button>
+        </div>
+
+        {/* κοινές προπονήσεις */}
+        <div className="rounded-xl border border-border p-3 mb-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">🏋️ Κοινές προπονήσεις — προσαρμογή</p>
+          <div className="flex gap-2">
+            <input type="number" placeholder="±" className="w-20 border border-border bg-card rounded-xl px-2 py-2 text-sm" value={adjT} onChange={e=>setAdjT(e.target.value)}/>
+            <button onClick={adjustT} className="btn btn-primary px-3 py-2 text-sm">OK</button>
+          </div>
+        </div>
+        <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Ιστορικό προπονήσεων</p>
+        {tEntries.length===0 && <p className="text-sm text-muted-foreground mb-2">Καμία κίνηση ακόμα.</p>}
+        <div className="mb-4">{tEntries.map(e=><Row key={e.id} e={e}/>)}</div>
+
+        {/* διατροφές ανά μέλος */}
+        {nutriMembers.map(m=>(
+          <div key={m.id} className="mb-4 rounded-xl border border-border p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{backgroundColor:m.theme_color||'#6366f1'}}>{m.name?.charAt(0)}</div>
+              <p className="text-sm font-semibold text-foreground flex-1 truncate">🥗 {m.name}</p>
+              <span className="text-xs font-bold text-foreground">Υπόλοιπο: {nBal(m.id)}</span>
+            </div>
+            <div className="flex gap-2 mb-2">
+              <input type="number" placeholder="±" className="w-20 border border-border bg-card rounded-xl px-2 py-2 text-sm" value={adjN[m.id]||''} onChange={e=>setAdjN(x=>({...x,[m.id]:e.target.value}))}/>
+              <button onClick={()=>adjustN(m)} className="btn btn-secondary px-3 py-2 text-sm">Προσαρμογή</button>
+            </div>
+            {(memEntries[m.id]||[]).map(e=><Row key={e.id} e={e}/>)}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -451,14 +600,17 @@ export default function Logistics() {
   const [showWizard, setShowWizard] = useState(false);
   const [editPayment, setEditPayment] = useState(null);
   const [ledgerClient, setLedgerClient] = useState(null);
+  const [groups, setGroups] = useState([]);
+  const [ledgerGroup, setLedgerGroup] = useState(null);
 
   const load = async () => {
-    const [c,p,e] = await Promise.all([
+    const [c,p,e,g] = await Promise.all([
       db.Client.list('name'),
       db.Payment.list('-paid_date', 500),
       db.CreditEntry.list('-date', 2000),
+      db.Group.list('name'),
     ]);
-    setClients(c); setPayments(p); setEntries(e);
+    setClients(c); setPayments(p); setEntries(e); setGroups(g);
   };
   useEffect(()=>{ load(); },[]);
   useEffect(()=>{ if (location.state?.openLogPay) { setShowWizard(true); window.history.replaceState({},''); } },[location.state]);
@@ -514,27 +666,61 @@ export default function Logistics() {
       </div>
 
       {/* ── ΥΠΟΛΟΙΠΑ ── */}
-      {tab==='overview' && (
-        <div className="card divide-y divide-border/60">
-          {clients.length===0 && <p className="p-6 text-sm text-muted-foreground">Κανένας πελάτης.</p>}
-          {[...active, ...clients.filter(c=>c.frozen)].map(c=>{
-            const b = balOf(c.id);
-            const hasNutri = c.nutrition_meetings_per_month>0 || b.nutrition!==0;
-            return (
-              <button key={c.id} onClick={()=>setLedgerClient(c)} className={`w-full flex items-center gap-3 p-4 text-left hover:bg-muted/50 ${c.frozen?'opacity-55':''}`}>
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground truncate">{c.name}{c.frozen?' ❄️':''}</p>
-                  <p className="text-xs text-muted-foreground">{weekOf(c)?`${weekOf(c)}×/εβδ.`:'—'}{c.nutrition_meetings_per_month?` · ${c.nutrition_meetings_per_month} διατρ./μήνα`:''} · €{c.monthly_price||0}/μήνα</p>
+      {tab==='overview' && (() => {
+        const indiv = [...clients.filter(c=>!c.frozen && isIndividual(c)), ...clients.filter(c=>c.frozen && isIndividual(c))];
+        const gWithMembers = groups.filter(g=>(g.member_ids||[]).length>0);
+        return (
+          <div className="space-y-6">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Individuals</p>
+              <div className="card divide-y divide-border/60">
+                {indiv.length===0 && <p className="p-6 text-sm text-muted-foreground">Κανένας ατομικός πελάτης.</p>}
+                {indiv.map(c=>{
+                  const b = balOf(c.id);
+                  const hasNutri = c.nutrition_meetings_per_month>0 || b.nutrition!==0;
+                  return (
+                    <button key={c.id} onClick={()=>setLedgerClient(c)} className={`w-full flex items-center gap-3 p-4 text-left hover:bg-muted/50 ${c.frozen?'opacity-55':''}`}>
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground truncate">{c.name}{c.frozen?' ❄️':''}</p>
+                        <p className="text-xs text-muted-foreground">{weekOf(c)?`${weekOf(c)}×/εβδ.`:'—'}{c.nutrition_meetings_per_month?` · ${c.nutrition_meetings_per_month} διατρ./μήνα`:''} · €{c.monthly_price||0}/μήνα</p>
+                      </div>
+                      <span className={`text-xs font-bold px-2.5 py-1.5 rounded-full ${chip(b.training)}`}>🏋️ {b.training}</span>
+                      {hasNutri && <span className={`text-xs font-bold px-2.5 py-1.5 rounded-full ${chip(b.nutrition)}`}>🥗 {b.nutrition}</span>}
+                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0"/>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {gWithMembers.length>0 && (
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Groups</p>
+                <div className="card divide-y divide-border/60">
+                  {gWithMembers.map(g=>{
+                    const members = (g.member_ids||[]).map(id=>clients.find(c=>c.id===id)).filter(Boolean);
+                    const tb = groupTrainingBalance(entries, g);
+                    const nutriMembers = members.filter(m=>m.services==='group_training_nutrition' || m.nutrition_meetings_per_month>0);
+                    return (
+                      <button key={g.id} onClick={()=>setLedgerGroup(g)} className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/50">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'linear-gradient(135deg,#10b981,#059669)'}}>👥</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground truncate">{groupDisplayName(g, clients)}</p>
+                          <p className="text-xs text-muted-foreground">{members.map(m=>firstName(m.name)).join(' & ')} · κοινές προπονήσεις</p>
+                        </div>
+                        <span className={`text-xs font-bold px-2.5 py-1.5 rounded-full ${chip(tb)}`}>🏋️ {tb}</span>
+                        {nutriMembers.map(m=>{ const nb=balOf(m.id).nutrition; return <span key={m.id} className={`text-xs font-bold px-2.5 py-1.5 rounded-full ${chip(nb)}`}>🥗 {firstName(m.name)} {nb}</span>; })}
+                        <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0"/>
+                      </button>
+                    );
+                  })}
                 </div>
-                <span className={`text-xs font-bold px-2.5 py-1.5 rounded-full ${chip(b.training)}`}>🏋️ {b.training}</span>
-                {hasNutri && <span className={`text-xs font-bold px-2.5 py-1.5 rounded-full ${chip(b.nutrition)}`}>🥗 {b.nutrition}</span>}
-                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0"/>
-              </button>
-            );
-          })}
-        </div>
-      )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── ΣΥΝΑΛΛΑΓΕΣ ── */}
       {tab==='transactions' && (
@@ -585,9 +771,10 @@ export default function Logistics() {
         </div>
       )}
 
-      {showWizard && <LogPayWizard clients={active} onClose={()=>setShowWizard(false)} onSaved={load}/>}
+      {showWizard && <LogPayWizard individuals={active.filter(isIndividual)} groups={groups.filter(g=>(g.member_ids||[]).length>0)} allClients={clients} onClose={()=>setShowWizard(false)} onSaved={load}/>}
       {editPayment && <PaymentModal clients={clients} payment={editPayment} onClose={()=>setEditPayment(null)} onSaved={()=>{ setEditPayment(null); load(); }}/>}
       {ledgerClient && <ClientLedgerModal client={ledgerClient} onClose={()=>setLedgerClient(null)} onChanged={load}/>}
+      {ledgerGroup && <GroupLedgerModal group={ledgerGroup} allClients={clients} onClose={()=>setLedgerGroup(null)} onChanged={load}/>}
     </div>
   );
 }
