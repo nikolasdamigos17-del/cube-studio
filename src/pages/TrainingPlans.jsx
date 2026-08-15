@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, ChevronRight, Check, AlertCircle, RotateCcw, Edit2, Play, ArrowLeft, Search, Users, Brain, CalendarDays } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, ChevronRight, Check, AlertCircle, RotateCcw, Edit2, Play, ArrowLeft, Search, Users, Users2, Brain, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { db, callAI } from '../lib/db';
 import { EQUIPMENT, EXERCISE_DB, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
+import { isIndividual, groupDisplayName, firstName, GROUP_CAP } from '../lib/groups';
 
 // ── Equipment Label Badge ─────────────────────────────────────────────────────
 function EqBadge({ eqKey, small = false }) {
@@ -541,14 +542,17 @@ export default function TrainingPlans() {
   const [search, setSearch] = useState('');
   const [editPlan, setEditPlan] = useState(null);
   const [openId, setOpenId] = useState(null);
+  const [groups, setGroups] = useState([]);
+  const [selGroup, setSelGroup] = useState(null);
 
   const load = async () => {
-    const [p, cAll, ap] = await Promise.all([
+    const [p, cAll, ap, g] = await Promise.all([
       db.TrainingPlan.list('-date', 300),
       db.Client.list('name'),
       db.Appointment.list('-date', 400),
+      db.Group.list('name'),
     ]);
-    setPlans(p); setClients(cAll.filter(hasTrainingSvc)); setAppts(ap);
+    setPlans(p); setClients(cAll.filter(hasTrainingSvc)); setAppts(ap); setGroups(g);
   };
   useEffect(()=>{ load(); },[]);
 
@@ -664,48 +668,132 @@ export default function TrainingPlans() {
     );
   }
 
+  /* ─────────── ΦΑΚΕΛΟΣ GROUP ─────────── */
+  if (selGroup) {
+    const g = groups.find(x=>x.id===selGroup.id) || selGroup;
+    const members = (g.member_ids||[]).map(id=>clients.find(c=>c.id===id)).filter(Boolean);
+    return (
+      <div className="p-6 md:p-8 max-w-4xl mx-auto animate-fade-in">
+        <button onClick={()=>setSelGroup(null)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-5"><ArrowLeft className="w-4 h-4"/> Training Center</button>
+        <div className="flex items-center gap-4 mb-3 flex-wrap">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0" style={{background:'linear-gradient(135deg,#9333ea,#7c3aed)'}}>👥</div>
+          <div className="flex-1 min-w-0">
+            <h1 className="page-title">{groupDisplayName(g, clients)}</h1>
+            <p className="page-subtitle">Ομαδική προπόνηση · {members.length}/{GROUP_CAP} μέλη</p>
+          </div>
+          <button onClick={()=>members.length && navigate(`/workout-creator?group=${g.id}`)} disabled={!members.length}
+            className="btn px-4 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center gap-2" style={{background:'linear-gradient(135deg,#9333ea,#7c3aed)',boxShadow:'0 4px 14px rgba(147,51,234,0.35)',opacity:members.length?1:.5}}>
+            <Brain className="w-4 h-4"/> Δημιουργία προπόνησης για το group
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground mb-6">Ο εγκέφαλος τρέχει τη διαδικασία <b>διαδοχικά</b>{members.length?` — πρώτα ${firstName(members[0].name)}${members[1]?`, μετά ${firstName(members[1].name)}`:''}`:''} — φτιάχνοντας ξεχωριστή προπόνηση για κάθε μέλος.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {members.map(m=>{
+            const week = weekOf(m.id);
+            const last = plansOf(m.id).filter(pp=>pp.completed).sort((a,b)=>((b.completed_date||b.date||'').localeCompare(a.completed_date||a.date||'')))[0];
+            return (
+              <div key={m.id} className="card p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0" style={{backgroundColor:m.theme_color||'#6366f1'}}>{m.name?.charAt(0)}</div>
+                  <div className="flex-1 min-w-0"><p className="font-semibold text-foreground truncate">{m.name}</p><p className="text-xs text-muted-foreground">{m.gender==='female'?'Upper / Lower / Glutes':'Upper / Lower / Full Body'}{m.services==='group_training_nutrition'?' · 🥗':''}</p></div>
+                </div>
+                <div className="flex gap-2 flex-wrap items-center mb-3">
+                  {week.length ? <span className="badge badge-green">{week.length} αυτή την εβδομάδα {week.map(pp=>TC_TYPES[planType(pp)]?.emoji||'').join('')}</span> : <span className="badge" style={{background:'rgba(245,158,11,0.12)',color:'#d97706'}}>Καμία προπόνηση 7 ημερών</span>}
+                  {last && <span className="text-xs text-muted-foreground">Τελευταία: {(last.completed_date||last.date||'').split('T')[0]}</span>}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={()=>{ setSelGroup(null); setSel(m.id); }} className="btn btn-secondary flex-1 text-sm">Ατομικός φάκελος</button>
+                  <button onClick={()=>navigate(`/workout-creator?client=${m.id}`)} className="btn btn-secondary flex-1 text-sm">Μεμονωμένη</button>
+                </div>
+              </div>
+            );
+          })}
+          {members.length===0 && <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">Το group δεν έχει μέλη ακόμα.</div>}
+        </div>
+      </div>
+    );
+  }
+
   /* ─────────── ΚΕΝΤΡΙΚΗ ΟΨΗ ─────────── */
-  const shown = clients.filter(c=>!search||c.name?.toLowerCase().includes(search.toLowerCase()));
+  const q = search.toLowerCase();
+  const shownIndiv = clients.filter(c=>isIndividual(c) && (!q||c.name?.toLowerCase().includes(q)));
+  const shownGroups = groups.filter(g=>(g.member_ids||[]).length>0 && (!q||groupDisplayName(g, clients).toLowerCase().includes(q)));
   const weekTotal = plans.filter(p=>p.completed && ((p.completed_date||p.date||'')>=tcDaysAgo(7))).length;
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto animate-fade-in">
-      <div><h1 className="page-title">Training Center</h1><p className="page-subtitle">{clients.length} πελάτες προπόνησης · {weekTotal} ολοκληρωμένες αυτή την εβδομάδα</p></div>
+      <div><h1 className="page-title">Training Center</h1><p className="page-subtitle">{shownIndiv.length} individuals · {shownGroups.length} groups · {weekTotal} ολοκληρωμένες αυτή την εβδομάδα</p></div>
 
       <div className="relative my-5 max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Αναζήτηση πελάτη…" className="input-base pl-9"/>
       </div>
 
-      {shown.length===0 ? (
+      {shownIndiv.length===0 && shownGroups.length===0 ? (
         <div className="text-center py-24 text-muted-foreground">
           <Users className="w-12 h-12 mx-auto mb-3 opacity-30"/>
           <p className="font-medium">Κανένας πελάτης προπόνησης</p>
         </div>
       ):(
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {shown.map(c=>{
-            const week = weekOf(c.id);
-            const last = plansOf(c.id).filter(p=>p.completed).sort((a,b)=>((b.completed_date||b.date||'').localeCompare(a.completed_date||a.date||'')))[0];
-            return (
-              <div key={c.id} onClick={()=>setSel(c.id)} className="card p-5 hover:shadow-md transition-all cursor-pointer group">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground truncate">{c.name}</p>
-                    <p className="text-sm text-muted-foreground">{c.sessions_per_month?`${c.sessions_per_month}× προπ./μήνα`:c.sessions_per_week?`${c.sessions_per_week}×/εβδ.`:'—'}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground opacity-40 group-hover:opacity-100 flex-shrink-0"/>
-                </div>
-                <div className="mt-3 flex gap-2 flex-wrap items-center">
-                  {week.length
-                    ? <span className="badge badge-green">{week.length} αυτή την εβδομάδα {week.map(p=>TC_TYPES[planType(p)]?.emoji||'').join('')}</span>
-                    : <span className="badge" style={{background:'rgba(245,158,11,0.12)',color:'#d97706'}}>Καμία προπόνηση 7 ημερών</span>}
-                  {last && <span className="text-xs text-muted-foreground">Τελευταία: {(last.completed_date||last.date||'').split('T')[0]}</span>}
-                </div>
+        <div className="space-y-8">
+          {shownIndiv.length>0 && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> Individuals</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {shownIndiv.map(c=>{
+                  const week = weekOf(c.id);
+                  const last = plansOf(c.id).filter(p=>p.completed).sort((a,b)=>((b.completed_date||b.date||'').localeCompare(a.completed_date||a.date||'')))[0];
+                  return (
+                    <div key={c.id} onClick={()=>setSel(c.id)} className="card p-5 hover:shadow-md transition-all cursor-pointer group">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground truncate">{c.name}</p>
+                          <p className="text-sm text-muted-foreground">{c.sessions_per_month?`${c.sessions_per_month}× προπ./μήνα`:c.sessions_per_week?`${c.sessions_per_week}×/εβδ.`:'—'}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-40 group-hover:opacity-100 flex-shrink-0"/>
+                      </div>
+                      <div className="mt-3 flex gap-2 flex-wrap items-center">
+                        {week.length
+                          ? <span className="badge badge-green">{week.length} αυτή την εβδομάδα {week.map(p=>TC_TYPES[planType(p)]?.emoji||'').join('')}</span>
+                          : <span className="badge" style={{background:'rgba(245,158,11,0.12)',color:'#d97706'}}>Καμία προπόνηση 7 ημερών</span>}
+                        {last && <span className="text-xs text-muted-foreground">Τελευταία: {(last.completed_date||last.date||'').split('T')[0]}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {shownGroups.length>0 && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"><Users2 className="w-4 h-4"/> Groups</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {shownGroups.map(g=>{
+                  const members = (g.member_ids||[]).map(id=>clients.find(c=>c.id===id)).filter(Boolean);
+                  const gweek = members.reduce((n,m)=>n+weekOf(m.id).length,0);
+                  return (
+                    <div key={g.id} onClick={()=>setSelGroup(g)} className="card p-5 hover:shadow-md transition-all cursor-pointer group" style={{borderColor:'rgba(147,51,234,0.25)'}}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl flex-shrink-0" style={{background:'linear-gradient(135deg,#9333ea,#7c3aed)'}}>👥</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground truncate">{groupDisplayName(g, clients)}</p>
+                          <p className="text-sm text-muted-foreground">{members.map(m=>firstName(m.name)).join(' & ')||'—'}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-40 group-hover:opacity-100 flex-shrink-0"/>
+                      </div>
+                      <div className="mt-3 flex gap-2 flex-wrap items-center">
+                        <span className="badge" style={{background:'rgba(147,51,234,0.12)',color:'#7c3aed'}}>Ομαδική προπόνηση</span>
+                        {gweek>0 && <span className="badge badge-green">{gweek} προπονήσεις εβδομάδας</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

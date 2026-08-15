@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Loader2, Brain, ArrowLeft, Dumbbell, TrendingDown, CalendarDays, Clock, Plus, Sparkles, Save, Link2, Pencil } from 'lucide-react';
 import { db, callAI } from '../lib/db';
 import { EXERCISE_DB, EQUIPMENT, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
+import { groupDisplayName, firstName } from '../lib/groups';
 
 /* ═══════════ Σταθερά ═══════════ */
 
@@ -91,6 +92,12 @@ export default function WorkoutCreator() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const clientId = params.get('client') || '';
+  const groupId = params.get('group') || '';
+
+  const [group, setGroup] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [memberIndex, setMemberIndex] = useState(0);
+  const effClientId = groupId ? (members[memberIndex]?.id || '') : clientId;
 
   const [data, setData] = useState(null);
   const [screen, setScreen] = useState('analyzing'); // analyzing | brief | building | review | finish
@@ -124,18 +131,29 @@ export default function WorkoutCreator() {
   const goal = data?.profile?.goal_type || '';
   const scheme = SCHEMES[goal] || SCHEMES.maintain;
 
-  /* ── αυτόματη φόρτωση — καμία ερώτηση ── */
+  /* ── group mode: φόρτωσε τα μέλη ── */
   useEffect(() => { (async () => {
-    if (!clientId) return;
+    if (!groupId) return;
+    const g = await db.Group.get(groupId);
+    const mem = [];
+    for (const id of g?.member_ids || []) { const c = await db.Client.get(id); if (c) mem.push(c); }
+    setGroup(g); setMembers(mem); setMemberIndex(0);
+  })(); }, [groupId]);
+
+  /* ── αυτόματη φόρτωση του τρέχοντος πελάτη (individual ή τρέχον μέλος group) ── */
+  useEffect(() => { (async () => {
+    if (!effClientId) return;
     const [client, profs, tplans, progress, appts] = await Promise.all([
-      db.Client.get(clientId),
-      db.NutritionProfile.filter({ client_id: clientId }),
-      db.TrainingPlan.filter({ client_id: clientId }, '-date', 20),
-      db.ClientProgress.filter({ client_id: clientId }, '-date', 8),
-      db.Appointment.filter({ client_id: clientId }),
+      db.Client.get(effClientId),
+      db.NutritionProfile.filter({ client_id: effClientId }),
+      db.TrainingPlan.filter({ client_id: effClientId }, '-date', 20),
+      db.ClientProgress.filter({ client_id: effClientId }, '-date', 8),
+      db.Appointment.filter({ client_id: effClientId }),
     ]);
     setData({ client, profile: profs[0] || {}, tplans, progress, appts });
-  })(); }, [clientId]);
+    setScreen('analyzing'); setCheckStep(0); setAnalysis(null); setChosen('');
+    setTitle(''); setNotes(''); setExercises([]); setFinishMode(''); setSavedMsg(''); setSaving(false);
+  })(); }, [effClientId]);
 
   useEffect(() => {
     if (screen !== 'analyzing') return;
@@ -250,15 +268,20 @@ ${candTxt}
   /* ── αποθήκευση / προγραμματισμός / ανάθεση ── */
   const createPlan = async (extra = {}) => {
     return db.TrainingPlan.create({
-      client_id: clientId, client_name: data.client.name, date: extra.date || todayStr(),
+      client_id: effClientId, client_name: data.client.name, date: extra.date || todayStr(),
       title, session_type: chosen, notes, exercises, completed: false, created_via: 'brain',
     });
+  };
+  const afterFinish = (msg) => {
+    setSaving(false);
+    const nextMem = groupId && memberIndex < members.length - 1 ? members[memberIndex + 1] : null;
+    setSavedMsg(msg + (nextMem ? `  Συνεχίζουμε με ${firstName(nextMem.name)}…` : ''));
+    setTimeout(() => { if (nextMem) setMemberIndex(i => i + 1); else navigate('/TrainingPlans'); }, 1500);
   };
   const doSave = async () => {
     setSaving(true);
     await createPlan();
-    setSavedMsg('Η προπόνηση αποθηκεύτηκε στον φάκελο του πελάτη.');
-    setTimeout(() => navigate('/TrainingPlans'), 1100);
+    afterFinish('Η προπόνηση αποθηκεύτηκε στον φάκελο του πελάτη.');
   };
   const pickDay = async (ds) => {
     setSelDay(ds); setConfirmTime(''); setTimeCheck(null); setManualTime('');
@@ -289,12 +312,11 @@ ${candTxt}
     const plan = await createPlan({ date: selDay });
     await db.Appointment.create({
       title: `${data.client.name} — ${TYPE_META[chosen]?.label || 'Προπόνηση'}`,
-      client_id: clientId, client_name: data.client.name, client_color: data.client.theme_color || ACC,
+      client_id: effClientId, client_name: data.client.name, client_color: data.client.theme_color || ACC,
       type: 'training', date: selDay, start_time: confirmTime,
       duration_minutes: (data.client.session_duration_hours || 1) * 60, status: 'scheduled', plan_id: plan.id,
     });
-    setSavedMsg(`Προγραμματίστηκε: ${selDay} · ${confirmTime} — αποθηκεύτηκε και στα δύο ημερολόγια.`);
-    setTimeout(() => navigate('/TrainingPlans'), 1300);
+    afterFinish(`Προγραμματίστηκε: ${selDay} · ${confirmTime} — αποθηκεύτηκε και στα δύο ημερολόγια.`);
   };
   const openAssign = async () => {
     setFinishMode('assign');
@@ -308,8 +330,7 @@ ${candTxt}
     setSaving(true);
     const plan = await createPlan({ date: appt.date });
     await db.Appointment.update(appt.id, { plan_id: plan.id });
-    setSavedMsg(`Ανατέθηκε στο ραντεβού ${appt.date} · ${appt.start_time}.`);
-    setTimeout(() => navigate('/TrainingPlans'), 1300);
+    afterFinish(`Ανατέθηκε στο ραντεβού ${appt.date} · ${appt.start_time}.`);
   };
 
   /* ── στυλ ── */
@@ -343,7 +364,13 @@ ${candTxt}
 
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:22 }}>
           <div>
-            <span style={S.kicker}>The Cube · Δημιουργία προπόνησης</span>
+            <span style={S.kicker}>The Cube · Δημιουργία προπόνησης{groupId ? ' (group)' : ''}</span>
+            {groupId && members.length > 0 && (
+              <div style={{ display:'inline-flex', alignItems:'center', gap:8, margin:'6px 0 2px', padding:'4px 12px', borderRadius:999, background:`${ACC}1c`, border:`1px solid ${ACC}55` }}>
+                <span style={{ fontSize:13 }}>👥</span>
+                <span style={{ fontSize:12, fontWeight:800, color:ACC }}>{groupDisplayName(group, members)} · Μέλος {memberIndex + 1}/{members.length}</span>
+              </div>
+            )}
             <h1 style={{ fontSize:25, fontWeight:800, letterSpacing:'-.02em', margin:'6px 0 3px' }}>{client.name}</h1>
             <p style={{ ...S.dim, fontSize:12.5, margin:0 }}>{gender === 'female' ? 'Γυναικείο' : 'Ανδρικό'} εβδομαδιαίο πλαίσιο · {GOAL_LABELS[goal] || client.goals || '—'}</p>
           </div>
