@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Send, Search, MessageCircle, Paperclip, Image, Link2, X, Plus, Users, Check, Trash2, ChevronLeft } from 'lucide-react';
+import { Send, Search, MessageCircle, Paperclip, Image, Link2, X, Plus, Users, Check, Trash2, ChevronLeft, Megaphone, PenSquare, ChevronRight } from 'lucide-react';
 import { db } from '../lib/db';
+import { isIndividual, groupDisplayName, firstName } from '../lib/groups';
 
 function CreateGroupModal({ clients, onClose, onCreated }) {
   const [name, setName] = useState('');
@@ -36,6 +37,149 @@ function CreateGroupModal({ clients, onClose, onCreated }) {
   );
 }
 
+/* ═══════════════ Νέο μήνυμα — picker (groups + όλα τα άτομα ως μονάδες) ═══════════════ */
+function NewMessagePicker({ clients, groups, onClose, onPick }) {
+  const [q, setQ] = useState('');
+  const s = q.toLowerCase();
+  const gList = groups.map(g=>({ g, name:groupDisplayName(g, clients) })).filter(x=>!s||x.name.toLowerCase().includes(s));
+  const cList = clients.filter(c=>!s||c.name?.toLowerCase().includes(s));
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50"/>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e=>e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3"><h2 className="font-bold text-gray-900">Νέο μήνυμα</h2><button onClick={onClose}><X className="w-5 h-5 text-gray-400"/></button></div>
+          <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Αναζήτηση…" className="w-full pl-9 pr-3 py-2.5 bg-gray-50 rounded-xl text-sm outline-none"/></div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {gList.length>0 && <p className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">Groups</p>}
+          {gList.map(({g,name})=>(
+            <button key={g.id} onClick={()=>onPick({type:'group',id:g.id,name,color:'#8b5cf6',avatar:'👥',memberCount:(g.member_ids||[]).length})} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 text-left">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white flex-shrink-0" style={{background:'linear-gradient(135deg,#e0457b,#8b5cf6)'}}>👥</div>
+              <div className="flex-1 min-w-0"><p className="text-sm font-semibold text-gray-900 truncate">{name}</p><p className="text-xs text-gray-400">{(g.member_ids||[]).length} μέλη</p></div>
+              <ChevronRight className="w-4 h-4 text-gray-300"/>
+            </button>
+          ))}
+          {cList.length>0 && <p className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase">Άτομα</p>}
+          {cList.map(c=>(
+            <button key={c.id} onClick={()=>onPick({type:'client',id:c.id,name:c.name,color:c.theme_color||'#6366f1',avatar:c.name?.charAt(0)})} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 text-left">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
+              <div className="flex-1 min-w-0"><p className="text-sm font-semibold text-gray-900 truncate">{c.name}</p><p className="text-xs text-gray-400">{c.group_id?'σε group':'individual'}</p></div>
+              <ChevronRight className="w-4 h-4 text-gray-300"/>
+            </button>
+          ))}
+          {gList.length===0 && cList.length===0 && <p className="text-center text-sm text-gray-400 py-8">Καμία αντιστοιχία.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ Ανακοίνωση — κείμενο → στόχος → επιβεβαίωση ═══════════════ */
+function AnnouncementFlow({ clients, groups, state, setState, onSent }) {
+  const [saving, setSaving] = useState(false);
+  const set = (patch) => setState(st=>({ ...st, ...patch }));
+  const targetLabel = (t) => !t ? '' :
+    t.type==='all_groups' ? 'Όλα τα groups' :
+    t.type==='all_individuals' ? 'Όλοι οι individuals' :
+    t.type==='all_clients' ? 'Όλοι οι πελάτες' :
+    t.type==='group' ? `Group: ${t.label}` : t.label;
+
+  const send = async () => {
+    if (saving || !state.target) return;
+    setSaving(true);
+    await db.Announcement.create({
+      content: state.text.trim(),
+      target_type: state.target.type,
+      target_id: state.target.id || '',
+      created_date: new Date().toISOString(),
+      active: true, dismissed_ids: [],
+    });
+    setSaving(false);
+    onSent();
+  };
+
+  const close = () => setState(null);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={close}>
+      <div className="absolute inset-0 bg-black/50"/>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e=>e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-bold text-gray-900 flex items-center gap-2"><span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(135deg,#e0457b,#8b5cf6)'}}><Megaphone className="w-4 h-4 text-white"/></span> Ανακοίνωση</h2>
+          <button onClick={close}><X className="w-5 h-5 text-gray-400"/></button>
+        </div>
+
+        <div className="p-5">
+          {state.step==='compose' && (
+            <div>
+              <p className="text-sm text-gray-500 mb-3">Γράψε το μήνυμα που θα σταλεί ως ανακοίνωση.</p>
+              <textarea autoFocus value={state.text} onChange={e=>set({text:e.target.value})} placeholder="π.χ. Το στούντιο θα είναι κλειστό την Καθαρά Δευτέρα 🙏" className="w-full min-h-[120px] resize-y border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-gray-400"/>
+              <button onClick={()=>set({step:'target'})} disabled={!state.text.trim()} className="btn btn-primary w-full mt-4 disabled:opacity-40">Συνέχεια</button>
+            </div>
+          )}
+
+          {state.step==='target' && (
+            <div>
+              <p className="text-sm text-gray-500 mb-3">Πού θέλεις να πάει;</p>
+              <div className="space-y-2">
+                {[['all_groups','👥','Όλα τα groups'],['all_individuals','🧍','Όλοι οι individuals'],['all_clients','🌐','Όλοι οι πελάτες']].map(([type,ic,lbl])=>(
+                  <button key={type} onClick={()=>set({target:{type},step:'confirm'})} className="w-full flex items-center gap-3 p-3.5 rounded-xl border-2 border-gray-100 hover:border-gray-900 text-left">
+                    <span className="text-xl">{ic}</span><span className="text-sm font-semibold text-gray-900 flex-1">{lbl}</span><ChevronRight className="w-4 h-4 text-gray-300"/>
+                  </button>
+                ))}
+                <button onClick={()=>set({step:'pick'})} className="w-full flex items-center gap-3 p-3.5 rounded-xl border-2 border-gray-100 hover:border-gray-900 text-left">
+                  <span className="text-xl">🎯</span><span className="text-sm font-semibold text-gray-900 flex-1">Συγκεκριμένος (group ή άτομο)</span><ChevronRight className="w-4 h-4 text-gray-300"/>
+                </button>
+              </div>
+              <button onClick={()=>set({step:'compose'})} className="btn btn-secondary w-full mt-4">Πίσω</button>
+            </div>
+          )}
+
+          {state.step==='pick' && (
+            <div>
+              <p className="text-sm text-gray-500 mb-3">Διάλεξε παραλήπτη.</p>
+              <div className="space-y-1.5 max-h-[46vh] overflow-y-auto">
+                {groups.length>0 && <p className="px-1 pt-1 pb-0.5 text-xs font-semibold text-gray-400 uppercase">Groups</p>}
+                {groups.map(g=>{ const label=groupDisplayName(g, clients); return (
+                  <button key={g.id} onClick={()=>set({target:{type:'group',id:g.id,label},step:'confirm'})} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 text-left">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0" style={{background:'linear-gradient(135deg,#e0457b,#8b5cf6)'}}>👥</div>
+                    <span className="text-sm font-medium text-gray-900 flex-1 truncate">{label}</span><ChevronRight className="w-4 h-4 text-gray-300"/>
+                  </button>
+                ); })}
+                {clients.length>0 && <p className="px-1 pt-2 pb-0.5 text-xs font-semibold text-gray-400 uppercase">Άτομα</p>}
+                {clients.map(c=>(
+                  <button key={c.id} onClick={()=>set({target:{type:'client',id:c.id,label:c.name},step:'confirm'})} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 text-left">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
+                    <span className="text-sm font-medium text-gray-900 flex-1 truncate">{c.name}</span><ChevronRight className="w-4 h-4 text-gray-300"/>
+                  </button>
+                ))}
+              </div>
+              <button onClick={()=>set({step:'target'})} className="btn btn-secondary w-full mt-4">Πίσω</button>
+            </div>
+          )}
+
+          {state.step==='confirm' && (
+            <div>
+              <p className="text-sm text-gray-500 mb-3">Επιβεβαίωση</p>
+              <div className="rounded-xl border border-gray-200 p-4 mb-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Μήνυμα</p>
+                <p className="text-sm text-gray-900 whitespace-pre-wrap mb-3">{state.text}</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Παραλήπτες</p>
+                <p className="text-sm font-semibold text-gray-900">{targetLabel(state.target)}</p>
+              </div>
+              <p className="text-[11px] text-gray-400 mb-4">Θα εμφανιστεί ως banner στο κέντρο της εφαρμογής των παραληπτών την επόμενη φορά που θα την ανοίξουν, με δυνατότητα να το κλείσουν.</p>
+              <div className="flex gap-2">
+                <button onClick={()=>set({step:'target'})} className="btn btn-secondary flex-1">Πίσω</button>
+                <button onClick={send} disabled={saving} className="btn btn-primary flex-1">{saving?'Αποστολή…':'Αποστολή ανακοίνωσης'}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MasterMessages() {
   const [clients, setClients] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -49,7 +193,8 @@ export default function MasterMessages() {
   }, []);
   const [newMsg, setNewMsg] = useState('');
   const [search, setSearch] = useState('');
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [announce, setAnnounce] = useState(null);   // {step:'compose'|'target'|'pick'|'confirm', text, target}
   const bottomRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -105,7 +250,10 @@ export default function MasterMessages() {
         <div className="p-4 border-b border-gray-50">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900 flex items-center gap-2"><MessageCircle className="w-4 h-4"/> Messages {totalUnread>0&&<span className="w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">{totalUnread}</span>}</h2>
-            <button onClick={()=>setShowCreateGroup(true)} className="p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200" title="Create group chat"><Users className="w-3.5 h-3.5 text-gray-600"/></button>
+            <div className="flex items-center gap-1.5">
+              <button onClick={()=>setShowNew(true)} className="p-1.5 bg-gray-100 rounded-lg hover:bg-gray-200" title="Νέο μήνυμα"><PenSquare className="w-3.5 h-3.5 text-gray-600"/></button>
+              <button onClick={()=>setAnnounce({step:'compose',text:'',target:null})} className="p-1.5 rounded-lg hover:opacity-90" style={{background:'linear-gradient(135deg,#e0457b,#8b5cf6)'}} title="Ανακοίνωση"><Megaphone className="w-3.5 h-3.5 text-white"/></button>
+            </div>
           </div>
           <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." className="w-full pl-8 pr-3 py-2 bg-gray-50 rounded-xl text-xs outline-none"/></div>
         </div>
@@ -194,7 +342,11 @@ export default function MasterMessages() {
           <div className="text-center"><MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-30"/><p>Select a client or group to start messaging</p></div>
         </div>
       )}
-      {showCreateGroup&&<CreateGroupModal clients={clients} onClose={()=>setShowCreateGroup(false)} onCreated={load}/>}
+      {showNew && <NewMessagePicker clients={clients} groups={groups}
+        onClose={()=>setShowNew(false)}
+        onPick={(item)=>{ setShowNew(false); setSelected(item); markRead(item.id); }}/>}
+      {announce && <AnnouncementFlow clients={clients} groups={groups} state={announce} setState={setAnnounce}
+        onSent={()=>setAnnounce(null)}/>}
     </div>
   );
 }

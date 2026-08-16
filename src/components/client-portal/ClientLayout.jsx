@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import { Home, Dumbbell, Salad, BarChart2, CreditCard, MessageCircle, LogOut, Sun, Moon, ChevronDown, Check, MoreHorizontal, Settings, Globe } from 'lucide-react';
 import { useAppContext } from '../../lib/AppContext';
+import { db } from '../../lib/db';
+import { isIndividual } from '../../lib/groups';
+import { X as CloseIcon, Megaphone } from 'lucide-react';
 import { useTheme, CLIENT_THEMES } from '../../lib/ThemeContext';
 import logo from '../../assets/logo-cube.png';
 import BarbellNav, { BarbellDock, useBarColors } from '../BarbellNav';
@@ -90,6 +93,48 @@ function ThemePicker() {
   );
 }
 
+const announcementAudience = (a, c) => {
+  if (!c) return false;
+  switch (a.target_type) {
+    case 'all_clients': return true;
+    case 'all_individuals': return isIndividual(c);
+    case 'all_groups': return !!c.group_id;
+    case 'group': return c.group_id === a.target_id;
+    case 'client': return c.id === a.target_id;
+    default: return false;
+  }
+};
+
+function AnnouncementBanner({ clientId }) {
+  const [ann, setAnn] = useState(null);
+  useEffect(() => { let alive = true; (async () => {
+    if (!clientId) return;
+    try {
+      const c = await db.Client.get(clientId);
+      const list = await db.Announcement.list('-created_date', 60);
+      const match = (list || []).find(a => a.active !== false && announcementAudience(a, c) && !((a.dismissed_ids || []).includes(clientId)));
+      if (alive) setAnn(match || null);
+    } catch (e) {}
+  })(); return () => { alive = false; }; }, [clientId]);
+
+  if (!ann) return null;
+  const dismiss = async () => {
+    try { await db.Announcement.update(ann.id, { dismissed_ids: [...(ann.dismissed_ids || []), clientId] }); } catch (e) {}
+    setAnn(null);
+  };
+  return (
+    <div onClick={dismiss} style={{ position:'fixed', inset:0, zIndex:80, display:'grid', placeItems:'center', padding:22, background:'rgba(0,0,0,0.45)', backdropFilter:'blur(3px)' }}>
+      <div onClick={e=>e.stopPropagation()} style={{ position:'relative', width:'100%', maxWidth:400, background:'var(--cp-card-bg)', border:'1px solid var(--cp-border)', borderRadius:22, padding:'28px 24px 24px', boxShadow:'0 24px 70px rgba(0,0,0,0.4)', textAlign:'center' }}>
+        <button onClick={dismiss} aria-label="Κλείσιμο" style={{ position:'absolute', top:12, right:12, width:32, height:32, borderRadius:'50%', border:'none', cursor:'pointer', background:'var(--cp-bg)', display:'grid', placeItems:'center' }}><CloseIcon style={{ width:16, height:16, color:'var(--cp-text-dim)' }}/></button>
+        <div style={{ width:52, height:52, margin:'0 auto 14px', borderRadius:16, display:'grid', placeItems:'center', background:'linear-gradient(135deg,#e0457b,#8b5cf6)' }}><Megaphone style={{ width:26, height:26, color:'#fff' }}/></div>
+        <p style={{ margin:'0 0 8px', fontSize:11, letterSpacing:'.2em', textTransform:'uppercase', fontWeight:700, color:'var(--cp-accent, #e0457b)' }}>Ανακοίνωση</p>
+        <p style={{ margin:'0 0 20px', fontSize:15, lineHeight:1.6, color:'var(--cp-text)', whiteSpace:'pre-wrap' }}>{ann.content}</p>
+        <button onClick={dismiss} style={{ width:'100%', padding:'12px', borderRadius:13, border:'none', cursor:'pointer', fontSize:14, fontWeight:700, color:'#fff', background:'linear-gradient(180deg,#e0457b,#b52f78)' }}>Το είδα</button>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientLayout({ children, title }) {
   const { logout, clientUser } = useAppContext();
   const [cpSettingsOpen, setCpSettingsOpen] = useState(false);
@@ -114,6 +159,7 @@ export default function ClientLayout({ children, title }) {
   if (isMobile) {
     return (
       <div className="app-viewport" style={{ backgroundColor:'var(--cp-bg)', fontFamily:'var(--cp-font-body)' }}>
+        <AnnouncementBanner clientId={clientUser?.clientId}/>
         {title && (
           <header style={{ padding:'14px 18px', borderBottom:'1px solid var(--cp-border)', backgroundColor:'var(--cp-card-bg)', position:'sticky', top:0, zIndex:30, backdropFilter:'blur(12px)' }}>
             <h1 style={{ margin:0, fontSize:18, fontWeight:600, fontFamily:'var(--cp-font)', color:'var(--cp-text)' }}>{title}</h1>
@@ -253,6 +299,7 @@ export default function ClientLayout({ children, title }) {
   // ── DESKTOP: sidebar ──
   return (
     <div style={{ minHeight:'100vh', display:'flex', backgroundColor:'var(--cp-bg)', fontFamily:'var(--cp-font-body)' }}>
+      <AnnouncementBanner clientId={clientUser?.clientId}/>
 
       {/* ── SIDEBAR (desktop) ── */}
       <aside
