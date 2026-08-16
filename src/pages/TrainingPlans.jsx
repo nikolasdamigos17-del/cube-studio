@@ -564,7 +564,7 @@ export default function TrainingPlans() {
 
   /* ─────────── ΦΑΚΕΛΟΣ ΠΕΛΑΤΗ ─────────── */
   if (client) {
-    const cPlans = plansOf(client.id);
+    const cPlans = plansOf(client.id).filter(p=>!p.group_session_id);   // οι group προπονήσεις φαίνονται στο group, όχι εδώ
     const week = weekOf(client.id);
     const wTot = week.reduce((a,p)=>{ const t=resultTotals(p); return { planned:a.planned+t.planned, done:a.done+t.done, miss:a.miss+t.miss }; },{planned:0,done:0,miss:0});
     const days = Array.from({length:7},(_,i)=>tcDaysAgo(6-i));
@@ -711,6 +711,61 @@ export default function TrainingPlans() {
           })}
           {members.length===0 && <div className="col-span-2 text-center py-8 text-muted-foreground text-sm">Το group δεν έχει μέλη ακόμα.</div>}
         </div>
+
+        {(() => {
+          const gPlans = plans.filter(p=>p.group_id===g.id);
+          const map = {};
+          gPlans.forEach(p=>{ const k=p.group_session_id||p.id; (map[k]=map[k]||[]).push(p); });
+          const sessions = Object.entries(map).map(([k,ps])=>{
+            const ordered = members.map(m=>ps.find(x=>x.client_id===m.id)).filter(Boolean);
+            const extra = ps.filter(x=>!members.find(m=>m.id===x.client_id));
+            return { id:k, plans:[...ordered,...extra] };
+          }).sort((a,b)=>((b.plans[0]?.date||'').localeCompare(a.plans[0]?.date||'')));
+          return (
+            <div className="mt-8">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Ομαδικές προπονήσεις ({sessions.length})</p>
+              {sessions.length===0 && <div className="card p-6 text-center text-sm text-muted-foreground">Καμία ομαδική προπόνηση ακόμα — πάτα «Δημιουργία προπόνησης για το group».</div>}
+              <div className="space-y-3">
+                {sessions.map(sess=>{
+                  const allDone = sess.plans.every(p=>p.completed);
+                  const anyDone = sess.plans.some(p=>p.completed);
+                  return (
+                    <div key={sess.id} className="card p-4">
+                      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground">📅 {(sess.plans[0]?.date||'').split('T')[0]}</p>
+                        <div className="flex items-center gap-2">
+                          {allDone ? <span className="badge badge-green">Ολοκληρώθηκε ✓</span> : anyDone ? <span className="badge" style={{background:'rgba(147,51,234,0.12)',color:'#7c3aed'}}>Σε εξέλιξη</span> : <span className="badge">Προγραμματισμένη</span>}
+                          <button onClick={async()=>{ if(confirm('Διαγραφή αυτής της ομαδικής προπόνησης;')){ for(const p of sess.plans) await db.TrainingPlan.delete(p.id); load(); } }} className="p-1.5 rounded-lg hover:bg-secondary"><Trash2 className="w-4 h-4 text-muted-foreground"/></button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        {sess.plans.map(p=>{
+                          const m = clients.find(c=>c.id===p.client_id); const t=planType(p);
+                          return (
+                            <div key={p.id} className="rounded-xl border border-border/60 p-3">
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <span className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{backgroundColor:m?.theme_color||'#6366f1'}}>{(p.client_name||m?.name||'?').charAt(0)}</span>
+                                <span className="text-sm font-semibold text-foreground truncate">{p.client_name||m?.name}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{TC_TYPES[t]?.emoji||'📋'} {p.title||'Προπόνηση'} · {(p.exercises||[]).length} ασκήσεις</p>
+                              {p.completed && p.trainer_feedback && <p className="text-[11px] text-muted-foreground mt-1.5 line-clamp-2">📝 {p.trainer_feedback}</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {!allDone && (
+                        <button onClick={()=>navigate('/group-training',{state:{ plans:sess.plans, members, groupName:groupDisplayName(g, clients) }})}
+                          className="btn w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2" style={{background:'linear-gradient(180deg,#e0457b,#b52f78)',boxShadow:'0 4px 16px rgba(224,69,123,.4)'}}>
+                          ▶ Έναρξη ομαδικής προπόνησης
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }

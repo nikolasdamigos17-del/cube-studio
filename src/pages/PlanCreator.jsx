@@ -32,7 +32,7 @@ function parseJsonObj(txt) {
 }
 
 /* συλλογή & σύνοψη ΟΛΩΝ των δεδομένων του πελάτη για τον εγκέφαλο */
-function buildClientBrief({ client, profile, meeting, progress, plans, tplans, appts }) {
+function buildClientBrief({ client, profile, meeting, progress, plans, tplans, appts, feedback }) {
   const lines = [];
   lines.push(`ΠΕΛΑΤΗΣ: ${client.name}${client.gender ? ', ' + client.gender : ''}${client.height_cm ? ', ύψος ' + client.height_cm + 'cm' : ''}. Πρόγραμμα: ${client.services}.`);
   lines.push(`ΣΤΟΧΟΣ: ${GOAL_LABELS[profile.goal_type] || profile.goal_type || 'γενική υγεία'}${profile.target_weight ? `, στόχος βάρους ${profile.target_weight}kg` : ''}.${profile.goal_notes ? ' Σημειώσεις: ' + profile.goal_notes : ''}`);
@@ -70,6 +70,9 @@ function buildClientBrief({ client, profile, meeting, progress, plans, tplans, a
     if (plannedPerWeek) lines.push(`Συμφωνημένη συχνότητα: ~${plannedPerWeek} προπονήσεις/εβδομάδα.`);
   } else {
     lines.push('ΠΡΟΠΟΝΗΣΗ: ο πελάτης έχει μόνο διατροφή (χωρίς προπονητικά δεδομένα).');
+  }
+  if (feedback && feedback.length) {
+    lines.push('ΣΗΜΕΙΩΣΕΙΣ ΠΡΟΠΟΝΗΤΗ (από πρόσφατες προπονήσεις): ' + feedback.map(f=>`«${f.content}»`).join(' | '));
   }
 
   const flagsOn = Object.entries(profile.flags || {}).filter(([,v]) => v).map(([k]) => k).join(', ');
@@ -146,7 +149,7 @@ export default function PlanCreator() {
   /* ── φόρτωση ΟΛΩΝ αυτόματα — καμία ερώτηση ── */
   useEffect(() => { (async () => {
     if (!clientId || !meetingId) return;
-    const [client, profs, meeting, progress, plans, tplans, apptsAll] = await Promise.all([
+    const [client, profs, meeting, progress, plans, tplans, apptsAll, notesAll] = await Promise.all([
       db.Client.get(clientId),
       db.NutritionProfile.filter({ client_id: clientId }),
       db.NutritionMeeting.get(meetingId),
@@ -154,8 +157,10 @@ export default function PlanCreator() {
       db.NutritionPlan.filter({ client_id: clientId }, '-date', 5),
       db.TrainingPlan.filter({ client_id: clientId }, '-date', 15),
       db.Appointment.filter({ client_id: clientId }),
+      db.ClientNote.filter({ client_id: clientId }),
     ]);
-    setData({ client, profile: profs[0] || {}, meeting, progress, plans, tplans, appts: apptsAll });
+    const feedback = (notesAll || []).filter(n => n.type === 'training_feedback').sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,3);
+    setData({ client, profile: profs[0] || {}, meeting, progress, plans, tplans, appts: apptsAll, feedback });
   })(); }, [clientId, meetingId]);
 
   /* θεατρικά τικ της ανάλυσης */

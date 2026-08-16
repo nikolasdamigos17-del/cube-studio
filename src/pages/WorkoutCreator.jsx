@@ -97,6 +97,7 @@ export default function WorkoutCreator() {
   const [group, setGroup] = useState(null);
   const [members, setMembers] = useState([]);
   const [memberIndex, setMemberIndex] = useState(0);
+  const [groupSessionId] = useState(() => 'gs_' + Date.now());
   const effClientId = groupId ? (members[memberIndex]?.id || '') : clientId;
 
   const [data, setData] = useState(null);
@@ -143,14 +144,16 @@ export default function WorkoutCreator() {
   /* ── αυτόματη φόρτωση του τρέχοντος πελάτη (individual ή τρέχον μέλος group) ── */
   useEffect(() => { (async () => {
     if (!effClientId) return;
-    const [client, profs, tplans, progress, appts] = await Promise.all([
+    const [client, profs, tplans, progress, appts, notesAll] = await Promise.all([
       db.Client.get(effClientId),
       db.NutritionProfile.filter({ client_id: effClientId }),
       db.TrainingPlan.filter({ client_id: effClientId }, '-date', 20),
       db.ClientProgress.filter({ client_id: effClientId }, '-date', 8),
       db.Appointment.filter({ client_id: effClientId }),
+      db.ClientNote.filter({ client_id: effClientId }),
     ]);
-    setData({ client, profile: profs[0] || {}, tplans, progress, appts });
+    const feedback = (notesAll || []).filter(n => n.type === 'training_feedback').sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,3);
+    setData({ client, profile: profs[0] || {}, tplans, progress, appts, feedback });
     setScreen('analyzing'); setCheckStep(0); setAnalysis(null); setChosen('');
     setTitle(''); setNotes(''); setExercises([]); setFinishMode(''); setSavedMsg(''); setSaving(false);
   })(); }, [effClientId]);
@@ -175,6 +178,7 @@ export default function WorkoutCreator() {
       ms.length ? 'ΜΕΤΡΗΣΕΙΣ (παλιά → νέα): ' + ms.map(m => `${m.date}: ${num(m.weight_kg) ?? '?'}kg${num(m.body_fat_pct)!=null ? ', λίπος ' + m.body_fat_pct + '%' : ''}${num(m.muscle_mass_kg)!=null ? ', μυς ' + m.muscle_mass_kg + 'kg' : ''}`).join(' | ') : 'ΜΕΤΡΗΣΕΙΣ: καμία.',
       `ΕΒΔΟΜΑΔΑ (τελευταίες 7 ημέρες): ${wk.count} ολοκληρωμένες προπονήσεις` + (wk.types.length ? ` [${wk.types.map(t => TYPE_META[t]?.label || t).join(', ')}]` : '') + (wk.setsPlanned ? `, σετ ${wk.setsDone}/${wk.setsPlanned}` : '') + (freq ? `. Συμφωνημένη συχνότητα ~${freq}/εβδομάδα.` : '.'),
       wk.missed.length ? 'ΔΥΣΚΟΛΙΕΣ (σετ κάτω από στόχο/ημιτελή): ' + wk.missed.slice(0, 5).join(', ') + '.' : 'Χωρίς σημαντικές αποτυχίες σετ την τελευταία εβδομάδα.',
+      (data.feedback && data.feedback.length) ? 'ΣΗΜΕΙΩΣΕΙΣ ΠΡΟΠΟΝΗΤΗ (πρόσφατες, λάβε τες σοβαρά υπόψη): ' + data.feedback.map(f=>`«${f.content}»`).join(' | ') : '',
       `ΔΙΑΘΕΣΙΜΑ SESSION TEMPLATES: ${options.map(o => `${o.key} (${o.label} — ${o.desc})`).join(' | ')}.`,
     ].join('\n');
 
@@ -270,6 +274,7 @@ ${candTxt}
     return db.TrainingPlan.create({
       client_id: effClientId, client_name: data.client.name, date: extra.date || todayStr(),
       title, session_type: chosen, notes, exercises, completed: false, created_via: 'brain',
+      ...(groupId ? { group_id: groupId, group_session_id: groupSessionId } : {}),
     });
   };
   const afterFinish = (msg) => {
