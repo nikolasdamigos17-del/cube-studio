@@ -25,6 +25,19 @@ async function memberObjects(ids, clients) {
   return out.filter(Boolean);
 }
 
+/* ── Τιμολόγηση group: το group αγοράζει ΜΟΝΟ προπονήσεις· η διατροφή είναι ανά μέλος ── */
+export const groupWeek = (g, members) => Number(g?.sessions_per_week) || (members && members[0]?.sessions_per_week) || 0;
+export const groupPrice = (g, members) => {
+  if (g?.monthly_price != null && g.monthly_price !== '') return parseFloat(g.monthly_price) || 0;
+  return (members || []).reduce((s,m)=>s+(parseFloat(m.monthly_price)||0),0);   // fallback: άθροισμα μελών
+};
+export const memberTrainingPrice = (g, members) => groupPrice(g, members) / 2;   // κάθε μέλος: τιμή group ÷ 2
+export const nutritionPrice = (c) => {
+  const v = (c?.nutrition_price != null && c.nutrition_price !== '') ? c.nutrition_price : c?.monthly_price;
+  return parseFloat(v) || 0;
+};
+export const hasNutrition = (c) => ['nutrition_only','personal_training_nutrition','group_training_nutrition'].includes(c?.services);
+
 export async function createEmptyGroup() {
   return db.Group.create({ name: 'Νέο group', member_ids: [], locked: false, created_date: new Date().toISOString() });
 }

@@ -24,6 +24,7 @@ import NutritionMeeting from './pages/NutritionMeeting';
 import PlanCreator from './pages/PlanCreator';
 import WorkoutCreator from './pages/WorkoutCreator';
 import GroupTraining from './pages/GroupTraining';
+import GroupProfile from './pages/GroupProfile';
 import RecipePage from './pages/RecipePage';
 
 import ClientHome from './pages/ClientHome';
@@ -115,6 +116,7 @@ function AppContent() {
         <Route path="/plan-creator" element={<PlanCreator/>}/>
         <Route path="/workout-creator" element={<WorkoutCreator/>}/>
         <Route path="/group-training" element={<GroupTraining/>}/>
+        <Route path="/GroupProfile" element={<MasterLayout><GroupProfile/></MasterLayout>}/>
         <Route path="*" element={<Navigate to="/" replace/>}/>
       </Routes>
     </ThemeProvider>

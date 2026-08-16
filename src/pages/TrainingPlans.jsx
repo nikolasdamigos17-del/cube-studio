@@ -544,6 +544,8 @@ export default function TrainingPlans() {
   const [openId, setOpenId] = useState(null);
   const [groups, setGroups] = useState([]);
   const [selGroup, setSelGroup] = useState(null);
+  const [wkPick, setWkPick] = useState(null);
+  const [wkSel, setWkSel] = useState([]);
 
   const load = async () => {
     const [p, cAll, ap, g] = await Promise.all([
@@ -681,12 +683,38 @@ export default function TrainingPlans() {
             <h1 className="page-title">{groupDisplayName(g, clients)}</h1>
             <p className="page-subtitle">Ομαδική προπόνηση · {members.length}/{GROUP_CAP} μέλη</p>
           </div>
-          <button onClick={()=>members.length && navigate(`/workout-creator?group=${g.id}`)} disabled={!members.length}
+          <button onClick={()=>{ if(members.length){ setWkSel(g.member_ids||[]); setWkPick(g); } }} disabled={!members.length}
             className="btn px-4 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center gap-2" style={{background:'linear-gradient(135deg,#9333ea,#7c3aed)',boxShadow:'0 4px 14px rgba(147,51,234,0.35)',opacity:members.length?1:.5}}>
             <Brain className="w-4 h-4"/> Δημιουργία προπόνησης για το group
           </button>
         </div>
         <p className="text-sm text-muted-foreground mb-6">Ο εγκέφαλος τρέχει τη διαδικασία <b>διαδοχικά</b>{members.length?` — πρώτα ${firstName(members[0].name)}${members[1]?`, μετά ${firstName(members[1].name)}`:''}`:''} — φτιάχνοντας ξεχωριστή προπόνηση για κάθε μέλος.</p>
+
+        {wkPick && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={()=>setWkPick(null)}>
+            <div className="absolute inset-0 bg-black/50"/>
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={e=>e.stopPropagation()}>
+              <p className="font-bold text-gray-900 mb-1">Για ποιον θέλεις προπόνηση;</p>
+              <p className="text-xs text-gray-400 mb-4">Διάλεξε ένα μέλος ή και τους δύο — η δημιουργία τρέχει διαδοχικά.</p>
+              <div className="space-y-2 mb-5">
+                {(wkPick.member_ids||[]).map(id=>clients.find(c=>c.id===id)).filter(Boolean).map(m=>{
+                  const on = wkSel.includes(m.id);
+                  return (
+                    <button key={m.id} onClick={()=>setWkSel(sel=>on?sel.filter(x=>x!==m.id):[...sel,m.id])} className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-colors ${on?'border-gray-900 bg-gray-50':'border-gray-100 hover:border-gray-300'}`}>
+                      <span className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${on?'bg-gray-900':'border-2 border-gray-300'}`}>{on&&<Check className="w-3.5 h-3.5 text-white"/>}</span>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{backgroundColor:m.theme_color||'#6366f1'}}>{m.name?.charAt(0)}</div>
+                      <span className="text-sm font-semibold text-gray-900 flex-1 truncate">{m.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={()=>setWkPick(null)} className="btn btn-secondary flex-1">Άκυρο</button>
+                <button onClick={()=>{ if(wkSel.length) navigate(`/workout-creator?group=${wkPick.id}&members=${wkSel.join(',')}`); }} disabled={!wkSel.length} className="btn btn-primary flex-1 disabled:opacity-40">Συνέχεια ({wkSel.length})</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {members.map(m=>{
@@ -702,10 +730,7 @@ export default function TrainingPlans() {
                   {week.length ? <span className="badge badge-green">{week.length} αυτή την εβδομάδα {week.map(pp=>TC_TYPES[planType(pp)]?.emoji||'').join('')}</span> : <span className="badge" style={{background:'rgba(245,158,11,0.12)',color:'#d97706'}}>Καμία προπόνηση 7 ημερών</span>}
                   {last && <span className="text-xs text-muted-foreground">Τελευταία: {(last.completed_date||last.date||'').split('T')[0]}</span>}
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={()=>{ setSelGroup(null); setSel(m.id); }} className="btn btn-secondary flex-1 text-sm">Ατομικός φάκελος</button>
-                  <button onClick={()=>navigate(`/workout-creator?client=${m.id}`)} className="btn btn-secondary flex-1 text-sm">Μεμονωμένη</button>
-                </div>
+                <button onClick={()=>{ setSelGroup(null); setSel(m.id); }} className="btn btn-secondary w-full text-sm">Ατομικός φάκελος</button>
               </div>
             );
           })}

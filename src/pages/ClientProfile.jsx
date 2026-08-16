@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { groupDisplayName, groupPrice, groupWeek, memberTrainingPrice, nutritionPrice, hasNutrition } from '../lib/groups';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Edit3, Plus, Trash2, X, BarChart2, Dumbbell, Salad, CreditCard, StickyNote, Pin } from 'lucide-react';
@@ -60,6 +61,8 @@ export default function ClientProfile() {
   const navigate = useNavigate();
   const clientId = params.get('id');
   const [client, setClient] = useState(null);
+  const [group, setGroup] = useState(null);
+  const [groupMembers, setGroupMembers] = useState([]);
   const [tab, setTab] = useState('overview');
   const [confirmDel, setConfirmDel] = useState(false);
   const [planEdit, setPlanEdit] = useState(null);
@@ -83,6 +86,12 @@ export default function ClientProfile() {
     setClient(c); setProgress(prog); setPlans(tp); setNutrition(np); setPayments(pay); setNotes(n); setAppointments(appts);
   };
   useEffect(() => { load(); }, [clientId]);
+  useEffect(() => { (async () => {
+    if (!client?.group_id) { setGroup(null); setGroupMembers([]); return; }
+    const g = await db.Group.get(client.group_id);
+    const mem = []; for (const id of g?.member_ids || []) { const c = await db.Client.get(id); if (c) mem.push(c); }
+    setGroup(g); setGroupMembers(mem);
+  })(); }, [client?.group_id]);
 
   if (!client) return <div className="p-8 text-gray-400">Loading...</div>;
 
@@ -118,7 +127,7 @@ export default function ClientProfile() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
-          <button onClick={()=>setPlanEdit({ sessions_per_week:client.sessions_per_week||3, nutrition_meetings_per_month:client.nutrition_meetings_per_month||0, monthly_price:client.monthly_price||'', session_duration_hours:client.session_duration_hours||1 })} className="flex items-center gap-1.5 border border-gray-200 bg-white px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">📦 Πλάνο</button>
+          <button onClick={()=>setPlanEdit({ sessions_per_week:client.sessions_per_week||3, nutrition_meetings_per_month:client.nutrition_meetings_per_month||0, monthly_price:client.monthly_price||'', session_duration_hours:client.session_duration_hours||1, nutrition_price:(client.nutrition_price!=null&&client.nutrition_price!=='')?client.nutrition_price:(client.monthly_price||'') })} className="flex items-center gap-1.5 border border-gray-200 bg-white px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">📦 Πλάνο</button>
           <button onClick={async()=>{ const nf=!client.frozen; await db.Client.update(client.id,{frozen:nf}); setClient({...client, frozen:nf}); }} className={`flex items-center gap-1.5 border px-3 py-2.5 rounded-xl text-sm font-medium ${client.frozen?'border-sky-200 bg-sky-50 text-sky-600':'border-gray-200 bg-white hover:bg-gray-50'}`}>{client.frozen?'🔓 Unfreeze':'❄️ Freeze'}</button>
           <button onClick={()=>setConfirmDel(true)} className="flex items-center gap-1.5 border border-rose-200 bg-rose-50 text-rose-600 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-rose-100">🗑 Διαγραφή</button>
           <button onClick={()=>setShowRecord(true)} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800"><Plus className="w-4 h-4" /> Add Record</button>
@@ -143,14 +152,39 @@ export default function ClientProfile() {
       {planEdit && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-5" onClick={()=>setPlanEdit(null)}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm" onClick={e=>e.stopPropagation()}>
-            <p className="font-bold text-gray-900 mb-4">Πλάνο πελάτη</p>
-            <div className="space-y-3">
-              {[['sessions_per_week','Προπονήσεις / εβδομάδα'],['session_duration_hours','Διάρκεια session (ώρες)'],['nutrition_meetings_per_month','Διατροφές / μήνα'],['monthly_price','Μηνιαία τιμή (€)']].map(([k,l])=>(
-                <div key={k}><label className="text-xs font-medium text-gray-500">{l}</label>
-                  <input type="number" step={k==='session_duration_hours'?'0.5':'1'} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1" value={planEdit[k]} onChange={e=>setPlanEdit(pp=>({...pp,[k]:e.target.value}))}/></div>
-              ))}
-            </div>
-            <button onClick={async()=>{ const w=parseInt(planEdit.sessions_per_week)||0; const patch={ sessions_per_week:w, sessions_per_month:w*4, session_duration_hours:parseFloat(planEdit.session_duration_hours)||1, nutrition_meetings_per_month:parseInt(planEdit.nutrition_meetings_per_month)||0, monthly_price:parseFloat(planEdit.monthly_price)||0 }; await db.Client.update(client.id,patch); setClient({...client,...patch}); setPlanEdit(null); }} className="w-full mt-5 bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold">Αποθήκευση πλάνου</button>
+            {client.group_id ? (
+              <>
+                <p className="font-bold text-gray-900 mb-1">Πλάνο μέλους group</p>
+                <p className="text-xs text-gray-400 mb-4">{group?`«${groupDisplayName(group, groupMembers)}»`:''} — οι προπονήσεις είναι κοινές του group.</p>
+                <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 mb-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase mb-1">🏋️ Προπονήσεις (μέσω group)</p>
+                  <p className="text-sm text-gray-900 font-semibold">€{memberTrainingPrice(group||{}, groupMembers).toFixed(0)} / μήνα <span className="text-gray-400 font-normal">(τιμή group ÷ 2)</span></p>
+                  <p className="text-xs text-gray-500 mt-0.5">{groupWeek(group||{}, groupMembers)}×/εβδ. · {groupWeek(group||{}, groupMembers)*4} προπονήσεις/μήνα</p>
+                  <button onClick={()=>{ setPlanEdit(null); navigate(`/GroupProfile?id=${client.group_id}`); }} className="text-xs font-semibold text-indigo-600 mt-2 underline">Επεξεργασία πλάνου group →</button>
+                </div>
+                {hasNutrition(client) ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-gray-400 uppercase">🥗 Διατροφή (ατομική)</p>
+                    <div><label className="text-xs font-medium text-gray-500">Διατροφές / μήνα</label>
+                      <input type="number" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1" value={planEdit.nutrition_meetings_per_month} onChange={e=>setPlanEdit(pp=>({...pp,nutrition_meetings_per_month:e.target.value}))}/></div>
+                    <div><label className="text-xs font-medium text-gray-500">Τιμή διατροφής / μήνα (€)</label>
+                      <input type="number" step="0.5" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1" value={planEdit.nutrition_price} onChange={e=>setPlanEdit(pp=>({...pp,nutrition_price:e.target.value}))}/></div>
+                  </div>
+                ) : <p className="text-xs text-gray-400">Ο πελάτης δεν παίρνει διατροφή. Για να προσθέσεις, άλλαξε την υπηρεσία του σε «Group + Nutrition».</p>}
+                <button onClick={async()=>{ const patch={ nutrition_meetings_per_month:parseInt(planEdit.nutrition_meetings_per_month)||0, nutrition_price:parseFloat(planEdit.nutrition_price)||0 }; await db.Client.update(client.id,patch); setClient({...client,...patch}); setPlanEdit(null); }} className="w-full mt-5 bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold">Αποθήκευση</button>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-gray-900 mb-4">Πλάνο πελάτη</p>
+                <div className="space-y-3">
+                  {[['sessions_per_week','Προπονήσεις / εβδομάδα'],['session_duration_hours','Διάρκεια session (ώρες)'],['nutrition_meetings_per_month','Διατροφές / μήνα'],['monthly_price','Μηνιαία τιμή (€)']].map(([k,l])=>(
+                    <div key={k}><label className="text-xs font-medium text-gray-500">{l}</label>
+                      <input type="number" step={k==='session_duration_hours'?'0.5':'1'} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mt-1" value={planEdit[k]} onChange={e=>setPlanEdit(pp=>({...pp,[k]:e.target.value}))}/></div>
+                  ))}
+                </div>
+                <button onClick={async()=>{ const w=parseInt(planEdit.sessions_per_week)||0; const patch={ sessions_per_week:w, sessions_per_month:w*4, session_duration_hours:parseFloat(planEdit.session_duration_hours)||1, nutrition_meetings_per_month:parseInt(planEdit.nutrition_meetings_per_month)||0, monthly_price:parseFloat(planEdit.monthly_price)||0 }; await db.Client.update(client.id,patch); setClient({...client,...patch}); setPlanEdit(null); }} className="w-full mt-5 bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold">Αποθήκευση πλάνου</button>
+              </>
+            )}
           </div>
         </div>
       )}

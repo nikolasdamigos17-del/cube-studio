@@ -214,13 +214,13 @@ export default function Clients() {
               return (
                 <div key={g.id} className={`card p-5 ${full?'border-emerald-200':'border-dashed'}`}>
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{background:full?'linear-gradient(135deg,#10b981,#059669)':'#f3f4f6'}}>{full?'👥':'➕'}</div>
+                    <button onClick={()=>navigate(`/GroupProfile?id=${g.id}`)} className="flex items-center gap-3 min-w-0 text-left group/gh">
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{background:full?'linear-gradient(135deg,#e0457b,#8b5cf6)':'#f3f4f6'}}>{full?'👥':'➕'}</div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 truncate">{groupDisplayName(g, clients)}</p>
-                        <p className="text-xs text-gray-400">{members.length}/{GROUP_CAP} μέλη</p>
+                        <p className="font-semibold text-gray-900 truncate group-hover/gh:underline">{groupDisplayName(g, clients)}</p>
+                        <p className="text-xs text-gray-400">{members.length}/{GROUP_CAP} μέλη · πλάνο group</p>
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {full
                         ? <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><Lock className="w-3 h-3"/> Πλήρες</span>

@@ -136,8 +136,10 @@ export default function WorkoutCreator() {
   useEffect(() => { (async () => {
     if (!groupId) return;
     const g = await db.Group.get(groupId);
+    const wanted = (params.get('members') || '').split(',').filter(Boolean);
+    const ids = wanted.length ? wanted : (g?.member_ids || []);
     const mem = [];
-    for (const id of g?.member_ids || []) { const c = await db.Client.get(id); if (c) mem.push(c); }
+    for (const id of ids) { const c = await db.Client.get(id); if (c) mem.push(c); }
     setGroup(g); setMembers(mem); setMemberIndex(0);
   })(); }, [groupId]);
 
