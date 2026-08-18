@@ -2,13 +2,23 @@ import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth, parseISO, addMonths, subMonths, addWeeks, subWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus, X, Clock, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { db } from '../lib/db';
+import { groupDisplayName } from '../lib/groups';
 
 // ── Event Modal ───────────────────────────────────────────────────────────────
-function EventModal({ onClose, onSaved, clients, defaultDate }) {
-  const [f, setF] = useState({ title:'', client_id:'', client_name:'', client_color:'', type:'training', date:defaultDate||format(new Date(),'yyyy-MM-dd'), start_time:'09:00', duration_minutes:60, status:'scheduled', notes:'' });
+function EventModal({ onClose, onSaved, clients, groups=[], defaultDate }) {
+  const [f, setF] = useState({ title:'', client_id:'', group_id:'', client_name:'', client_color:'', type:'training', date:defaultDate||format(new Date(),'yyyy-MM-dd'), start_time:'09:00', duration_minutes:60, status:'scheduled', notes:'' });
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setF(p=>({...p,[k]:v}));
-  const hc = (id) => { const c=clients.find(c=>c.id===id); setF(p=>({...p,client_id:id,client_name:c?.name||'',client_color:c?.theme_color||''})); };
+  const hc = (val) => {
+    if (val && val.startsWith('group:')) {
+      const g = groups.find(x=>x.id===val.slice(6));
+      setF(p=>({...p, client_id:'', group_id:g?.id||'', client_name:g?groupDisplayName(g,clients):'', client_color:'#8b5cf6'}));
+    } else {
+      const c = clients.find(c=>c.id===val);
+      setF(p=>({...p, client_id:val, group_id:'', client_name:c?.name||'', client_color:c?.theme_color||''}));
+    }
+  };
+  const selVal = f.group_id ? 'group:'+f.group_id : f.client_id;
   const save = async () => { setSaving(true); await db.Appointment.create(f); setSaving(false); onSaved(); onClose(); };
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -16,7 +26,7 @@ function EventModal({ onClose, onSaved, clients, defaultDate }) {
         <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-foreground text-lg" style={{fontFamily:'var(--font-display)'}}>New Event</h2><button onClick={onClose} className="btn-ghost btn-icon"><X className="w-4 h-4"/></button></div>
         <div className="space-y-3">
           <div><label className="section-label">Title *</label><input value={f.title} onChange={e=>set('title',e.target.value)} className="input-base mt-1"/></div>
-          <div><label className="section-label">Client</label><select value={f.client_id} onChange={e=>hc(e.target.value)} className="input-base mt-1"><option value="">Select client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          <div><label className="section-label">Πελάτης ή group</label><select value={selVal} onChange={e=>hc(e.target.value)} className="input-base mt-1"><option value="">Διάλεξε πελάτη ή group</option><optgroup label="Άτομα">{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>{groups.length>0 && <optgroup label="Groups">{groups.map(g=><option key={g.id} value={"group:"+g.id}>👥 {groupDisplayName(g, clients)}</option>)}</optgroup>}</select></div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="section-label">Type</label><select value={f.type} onChange={e=>set('type',e.target.value)} className="input-base mt-1"><option value="training">Training</option><option value="nutrition">Nutrition</option><option value="other">Other</option></select></div>
             <div><label className="section-label">Duration (min)</label><input type="number" step="15" value={f.duration_minutes} onChange={e=>set('duration_minutes',parseInt(e.target.value))} className="input-base mt-1"/></div>
@@ -230,19 +240,21 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
   const [clients, setClients] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
   const [defaultDate, setDefaultDate] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
 
   const load = async () => {
-    const [a, c, req] = await Promise.all([
+    const [a, c, req, g] = await Promise.all([
       db.Appointment.list('date', 300),
       db.Client.list('name'),
       db.AppointmentRequest.filter({ status: 'pending' }),
+      db.Group.list('name'),
     ]);
     const countered = await db.AppointmentRequest.filter({ status: 'client_countered' });
-    setAppointments(a); setClients(c);
+    setAppointments(a); setClients(c); setGroups(g);
     setPendingCount(req.length + countered.length);
   };
   useEffect(() => { load(); const iv = setInterval(load, 10000); return () => clearInterval(iv); }, []);
@@ -368,7 +380,7 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {showModal && <EventModal onClose={()=>setShowModal(false)} onSaved={load} clients={clients} defaultDate={defaultDate}/>}
+      {showModal && <EventModal onClose={()=>setShowModal(false)} onSaved={load} clients={clients} groups={groups} defaultDate={defaultDate}/>}
       {showRequests && <RequestsPanel onClose={()=>setShowRequests(false)} onUpdated={load}/>}
     </div>
   );

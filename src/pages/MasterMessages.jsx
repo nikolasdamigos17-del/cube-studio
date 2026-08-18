@@ -242,7 +242,7 @@ export default function MasterMessages() {
   ].filter(t=>t.name?.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="flex bg-white" style={{ height: isMobileMsg ? '100%' : 'calc(100vh - 64px)' }}>
+    <div className="flex bg-white" style={{ height: isMobileMsg ? '100%' : '100dvh' }}>
       {/* Sidebar */}
       <div className="w-72 border-r border-gray-100 flex-col flex-shrink-0"
         style={{ display: isMobileMsg && selected ? 'none' : 'flex',
