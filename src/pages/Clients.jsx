@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, ChevronRight, X, Users, Users2, Check, Trash2, UserPlus, Lock } from 'lucide-react';
+import { Plus, Search, ChevronRight, X, Users, Users2, Check, Trash2, UserPlus, Lock, Mail, Copy, Send } from 'lucide-react';
 import { db } from '../lib/db';
 import { GROUP_CAP, firstName, groupDisplayName, isIndividual, createEmptyGroup, addMemberToGroup, removeMemberFromGroup, deleteGroup } from '../lib/groups';
+import { genToken, inviteMailto, activationLink } from '../lib/invites';
 
 const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#8b5cf6','#06b6d4','#84cc16','#f97316'];
 const SERVICE_LABELS = {
@@ -16,6 +17,10 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
     services: forGroup ? 'group_training' : 'personal_training',
     sessions_per_week:3, nutrition_meetings_per_month:2, monthly_price:'', active:true });
   const [saving, setSaving] = useState(false);
+  const [savedId, setSavedId] = useState(null);
+  const [inviting, setInviting] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState(null);
+  const [copied, setCopied] = useState(false);
   const set = (k,v) => setF(p=>({...p,[k]:v}));
   const grp = f.services === 'group_training' || f.services === 'group_training_nutrition';
   const hasTraining  = ['personal_training','personal_training_nutrition','group_training','group_training_nutrition'].includes(f.services);
@@ -39,6 +44,7 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
     if (!hasNutrition) payload.nutrition_meetings_per_month = 0;
 
     if (client?.id) { await db.Client.update(client.id, payload); setSaving(false); onSaved(); onClose(); return; }
+    if (savedId) { await db.Client.update(savedId, payload); setSaving(false); onSaved(); onClose(); return; }
     const created = await db.Client.create(payload);
     setSaving(false);
     if (forGroup) { await addMemberToGroup(forGroup, created.id, clients); onSaved(); onClose(); return; }
@@ -47,6 +53,29 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
     }
     onSaved(); onClose();
   };
+
+  const sendInvite = async () => {
+    if (!f.email || !f.email.trim()) { alert('Βάλε πρώτα το email του πελάτη.'); return; }
+    setInviting(true);
+    let id = client?.id || savedId;
+    if (!id) {
+      const payload = { ...f };
+      payload.theme_color = COLORS[Math.floor(Math.random()*COLORS.length)];
+      payload.portal_password = `${(f.name||'Cube').trim().split(' ')[0]}${new Date().getFullYear()}!`;
+      payload.gender = payload.gender || 'male';
+      if (hasTraining && payload.sessions_per_week) payload.sessions_per_month = Math.max(1, Math.round(payload.sessions_per_week * 4));
+      if (!hasNutrition) payload.nutrition_meetings_per_month = 0;
+      const created = await db.Client.create(payload);
+      id = created.id; setSavedId(id); onSaved();
+    }
+    const token = genToken();
+    const patch = { email: f.email.trim(), invite_token: token, invite_sent_at: new Date().toISOString(), account_status: 'invited' };
+    await db.Client.update(id, patch);
+    const c = { id, ...f, ...patch };
+    setInviteInfo({ link: activationLink(c), mailto: inviteMailto(c), email: f.email.trim() });
+    setInviting(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
@@ -60,8 +89,28 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
         <div className="grid grid-cols-2 gap-3 mb-5">
           <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Ονοματεπώνυμο *</label><input value={f.name||''} onChange={e=>set('name',e.target.value)} className="input-base mt-1" placeholder="π.χ. Μαρία Παπαδάκη"/></div>
           <div><label className="text-xs font-medium text-gray-500 uppercase">Τηλέφωνο</label><input value={f.phone||''} onChange={e=>set('phone',e.target.value)} className="input-base mt-1" placeholder="+30 …"/></div>
-          <div><label className="text-xs font-medium text-gray-500 uppercase">Email</label><input value={f.email||''} onChange={e=>set('email',e.target.value)} className="input-base mt-1"/></div>
+          <div><label className="text-xs font-medium text-gray-500 uppercase">Email</label>
+            <div className="flex gap-2 mt-1">
+              <input value={f.email||''} onChange={e=>set('email',e.target.value)} className="input-base flex-1" type="email" placeholder="email@…"/>
+              <button onClick={sendInvite} disabled={inviting||!f.email} title="Αποστολή πρόσκλησης στην εφαρμογή" className="flex items-center gap-1.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40 flex-shrink-0" style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)'}}>
+                {inviting? '…' : <><Send className="w-3.5 h-3.5"/> Πρόσκληση</>}
+              </button>
+            </div>
+          </div>
         </div>
+
+        {inviteInfo && (
+          <div className="mb-5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+            <p className="text-xs font-semibold text-indigo-700 mb-1.5 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5"/> Πρόσκληση έτοιμη για {inviteInfo.email}</p>
+            <p className="text-[11px] text-gray-500 mb-2">Στείλ' την με το email σου, ή αντίγραψε τον σύνδεσμο και δώσ' τον όπως θες (π.χ. WhatsApp). Ο πελάτης δημιουργεί μόνος του λογαριασμό — μόνο μέσω αυτού του κλειδιού.</p>
+            <div className="flex gap-2">
+              <a href={inviteInfo.mailto} className="flex-1 text-center text-xs font-semibold text-white rounded-lg py-2" style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)'}}>Άνοιγμα email</a>
+              <button onClick={()=>{ navigator.clipboard?.writeText(inviteInfo.link); setCopied(true); setTimeout(()=>setCopied(false),1500); }} className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 rounded-lg py-2">
+                <Copy className="w-3.5 h-3.5"/> {copied?'Αντιγράφηκε!':'Αντιγραφή link'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Πρόγραμμα</p>
         <div className="grid grid-cols-2 gap-2 mb-3">

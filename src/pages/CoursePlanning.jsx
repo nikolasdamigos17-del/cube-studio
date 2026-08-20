@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, X, Lock, Loader2, Target, Leaf, Utensils, Scale, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, X, Lock, Loader2, Target, Leaf, Utensils, Scale, Plus, Sparkles, Home, Dumbbell, TrendingUp, Wallet, MessageCircle } from 'lucide-react';
 import { db } from '../lib/db';
 
 /* ═══════════ Στατικά δεδομένα ═══════════ */
@@ -49,6 +49,17 @@ const STEPS = [
   { icon:Leaf,    label:'Διατροφικό προφίλ' },
   { icon:Utensils,label:'Γεύματα & συνήθειες' },
   { icon:Scale,   label:'Μέτρηση' },
+  { icon:Sparkles,label:'Ξενάγηση' },
+];
+
+/* Feature tour — γρήγορη επεξήγηση της εφαρμογής του πελάτη */
+const TOUR = [
+  { icon:Home,          accent:'#6366f1', title:'Αρχική', desc:'Η επόμενη προπόνηση, τα ραντεβού και μια γρήγορη ματιά στην πρόοδο — όλα σε μία οθόνη.' },
+  { icon:Dumbbell,      accent:'#e0457b', title:'Προπονήσεις', desc:'Το πρόγραμμα κάθε μέρας με ασκήσεις, σετ, επαναλήψεις και κιλά. Πάτα «Έναρξη» για live καθοδήγηση.' },
+  { icon:Leaf,          accent:'#10b981', title:'Διατροφή', desc:'Τα γεύματα της ημέρας με ποσότητες και συνταγές — δες τι, πότε και πόσο.' },
+  { icon:TrendingUp,    accent:'#f59e0b', title:'Πρόοδος', desc:'Βάρος, μετρήσεις και γραφήματα στον χρόνο, ώστε να βλέπεις την εξέλιξή σου.' },
+  { icon:Wallet,        accent:'#8b5cf6', title:'Οικονομικά', desc:'Πόσες προπονήσεις 🏋️ και διατροφές 🥗 σου μένουν, και το ιστορικό πληρωμών σου.' },
+  { icon:MessageCircle, accent:'#06b6d4', title:'Μηνύματα', desc:'Άμεση επικοινωνία με τον προπονητή σου + οι ανακοινώσεις που στέλνει.' },
 ];
 
 /* ═══════════ Component ═══════════ */
@@ -133,7 +144,7 @@ export default function CoursePlanning() {
     return out;
   }, [autoTags]); // eslint-disable-line
 
-  const canNext = step === 0 ? !!goalType : step === 2 ? slots.length > 0 : true;
+  const canNext = step === 0 ? !!goalType : step === 2 ? slots.length > 0 : step === 3 ? (captured || skipMeasure || existing?.first_progress_id) : true;
   const canFinish = captured || skipMeasure || existing?.first_progress_id;
 
   const saveManual = async () => {
@@ -411,6 +422,52 @@ export default function CoursePlanning() {
             <p style={{ ...S.dim, fontSize:12.5, margin:0, textAlign:'center' }}>Με την Ολοκλήρωση, το προφίλ αποθηκεύεται στον διατροφικό φάκελο του πελάτη — το first-time meeting κλείνει εδώ.</p>
           </div>
         )}
+
+        {/* ── ΒΗΜΑ 5: Ξενάγηση εφαρμογής ── */}
+        {step===4&&(
+          <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+            <div style={S.card}>
+              <p style={{ ...S.lbl, marginBottom:6 }}>Δείξε στον πελάτη την εφαρμογή του</p>
+              <p style={{ ...S.dim, fontSize:13, margin:0 }}>Μια γρήγορη ματιά στα βασικά, ώστε να περιηγηθεί εύκολα από την πρώτη μέρα. (Θα λάβει και πρόσκληση για να φτιάξει τον λογαριασμό του.)</p>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:14 }}>
+              {TOUR.map((f,i)=>{ const Icon=f.icon; return (
+                <div key={i} style={{ ...S.card, padding:16, display:'flex', gap:14 }}>
+                  {/* mock phone */}
+                  <div style={{ width:74, flexShrink:0, borderRadius:14, overflow:'hidden', border:'1px solid rgba(255,255,255,0.12)', background:'#0d0d14', boxShadow:'0 8px 20px rgba(0,0,0,0.35)' }}>
+                    <div style={{ height:26, background:f.accent, display:'flex', alignItems:'center', gap:5, padding:'0 8px' }}>
+                      <Icon style={{ width:12, height:12, color:'#fff' }}/>
+                      <span style={{ fontSize:8, fontWeight:800, color:'#fff', letterSpacing:'.02em' }}>{f.title}</span>
+                    </div>
+                    <div style={{ padding:8, display:'flex', flexDirection:'column', gap:5 }}>
+                      {i===3 ? (
+                        <div style={{ display:'flex', alignItems:'flex-end', gap:3, height:38 }}>
+                          {[40,55,48,66,60,80].map((h,k)=><div key={k} style={{ flex:1, height:`${h}%`, borderRadius:2, background:f.accent, opacity:.35+k*0.1 }}/>)}
+                        </div>
+                      ) : i===4 ? (
+                        <><div style={{ display:'flex', gap:4 }}><span style={{ flex:1, height:16, borderRadius:5, background:`${f.accent}33`, display:'grid', placeItems:'center', fontSize:8 }}>🏋️ 8</span><span style={{ flex:1, height:16, borderRadius:5, background:`${f.accent}33`, display:'grid', placeItems:'center', fontSize:8 }}>🥗 2</span></div>
+                        <div style={{ height:7, borderRadius:3, background:'rgba(255,255,255,0.08)' }}/><div style={{ height:7, width:'70%', borderRadius:3, background:'rgba(255,255,255,0.08)' }}/></>
+                      ) : i===5 ? (
+                        <><div style={{ alignSelf:'flex-start', maxWidth:'80%', height:12, borderRadius:'7px 7px 7px 2px', background:'rgba(255,255,255,0.12)', width:'60%' }}/><div style={{ alignSelf:'flex-end', maxWidth:'80%', height:12, borderRadius:'7px 7px 2px 7px', background:f.accent, width:'70%' }}/><div style={{ alignSelf:'flex-start', height:12, borderRadius:'7px 7px 7px 2px', background:'rgba(255,255,255,0.12)', width:'45%' }}/></>
+                      ) : (
+                        <>{[0,1,2].map(k=><div key={k} style={{ height:9, borderRadius:3, width:`${100-k*18}%`, background: k===0?`${f.accent}55`:'rgba(255,255,255,0.08)' }}/>)}
+                        <div style={{ height:16, borderRadius:5, marginTop:2, background:`${f.accent}22`, border:`1px solid ${f.accent}44` }}/></>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
+                      <span style={{ width:22, height:22, borderRadius:7, background:`${f.accent}22`, display:'grid', placeItems:'center', flexShrink:0 }}><Icon style={{ width:13, height:13, color:f.accent }}/></span>
+                      <p style={{ fontSize:14, fontWeight:800, margin:0 }}>{f.title}</p>
+                    </div>
+                    <p style={{ ...S.dim, fontSize:11.5, margin:0, lineHeight:1.5 }}>{f.desc}</p>
+                  </div>
+                </div>
+              ); })}
+            </div>
+            <p style={{ ...S.dim, fontSize:12.5, margin:0, textAlign:'center' }}>Πάτα «Ολοκλήρωση» για να κλείσει το πρώτο meeting.</p>
+          </div>
+        )}
       </div>
 
       {/* footer */}
@@ -419,8 +476,8 @@ export default function CoursePlanning() {
           {step>0&&<button onClick={()=>setStep(s=>s-1)} style={S.btn(false)}><ArrowLeft style={{ width:15, height:15, verticalAlign:'-2px' }}/> Πίσω</button>}
           <span style={{ ...S.dim, fontSize:12, marginLeft:4 }}>Βήμα {step+1} / {STEPS.length}</span>
           <div style={{ flex:1 }}/>
-          {step<3&&<button onClick={()=>canNext&&setStep(s=>s+1)} style={{ ...S.btn(true), opacity:canNext?1:.4 }}>Συνέχεια <ArrowRight style={{ width:15, height:15, verticalAlign:'-2px' }}/></button>}
-          {step===3&&<button onClick={()=>canFinish&&!saving&&finish()} style={{ ...S.btn(true), opacity:canFinish?1:.4 }}>{saving?'Αποθήκευση…':'Ολοκλήρωση'}</button>}
+          {step<4&&<button onClick={()=>canNext&&setStep(s=>s+1)} style={{ ...S.btn(true), opacity:canNext?1:.4 }}>Συνέχεια <ArrowRight style={{ width:15, height:15, verticalAlign:'-2px' }}/></button>}
+          {step===4&&<button onClick={()=>canFinish&&!saving&&finish()} style={{ ...S.btn(true), opacity:canFinish?1:.4 }}>{saving?'Αποθήκευση…':'Ολοκλήρωση'}</button>}
         </div>
       </div>
 

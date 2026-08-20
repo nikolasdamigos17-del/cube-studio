@@ -8,6 +8,8 @@ import { useEffect, Component } from 'react';
 import { seedDemoData } from './lib/db';
 
 import LoginGate from './pages/LoginGate';
+import ActivateAccount from './pages/ActivateAccount';
+import ResetPassword from './pages/ResetPassword';
 import MasterLayout from './Layout';
 import Home from './pages/Home';
 import CalendarPage from './pages/CalendarPage';
@@ -78,6 +80,9 @@ function AppContent() {
 
   if (!appMode) return (
     <Routes>
+      <Route path="/activate" element={<ActivateAccount />} />
+      <Route path="/forgot" element={<ResetPassword />} />
+      <Route path="/reset" element={<ResetPassword />} />
       <Route path="*" element={<LoginGate />} />
     </Routes>
   );

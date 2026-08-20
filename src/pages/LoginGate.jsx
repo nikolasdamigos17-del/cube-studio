@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dumbbell, Eye, EyeOff, Loader2, Zap } from 'lucide-react';
 import { useAppContext } from '../lib/AppContext';
 import logo from '../assets/logo-cube.png';
@@ -10,6 +11,7 @@ const MASTER_PASSWORD = 'neymarlol12';
 
 export default function LoginGate() {
   const { loginAsMaster, loginAsClient } = useAppContext();
+  const navigate = useNavigate();
   const { lang, toggle: toggleLang, tr } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,8 +34,9 @@ export default function LoginGate() {
     // Client login
     try {
       const clients = await db.Client.list('name');
+      const key = email.trim().toLowerCase();
       const match = clients.find(c =>
-        c.email?.trim().toLowerCase() === email.trim().toLowerCase() &&
+        ((c.portal_email||'').trim().toLowerCase() === key || (c.email||'').trim().toLowerCase() === key) &&
         c.portal_password === password
       );
       if (match) {
@@ -145,6 +148,9 @@ export default function LoginGate() {
                 >
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
+              </div>
+              <div className="text-right mt-1.5">
+                <button onClick={()=>navigate('/forgot')} className="text-xs font-medium text-muted-foreground hover:text-foreground">Ξέχασες τον κωδικό;</button>
               </div>
             </div>
 
