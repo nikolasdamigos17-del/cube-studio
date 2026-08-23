@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Trash2, X, Sparkles, ChevronRight, ChevronDown, ExternalLink, Loader2, Check, AlertCircle, Pencil, RotateCcw, Plus, Minus, ArrowLeft, Users, ClipboardList, CalendarClock, Lock, Search } from 'lucide-react';
+import { Trash2, X, Sparkles, ChevronRight, ChevronDown, ExternalLink, Loader2, Check, AlertCircle, Pencil, RotateCcw, Plus, Minus, ArrowLeft, Users, ClipboardList, CalendarClock, Lock, Search, ChefHat, Star } from 'lucide-react';
 import { db, callAI } from '../lib/db';
 import { addCredit, getBalance } from '../lib/credits';
 
@@ -523,6 +523,110 @@ function DeductModal({ fm, onDone }) {
   );
 }
 
+/* ═══════════ Recipe of the Month — διαχείριση συνταγών στούντιο ═══════════ */
+const RECIPE_SLOTS = [
+  ['breakfast','Πρωινό'], ['snack1','Δεκατιανό'], ['lunch','Μεσημεριανό'],
+  ['snack2','Απογευματινό σνακ'], ['dinner','Βραδινό'],
+];
+const recipeSlotLabel = (k) => (RECIPE_SLOTS.find(([key])=>key===k)||[])[1] || k;
+
+function RecipesModal({ recipes, onClose, onChanged }) {
+  const [mode, setMode] = useState(recipes.length ? 'list' : 'create');
+  const [name, setName] = useState('');
+  const [slot, setSlot] = useState('lunch');
+  const [rows, setRows] = useState([{ name:'', qty:'' }]);
+  const [makeActive, setMakeActive] = useState(!recipes.some(r=>r.active));
+  const [saving, setSaving] = useState(false);
+
+  const setRow = (i,k,v) => setRows(rs=>rs.map((r,j)=>j===i?{...r,[k]:v}:r));
+  const validRows = rows.filter(r=>r.name.trim());
+
+  const create = async () => {
+    if (!name.trim() || !validRows.length || saving) return;
+    setSaving(true);
+    if (makeActive) for (const r of recipes.filter(x=>x.active)) await db.MonthlyRecipe.update(r.id, { active:false });
+    await db.MonthlyRecipe.create({
+      name: name.trim(), slot,
+      ingredients: validRows.map(r=>({ name:r.name.trim(), qty:(r.qty||'').trim() })),
+      active: makeActive, created_date: new Date().toISOString(),
+    });
+    setSaving(false); onChanged();
+    setName(''); setRows([{name:'',qty:''}]); setMakeActive(false); setMode('list');
+  };
+  const setActive = async (rec) => {
+    for (const r of recipes.filter(x=>x.active && x.id!==rec.id)) await db.MonthlyRecipe.update(r.id, { active:false });
+    await db.MonthlyRecipe.update(rec.id, { active: !rec.active });
+    onChanged();
+  };
+  const remove = async (rec) => { if (confirm(`Διαγραφή συνταγής «${rec.name}»;`)) { await db.MonthlyRecipe.delete(rec.id); onChanged(); } };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto p-6">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2"><span className="w-8 h-8 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center"><ChefHat className="w-4 h-4 text-white"/></span> Recipe of the Month</h2>
+          <button onClick={onClose}><X className="w-5 h-5 text-gray-400"/></button>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">Οι συνταγές του στούντιο εμφανίζονται ως επιλογή στην αντίστοιχη κατηγορία σε όλα τα διατροφικά meetings. Η ενεργή έχει label ⭐ «Recipe of the Month».</p>
+
+        <div className="flex gap-2 mb-4">
+          <button onClick={()=>setMode('list')} className={`flex-1 py-2 rounded-xl text-sm font-semibold ${mode==='list'?'bg-gray-900 text-white':'bg-gray-100 text-gray-600'}`}>Συνταγές ({recipes.length})</button>
+          <button onClick={()=>setMode('create')} className={`flex-1 py-2 rounded-xl text-sm font-semibold ${mode==='create'?'bg-gray-900 text-white':'bg-gray-100 text-gray-600'}`}>+ Νέα συνταγή</button>
+        </div>
+
+        {mode==='list' && (
+          <div className="space-y-2.5">
+            {recipes.length===0 && <p className="text-sm text-gray-400 text-center py-6">Καμία συνταγή ακόμα — φτιάξε την πρώτη.</p>}
+            {recipes.map(r=>(
+              <div key={r.id} className={`rounded-xl border p-3.5 ${r.active?'border-amber-300 bg-amber-50/60':'border-gray-100'}`}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <p className="font-semibold text-gray-900 text-sm flex-1 truncate">{r.name}</p>
+                  {r.active && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full flex-shrink-0">⭐ Recipe of the Month</span>}
+                </div>
+                <p className="text-xs text-gray-400 mb-2">{recipeSlotLabel(r.slot)} · {(r.ingredients||[]).map(i=>`${i.name}${i.qty?` ${i.qty}`:''}`).join(' · ')}</p>
+                <div className="flex gap-2">
+                  <button onClick={()=>setActive(r)} className={`flex-1 py-1.5 rounded-lg text-xs font-semibold ${r.active?'bg-amber-100 text-amber-700':'bg-gray-100 text-gray-600 hover:bg-amber-50'}`}>{r.active?'Απενεργοποίηση':'⭐ Όρισε ως ενεργή'}</button>
+                  <button onClick={()=>remove(r)} className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5 text-gray-500"/></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {mode==='create' && (
+          <div className="space-y-4">
+            <div><label className="text-xs font-medium text-gray-500 uppercase">Όνομα συνταγής *</label>
+              <input value={name} onChange={e=>setName(e.target.value)} className="input-base mt-1" placeholder="π.χ. Power bowl κοτόπουλο με κινόα"/></div>
+            <div><label className="text-xs font-medium text-gray-500 uppercase">Κατηγορία (πού εμφανίζεται)</label>
+              <select value={slot} onChange={e=>setSlot(e.target.value)} className="input-base mt-1">
+                {RECIPE_SLOTS.map(([k,l])=><option key={k} value={k}>{l}</option>)}
+              </select></div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Υλικά & ποσότητες *</label>
+              <div className="space-y-2 mt-1">
+                {rows.map((r,i)=>(
+                  <div key={i} className="flex gap-2">
+                    <input value={r.name} onChange={e=>setRow(i,'name',e.target.value)} className="input-base flex-1" placeholder="Υλικό (π.χ. Κοτόπουλο στήθος)"/>
+                    <input value={r.qty} onChange={e=>setRow(i,'qty',e.target.value)} className="input-base w-28" placeholder="150g"/>
+                    {rows.length>1 && <button onClick={()=>setRows(rs=>rs.filter((_,j)=>j!==i))} className="px-2 rounded-lg bg-gray-100"><X className="w-4 h-4 text-gray-400"/></button>}
+                  </div>
+                ))}
+              </div>
+              <button onClick={()=>setRows(rs=>[...rs,{name:'',qty:''}])} className="mt-2 text-xs font-semibold text-amber-600 flex items-center gap-1"><Plus className="w-3.5 h-3.5"/> Προσθήκη υλικού</button>
+            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <span onClick={()=>setMakeActive(v=>!v)} className={`w-10 h-6 rounded-full relative transition-colors ${makeActive?'bg-amber-500':'bg-gray-200'}`}><span className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all" style={{left:makeActive?'18px':'2px'}}/></span>
+              <span className="text-sm text-gray-700 font-medium">Όρισε ως ενεργή «Recipe of the Month»</span>
+            </label>
+            <button onClick={create} disabled={!name.trim()||!validRows.length||saving} className="btn btn-primary w-full py-3 disabled:opacity-40">{saving?'Αποθήκευση…':'Δημιουργία συνταγής'}</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Nutrition() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -537,9 +641,12 @@ export default function Nutrition() {
   const [meetings, setMeetings] = useState([]);
   const [sel, setSel] = useState(null);
   const [search, setSearch] = useState('');
+  const [recipes, setRecipes] = useState([]);
+  const [showRecipes, setShowRecipes] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
 
   const load = async () => {
+    db.MonthlyRecipe.list('-created_date', 50).then(setRecipes).catch(()=>{});
     const [p, c, pr, m] = await Promise.all([
       db.NutritionPlan.list('-date', 200),
       db.Client.list('name'),
@@ -661,14 +768,22 @@ export default function Nutrition() {
 
   /* ─────────── ΚΕΝΤΡΙΚΗ ΟΨΗ ─────────── */
   const shown = nutriClients.filter(c=>!search||c.name?.toLowerCase().includes(search.toLowerCase()));
+  const activeRecipe = recipes.find(r=>r.active);
   const pendingSetup  = nutriClients.filter(c=>!profOf(c.id)?.setup_completed).length;
   const pendingOrders = meetings.filter(m=>m.status==='ordered').length;
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto animate-fade-in">
         {finMtg && <DeductModal fm={finMtg} onDone={()=>setFinMtg(null)}/>}
+      {showRecipes && <RecipesModal recipes={recipes} onClose={()=>setShowRecipes(false)} onChanged={load}/>}
       <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
         <div><h1 className="page-title">Nutrition Center</h1><p className="page-subtitle">{nutriClients.length} πελάτες διατροφής · {pendingSetup} χωρίς Course Planning · {pendingOrders} εκκρεμείς διατροφές</p></div>
+        <div className="flex items-center gap-2.5">
+          {activeRecipe && <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full truncate max-w-[220px]">⭐ {activeRecipe.name}</span>}
+          <button onClick={()=>setShowRecipes(true)} className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 shadow-sm">
+            <ChefHat className="w-4 h-4"/> Recipe of the Month
+          </button>
+        </div>
       </div>
 
       <div className="relative my-5 max-w-sm">

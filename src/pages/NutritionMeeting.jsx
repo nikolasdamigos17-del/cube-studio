@@ -509,6 +509,7 @@ export default function NutritionMeeting() {
   const clientId = params.get('client') || '';
 
   const [client, setClient] = useState(null);
+  const [monthlyRecipes, setMonthlyRecipes] = useState([]);
   const [profile, setProfile] = useState(null);
   const [lastPlan, setLastPlan] = useState(null);
   const [history, setHistory] = useState([]);
@@ -560,13 +561,15 @@ export default function NutritionMeeting() {
   /* φόρτωση δεδομένων */
   useEffect(() => { (async () => {
     if (!clientId) return;
-    const [c, profs, plans, prog] = await Promise.all([
+    const [c, profs, plans, prog, recs] = await Promise.all([
       db.Client.get(clientId),
       db.NutritionProfile.filter({ client_id: clientId }),
       db.NutritionPlan.filter({ client_id: clientId }, '-date', 3),
       db.ClientProgress.filter({ client_id: clientId }, '-date', 30),
+      db.MonthlyRecipe.list('-created_date', 50),
     ]);
     setClient(c); setProfile(profs[0] || null); setLastPlan(plans[0] || null);
+    setMonthlyRecipes(recs || []);
     setHistory([...prog].reverse());
   })(); }, [clientId]);
 
@@ -626,7 +629,18 @@ export default function NutritionMeeting() {
     await db.NutritionProfile.update(profile.id, patch);
   };
 
-  const loadRecipes = async () => {
+    /* Συνταγές στούντιο: καρφιτσώνονται στην κορυφή της αντίστοιχης κατηγορίας */
+  const injectStudioRecipes = (slotKey, list) => {
+    const recs = (monthlyRecipes || []).filter(r => r.slot === slotKey).map(r => ({
+      name: r.name,
+      main_ingredients: (r.ingredients || []).map(i => `${i.name}${i.qty ? ` ${i.qty}` : ''}`),
+      monthly: true, isActive: !!r.active,
+    }));
+    const names = recs.map(r => r.name);
+    return [...recs, ...list.filter(mm => !names.includes(mm.name))];
+  };
+
+const loadRecipes = async () => {
     setScreen('loading'); setLoadingPhase(0);
     const t1 = 5000 + Math.random() * 2000;
     const t2 = 4000 + Math.random() * 2000;
@@ -639,7 +653,7 @@ export default function NutritionMeeting() {
       return [s, list];
     }));
     const [pairs] = await Promise.all([gen, timing]);
-    const map = {}; pairs.forEach(([s, list]) => { map[s] = list; shownRef.current[s] = list.map(m => m.name); });
+    const map = {}; pairs.forEach(([s, list]) => { const full = injectStudioRecipes(s, list); map[s] = full; shownRef.current[s] = full.map(m => m.name); });
     setSuggestions(map); setRecipesStale(false); setScreen('picker');
   };
 
@@ -647,8 +661,9 @@ export default function NutritionMeeting() {
     setRerolling(p => ({ ...p, [slotKey]: true }));
     const avoid = [ ...(shownRef.current[slotKey] || []), ...cart.map(c => c.name) ];
     const list = await genForSlot(slotKey, { profile, client }, avoid);
+    const full = injectStudioRecipes(slotKey, list);
     shownRef.current[slotKey] = [ ...(shownRef.current[slotKey] || []), ...list.map(m => m.name) ];
-    setSuggestions(p => ({ ...p, [slotKey]: list }));
+    setSuggestions(p => ({ ...p, [slotKey]: full }));
     setRerolling(p => ({ ...p, [slotKey]: false }));
   };
 
@@ -657,7 +672,7 @@ export default function NutritionMeeting() {
     const id = `ai::${slotKey}::${meal.name}`;
     setCart(p => p.find(x => x.id === id)
       ? p.filter(x => x.id !== id)
-      : [...p, { id, slot: label, name: meal.name, main_ingredients: meal.main_ingredients || [], source: 'ai' }]);
+      : [...p, { id, slot: label, name: meal.name, main_ingredients: meal.main_ingredients || [], source: meal.monthly ? 'monthly_recipe' : 'ai', ...(meal.isActive ? { recipe_of_month: true } : {}) }]);
   };
 
   /* ημερολόγιο */
@@ -1036,6 +1051,11 @@ export default function NutritionMeeting() {
                     <div key={id} style={{ ...S.card, padding:'14px 16px', borderColor: on ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.09)' }}>
                       <div style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
                         <div style={{ flex:1, minWidth:0 }}>
+                          {meal.monthly && (
+                            meal.isActive
+                              ? <span style={{ display:'inline-block', marginBottom:6, fontSize:9.5, fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:'#fbbf24', background:'rgba(245,158,11,0.14)', border:'1px solid rgba(245,158,11,0.45)', padding:'3px 9px', borderRadius:999 }}>⭐ Recipe of the Month</span>
+                              : <span style={{ display:'inline-block', marginBottom:6, fontSize:9.5, fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'rgba(255,255,255,0.55)', background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.15)', padding:'3px 9px', borderRadius:999 }}>Συνταγή στούντιο</span>
+                          )}
                           <p style={{ margin:0, fontSize:14.5, fontWeight:800 }}>{meal.name}</p>
                           <p style={{ ...S.dim, fontSize:12, margin:'5px 0 0', lineHeight:1.5 }}>{(meal.main_ingredients || []).join(' · ')}</p>
                         </div>

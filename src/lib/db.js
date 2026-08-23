@@ -58,6 +58,7 @@ export const db = {
   Message: createEntity('messages'),
   Group: createEntity('groups'),
   Announcement: createEntity('announcements'),
+  MonthlyRecipe: createEntity('monthly_recipes'),
   ClientReminder: createEntity('client_reminders'),
   AppointmentRequest: createEntity('appointment_requests'),
   NutritionProfile: createEntity('nutrition_profiles'),
