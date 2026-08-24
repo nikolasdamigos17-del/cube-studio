@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { Send, Search, MessageCircle, Paperclip, Image, Link2, X, Plus, Users, Check, Trash2, ChevronLeft, Megaphone, PenSquare, ChevronRight } from 'lucide-react';
 import { db } from '../lib/db';
@@ -185,6 +186,8 @@ export default function MasterMessages() {
   const [groups, setGroups] = useState([]);
   const [messages, setMessages] = useState([]);
   const [selected, setSelected] = useState(null); // {type:'client'|'group', id, name, color}
+  const location = useLocation();
+  const openedRef = useRef(false);
   const [isMobileMsg, setIsMobileMsg] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
   useEffect(() => {
     const h = () => setIsMobileMsg(window.innerWidth < 768);
@@ -235,6 +238,17 @@ export default function MasterMessages() {
   const getLastMsg = (id) => { const m=messages.filter(x=>x.thread_id===id); return m[m.length-1]; };
   const getUnread = (id) => messages.filter(m=>m.thread_id===id&&m.sender==='client'&&!m.read).length;
   const totalUnread = messages.filter(m=>m.sender==='client'&&!m.read).length;
+
+  /* deep-link από widgets: /Messages με state.openThread {type,id} */
+  useEffect(() => {
+    const ot = location.state?.openThread;
+    if (!ot || openedRef.current) return;
+    if (!clients.length && !groups.length) return;
+    const t = ot.type === 'group'
+      ? (g => g && ({ type:'group', id:g.id, name:g.name, color:'#64748b', avatar:'👥', memberCount:g.member_ids?.length||0 }))(groups.find(g=>g.id===ot.id))
+      : (c => c && ({ type:'client', id:c.id, name:c.name, color:c.theme_color||'#6366f1', avatar:c.name?.charAt(0) }))(clients.find(c=>c.id===ot.id));
+    if (t) { setSelected(t); markRead(t.id); openedRef.current = true; window.history.replaceState({}, ''); }
+  }, [clients, groups, location.state]);
 
   const allThreads = [
     ...clients.map(c=>({type:'client',id:c.id,name:c.name,color:c.theme_color||'#6366f1',avatar:c.name?.charAt(0)})),

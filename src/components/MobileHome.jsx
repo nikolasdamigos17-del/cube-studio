@@ -7,8 +7,35 @@ import { Clock, CalendarDays, CalendarRange, LayoutGrid, CheckSquare, CreditCard
          AlertTriangle, MessageCircle, Users, Inbox, Timer,
  } from 'lucide-react';
 import { db } from '../lib/db';
+import { groupDisplayName } from '../lib/groups';
 import { useLang } from '../lib/LangContext';
 import WidgetBoard, { useSlots } from './WidgetBoard';
+
+/* ── Λειτουργικά κουμπιά widgets: πραγματική έναρξη & στοχευμένο μήνυμα ── */
+async function launchNextWorkout(navigate, next, nextPlan) {
+  try {
+    if (nextPlan?.group_session_id && nextPlan.group_id) {
+      const g = await db.Group.get(nextPlan.group_id);
+      const mem = [];
+      for (const id of g?.member_ids || []) { const c = await db.Client.get(id); if (c) mem.push(c); }
+      const ps = await db.TrainingPlan.filter({ group_session_id: nextPlan.group_session_id });
+      const ordered = mem.map(m => ps.find(x => x.client_id === m.id)).filter(Boolean);
+      const extra = ps.filter(x => !mem.find(m => m.id === x.client_id));
+      navigate('/group-training', { state: { plans: [...ordered, ...extra], members: mem, groupName: groupDisplayName(g, mem) } });
+      return;
+    }
+    if (nextPlan) { navigate('/live-training', { state: { plan: nextPlan, clientName: nextPlan.client_name || next?.client_name || '' } }); return; }
+    if (next?.group_id) { navigate('/TrainingPlans', { state: { openGroup: next.group_id } }); return; }
+    if (next?.client_id) { navigate('/TrainingPlans', { state: { openClient: next.client_id } }); return; }
+    navigate('/TrainingPlans');
+  } catch (e) { navigate('/TrainingPlans'); }
+}
+const msgStateFor = (apptOrMsg) => apptOrMsg?.group_id
+  ? { openThread: { type:'group', id: apptOrMsg.group_id } }
+  : (apptOrMsg?.thread_type === 'group'
+      ? { openThread: { type:'group', id: apptOrMsg.thread_id } }
+      : { openThread: { type:'client', id: apptOrMsg?.client_id } });
+
 import { useBarColors } from './BarbellNav';
 
 const WIDGETS = {
@@ -253,12 +280,12 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
               </>
             ) : null}
             <div style={{ display:'flex', gap:7, marginTop:'auto', paddingTop:10 }}>
-              <button onClick={() => !editMode && navigate('/TrainingPlans')}
+              <button onClick={e => { e.stopPropagation(); if (!editMode) launchNextWorkout(navigate, next, nextPlan); }}
                 style={{ flex:1, border:'none', borderRadius:10, padding:'9px 0', cursor:'pointer',
                   background:c, color:'#04222a', fontFamily:'var(--font-display)', fontSize:11, fontWeight:800 }}>
                 ▶ ΕΝΑΡΞΗ
               </button>
-              <button onClick={() => !editMode && navigate('/Messages')}
+              <button onClick={e => { e.stopPropagation(); if (!editMode && next) navigate('/Messages', { state: msgStateFor(next) }); }}
                 style={{ border:'1px solid hsl(var(--border))', borderRadius:10, padding:'9px 13px',
                   cursor:'pointer', background:'transparent', color:'hsl(var(--muted-foreground))',
                   fontSize:11, fontWeight:700 }}>
@@ -630,7 +657,7 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
               right={<span style={{ ...big, fontSize:20, color:c }}>{D.msgs.length}</span>}/>
             <div style={{ flex:1, display:'flex', flexDirection:'column', gap:5, overflow:'hidden' }}>
               {D.msgs.slice(0, 2).map((m, i) => (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <div key={i} onClick={e => { e.stopPropagation(); if (!editMode) navigate('/Messages', { state: msgStateFor(m) }); }} style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
                   <div style={avStyle(22, c)}>{initials(m.client_name)}</div>
                   <span style={{ fontSize:12, fontWeight:600 }}>{m.client_name}</span>
                   <span style={{ ...tick, flex:1, overflow:'hidden', textOverflow:'ellipsis',
@@ -824,8 +851,8 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
                   <div style={{ ...big, fontSize:34 }}>{next.start_time}</div>
                   <div style={{ ...tick, marginTop:4 }}>{nextEnd ? `– ${nextEnd} · ` : ''}{next.duration_minutes || 60} λεπτά</div>
                   <div style={{ display:'flex', gap:8, marginTop:'auto', paddingTop:12 }}>
-                    <button onClick={e => { e.stopPropagation(); navigate('/TrainingPlans'); }} style={{ flex:1, border:'none', borderRadius:10, padding:'10px 0', cursor:'pointer', background:col.next, color:'#04222a', fontFamily:'var(--font-display)', fontSize:11.5, fontWeight:800 }}>▶ ΕΝΑΡΞΗ</button>
-                    <button onClick={e => { e.stopPropagation(); navigate('/Messages'); }} style={{ border:'1px solid hsl(var(--border))', borderRadius:10, padding:'10px 16px', cursor:'pointer', background:'transparent', color:'hsl(var(--muted-foreground))', fontSize:11.5, fontWeight:600 }}>Μήνυμα</button>
+                    <button onClick={e => { e.stopPropagation(); launchNextWorkout(navigate, next, nextPlan); }} style={{ flex:1, border:'none', borderRadius:10, padding:'10px 0', cursor:'pointer', background:col.next, color:'#04222a', fontFamily:'var(--font-display)', fontSize:11.5, fontWeight:800 }}>▶ ΕΝΑΡΞΗ</button>
+                    <button onClick={e => { e.stopPropagation(); if (next) navigate('/Messages', { state: msgStateFor(next) }); }} style={{ border:'1px solid hsl(var(--border))', borderRadius:10, padding:'10px 16px', cursor:'pointer', background:'transparent', color:'hsl(var(--muted-foreground))', fontSize:11.5, fontWeight:600 }}>Μήνυμα</button>
                   </div>
                 </div>
                 <div style={{ flex:1, borderLeft:'1px solid hsl(var(--border))', paddingLeft:18, display:'flex', flexDirection:'column', minWidth:0 }}>
@@ -914,7 +941,7 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
             <div style={{ flex:1, display:'flex', flexDirection:'column', gap:2, minHeight:0 }}>
               {D.msgs.length === 0 && <div style={{ ...center, flex:1, ...lbl }}>Κανένα αδιάβαστο</div>}
               {D.msgs.slice(0, 3).map((m, i) => (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid hsl(var(--border))' }}>
+                <div key={i} onClick={e => { e.stopPropagation(); navigate('/Messages', { state: msgStateFor(m) }); }} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid hsl(var(--border))', cursor:'pointer' }}>
                   <div style={avStyle(30, col.msg)}>{initials(m.client_name)}</div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:12.5, fontWeight:600, color:'hsl(var(--foreground))' }}>{m.client_name}</div>

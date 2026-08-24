@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, ChevronRight, Check, AlertCircle, RotateCcw, Edit2, Play, ArrowLeft, Search, Users, Users2, Brain, CalendarDays } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { db, callAI } from '../lib/db';
 import { EQUIPMENT, EXERCISE_DB, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
 import { isIndividual, groupDisplayName, firstName, GROUP_CAP } from '../lib/groups';
@@ -544,6 +544,16 @@ export default function TrainingPlans() {
   const [openId, setOpenId] = useState(null);
   const [groups, setGroups] = useState([]);
   const [selGroup, setSelGroup] = useState(null);
+  /* deep-link από widgets */
+  useEffect(() => {
+    const st = location.state || {};
+    if (st.openClient) { setSel(st.openClient); window.history.replaceState({}, ''); }
+    else if (st.openGroup && groups.length) {
+      const g = groups.find(x=>x.id===st.openGroup);
+      if (g) { setSelGroup(g); window.history.replaceState({}, ''); }
+    }
+  }, [location.state, groups]);
+  const location = useLocation();
   const [wkPick, setWkPick] = useState(null);
   const [wkSel, setWkSel] = useState([]);
 
