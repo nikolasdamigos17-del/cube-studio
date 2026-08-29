@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Printer, Share2, RefreshCw } from 'lucide-react';
-import { callAI } from '../lib/db';
+import { callAI, db } from '../lib/db';
 import { useLang } from '../lib/LangContext';
 
 export default function RecipePage() {
@@ -22,8 +22,44 @@ export default function RecipePage() {
 
   useEffect(() => { if (name) generateRecipe(); }, [name, lang]);
 
+  /* "Υλικό 180g, Υλικό 90g (σημ.)" → [{amount, item}] */
+  const parseIngStr = (str) => (str || '').split(',').map(x => x.trim()).filter(Boolean).map(part => {
+    const m = part.match(/^(.*?)\s+([\d.,]+\s*\S*(?:\s*\(.*\))?)$/);
+    return m ? { amount: m[2].trim(), item: m[1].trim(), note: '' } : { amount: '', item: part, note: '' };
+  });
+
   const generateRecipe = async () => {
     setLoading(true); setError(false); setRecipe(null);
+
+    /* Συνταγή στούντιο με αποθηκευμένη ΕΚΤΕΛΕΣΗ → την παρουσιάζουμε αυτούσια,
+       με τις ποσότητες ήδη προσαρμοσμένες στο πλάνο του πελάτη (από το URL). */
+    try {
+      const recs = await db.MonthlyRecipe.list('-created_date', 100);
+      const norm = (x) => (x || '').trim().toLowerCase();
+      const match = (recs || []).find(r => norm(r.name) === norm(name) && (r.instructions || '').trim());
+      if (match) {
+        const steps = match.instructions.split('\n').map(l => l.trim()).filter(Boolean);
+        const ing = ingredients
+          ? parseIngStr(ingredients)
+          : (match.ingredients || []).map(i => ({ amount: i.qty || '', item: i.name, note: '' }));
+        setRecipe({
+          name: name || match.name,
+          description: lang === 'el'
+            ? `Η επίσημη εκτέλεση του στούντιο${match.active ? ' — Recipe of the Month ⭐' : ''}. Οι ποσότητες είναι προσαρμοσμένες στο δικό σου πλάνο.`
+            : `The studio's official preparation${match.active ? ' — Recipe of the Month ⭐' : ''}. Quantities are adapted to your plan.`,
+          prep_time: '—', cook_time: '—', servings: 1,
+          difficulty: lang === 'el' ? 'Στούντιο' : 'Studio',
+          calories: parseInt(calories) || 0, protein: parseInt(protein) || 0,
+          carbs: parseInt(carbs) || 0, fat: parseInt(fat) || 0,
+          ingredients: ing,
+          instructions: steps.map((l, i) => ({ step: i + 1, title: (lang === 'el' ? 'Βήμα ' : 'Step ') + (i + 1), detail: l })),
+          tips: [],
+          tags: match.active ? ['⭐ Recipe of the Month'] : (lang === 'el' ? ['Συνταγή στούντιο'] : ['Studio recipe']),
+        });
+        setLoading(false);
+        return;
+      }
+    } catch (e) { /* συνεχίζουμε με AI */ }
 
     const langInstruction = lang === 'el'
       ? 'Write the entire recipe in GREEK (Ελληνικά). All field values must be in Greek.'

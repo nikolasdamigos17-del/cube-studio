@@ -8,7 +8,7 @@ export default function ActivateAccount() {
   const [params] = useSearchParams();
   const clientId = params.get('c') || '';
   const token = params.get('token') || '';
-  const { loginAsClient } = useAppContext();
+  const { loginAsClient, appMode } = useAppContext();
 
   const [state, setState] = useState('checking');  // checking | ok | invalid | done
   const [client, setClient] = useState(null);
@@ -41,7 +41,8 @@ export default function ActivateAccount() {
     try {
       await db.Client.update(client.id, patch);
       setState('done');
-      setTimeout(() => loginAsClient({ ...client, ...patch, clientId: client.id }), 1400);
+      /* Ο πελάτης συνδέεται αυτόματα· αν το ανοίγει ο προπονητής (master) για δοκιμή, ΔΕΝ του αλλάζουμε session. */
+      if (appMode !== 'master') setTimeout(() => loginAsClient({ ...client, ...patch, clientId: client.id }), 1400);
     } catch { setErr('Κάτι πήγε στραβά. Δοκίμασε ξανά.'); setSaving(false); }
   };
 
@@ -74,7 +75,7 @@ export default function ActivateAccount() {
       <div className="text-center">
         <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4"><CheckCircle2 className="w-7 h-7 text-emerald-500"/></div>
         <h2 className="text-xl font-bold text-foreground mb-2" style={{ fontFamily:'var(--font-display)' }}>Έτοιμος! 🎉</h2>
-        <p className="text-sm text-muted-foreground">Ο λογαριασμός σου δημιουργήθηκε. Σε συνδέουμε στην εφαρμογή σου…</p>
+        <p className="text-sm text-muted-foreground">{appMode === 'master' ? 'Ο λογαριασμός δημιουργήθηκε. Ο πελάτης μπαίνει πλέον με το email και τον κωδικό του.' : 'Ο λογαριασμός σου δημιουργήθηκε. Σε συνδέουμε στην εφαρμογή σου…'}</p>
       </div>
     </Shell>
   );

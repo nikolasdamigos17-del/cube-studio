@@ -97,6 +97,9 @@ function AppContent() {
         <Route path="/client-financial" element={<ClientFinancial/>}/>
         <Route path="/client-messages"  element={<ClientMessages/>}/>
         <Route path="/recipe"           element={<RecipePage/>}/>
+        <Route path="/activate" element={<ActivateAccount/>}/>
+        <Route path="/forgot"   element={<ResetPassword/>}/>
+        <Route path="/reset"    element={<ResetPassword/>}/>
         <Route path="*" element={<Navigate to="/client-home" replace/>}/>
       </Routes>
     </ThemeProvider>
@@ -105,6 +108,9 @@ function AppContent() {
   return (
     <ThemeProvider isClient={false}>
       <Routes>
+        <Route path="/activate" element={<ActivateAccount/>}/>
+        <Route path="/forgot"   element={<ResetPassword/>}/>
+        <Route path="/reset"    element={<ResetPassword/>}/>
         <Route path="/"            element={<MasterLayout><Home/></MasterLayout>}/>
         <Route path="/CalendarPage" element={<MasterLayout><CalendarPage/></MasterLayout>}/>
         <Route path="/Clients"     element={<MasterLayout><Clients/></MasterLayout>}/>

@@ -535,6 +535,8 @@ function RecipesModal({ recipes, onClose, onChanged }) {
   const [name, setName] = useState('');
   const [slot, setSlot] = useState('lunch');
   const [rows, setRows] = useState([{ name:'', qty:'' }]);
+  const [instr, setInstr] = useState('');
+  const [instrEdit, setInstrEdit] = useState(null);   // {id, text}
   const [makeActive, setMakeActive] = useState(!recipes.some(r=>r.active));
   const [saving, setSaving] = useState(false);
 
@@ -548,10 +550,11 @@ function RecipesModal({ recipes, onClose, onChanged }) {
     await db.MonthlyRecipe.create({
       name: name.trim(), slot,
       ingredients: validRows.map(r=>({ name:r.name.trim(), qty:(r.qty||'').trim() })),
+      instructions: instr.trim(),
       active: makeActive, created_date: new Date().toISOString(),
     });
     setSaving(false); onChanged();
-    setName(''); setRows([{name:'',qty:''}]); setMakeActive(false); setMode('list');
+    setName(''); setRows([{name:'',qty:''}]); setInstr(''); setMakeActive(false); setMode('list');
   };
   const setActive = async (rec) => {
     for (const r of recipes.filter(x=>x.active && x.id!==rec.id)) await db.MonthlyRecipe.update(r.id, { active:false });
@@ -585,8 +588,22 @@ function RecipesModal({ recipes, onClose, onChanged }) {
                   {r.active && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full flex-shrink-0">⭐ Recipe of the Month</span>}
                 </div>
                 <p className="text-xs text-gray-400 mb-2">{recipeSlotLabel(r.slot)} · {(r.ingredients||[]).map(i=>`${i.name}${i.qty?` ${i.qty}`:''}`).join(' · ')}</p>
+                {instrEdit?.id===r.id ? (
+                  <div className="mb-2">
+                    <textarea value={instrEdit.text} onChange={e=>setInstrEdit({id:r.id,text:e.target.value})} className="input-base w-full text-sm" style={{minHeight:95}} placeholder="Γράψε την εκτέλεση — ένα βήμα ανά γραμμή…"/>
+                    <div className="flex gap-2 mt-1.5">
+                      <button onClick={async()=>{ await db.MonthlyRecipe.update(r.id,{ instructions:(instrEdit.text||'').trim() }); setInstrEdit(null); onChanged(); }} className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-gray-900 text-white">Αποθήκευση εκτέλεσης</button>
+                      <button onClick={()=>setInstrEdit(null)} className="px-3 py-1.5 rounded-lg text-xs bg-gray-100 text-gray-600">Άκυρο</button>
+                    </div>
+                  </div>
+                ) : (r.instructions||'').trim() ? (
+                  <p className="text-[11px] text-gray-500 mb-2 whitespace-pre-line" style={{display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>📖 {r.instructions}</p>
+                ) : (
+                  <p className="text-[11px] text-gray-400 mb-2 italic">Χωρίς εκτέλεση — η έκδοση συνταγής θα φτιάχνεται από το AI.</p>
+                )}
                 <div className="flex gap-2">
                   <button onClick={()=>setActive(r)} className={`flex-1 py-1.5 rounded-lg text-xs font-semibold ${r.active?'bg-amber-100 text-amber-700':'bg-gray-100 text-gray-600 hover:bg-amber-50'}`}>{r.active?'Απενεργοποίηση':'⭐ Όρισε ως ενεργή'}</button>
+                  <button onClick={()=>setInstrEdit({ id:r.id, text:r.instructions||'' })} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200">📖 Εκτέλεση</button>
                   <button onClick={()=>remove(r)} className="px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-red-50"><Trash2 className="w-3.5 h-3.5 text-gray-500"/></button>
                 </div>
               </div>
@@ -614,6 +631,10 @@ function RecipesModal({ recipes, onClose, onChanged }) {
                 ))}
               </div>
               <button onClick={()=>setRows(rs=>[...rs,{name:'',qty:''}])} className="mt-2 text-xs font-semibold text-amber-600 flex items-center gap-1"><Plus className="w-3.5 h-3.5"/> Προσθήκη υλικού</button>
+            </div>
+            <div><label className="text-xs font-medium text-gray-500 uppercase">Εκτέλεση (προαιρετικό)</label>
+              <textarea value={instr} onChange={e=>setInstr(e.target.value)} className="input-base mt-1" style={{minHeight:105}} placeholder={'Ένα βήμα ανά γραμμή, π.χ.\nΨήσε το κοτόπουλο στο γκριλ 6-7 λεπτά ανά πλευρά.\nΒράσε την κινόα σε διπλάσιο νερό για 15 λεπτά.'}/>
+              <p className="text-[11px] text-gray-400 mt-1">Αν βάλεις εκτέλεση, ο πελάτης στην «Έκδοση συνταγής» θα βλέπει ΑΥΤΗ, με τις ποσότητες προσαρμοσμένες στο πλάνο του. Αν όχι, τη φτιάχνει το AI κανονικά.</p>
             </div>
             <label className="flex items-center gap-2.5 cursor-pointer">
               <span onClick={()=>setMakeActive(v=>!v)} className={`w-10 h-6 rounded-full relative transition-colors ${makeActive?'bg-amber-500':'bg-gray-200'}`}><span className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all" style={{left:makeActive?'18px':'2px'}}/></span>
