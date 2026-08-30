@@ -9,4 +9,11 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    // Διαγνωστικό + πιθανή λύση: χωρίς συμπίεση ονομάτων,
+    // ώστε το σφάλμα να δείχνει αληθινά ονόματα (όχι 'P'/'N').
+    // Αν το πρόβλημα ήταν από τον minifier, εξαφανίζεται κιόλας.
+    minify: false,
+    sourcemap: true,
+  },
 })
