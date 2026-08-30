@@ -544,6 +544,7 @@ export default function TrainingPlans() {
   const [openId, setOpenId] = useState(null);
   const [groups, setGroups] = useState([]);
   const [selGroup, setSelGroup] = useState(null);
+  const location = useLocation();
   /* deep-link από widgets */
   useEffect(() => {
     const st = location.state || {};
@@ -553,7 +554,6 @@ export default function TrainingPlans() {
       if (g) { setSelGroup(g); window.history.replaceState({}, ''); }
     }
   }, [location.state, groups]);
-  const location = useLocation();
   const [wkPick, setWkPick] = useState(null);
   const [wkSel, setWkSel] = useState([]);
 
