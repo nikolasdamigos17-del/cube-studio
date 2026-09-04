@@ -209,7 +209,7 @@ export default function MasterMessages() {
   useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:'smooth'}); },[messages,selected]);
 
   const markRead = async (threadId) => {
-    const unread = messages.filter(m=>m.thread_id===threadId&&m.sender==='client'&&!m.read);
+    const unread = messages.filter(m=>(m.thread_id===threadId||(!m.thread_id&&m.client_id===threadId))&&m.sender==='client'&&!m.read);
     await Promise.all(unread.map(m=>db.Message.update(m.id,{read:true})));
   };
 
@@ -234,9 +234,10 @@ export default function MasterMessages() {
     setNewMsg(''); load();
   };
 
-  const getThreadMsgs = (id) => messages.filter(m=>m.thread_id===id).sort((a,b)=>a.created_date?.localeCompare(b.created_date));
-  const getLastMsg = (id) => { const m=messages.filter(x=>x.thread_id===id); return m[m.length-1]; };
-  const getUnread = (id) => messages.filter(m=>m.thread_id===id&&m.sender==='client'&&!m.read).length;
+  const inThread = (m,id) => m.thread_id===id || (!m.thread_id && m.client_id===id);
+  const getThreadMsgs = (id) => messages.filter(m=>inThread(m,id)).sort((a,b)=>a.created_date?.localeCompare(b.created_date));
+  const getLastMsg = (id) => { const m=messages.filter(x=>inThread(x,id)); return m[m.length-1]; };
+  const getUnread = (id) => messages.filter(m=>inThread(m,id)&&m.sender==='client'&&!m.read).length;
   const totalUnread = messages.filter(m=>m.sender==='client'&&!m.read).length;
 
   /* deep-link από widgets: /Messages με state.openThread {type,id} */

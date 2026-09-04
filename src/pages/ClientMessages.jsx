@@ -25,7 +25,7 @@ export default function ClientMessages() {
 
   const send = async () => {
     if (!newMsg.trim()||!clientUser?.clientId) return;
-    await db.Message.create({client_id:clientUser.clientId,client_name:clientUser.name||'',sender:'client',content:newMsg.trim(),read:false});
+    await db.Message.create({thread_id:clientUser.clientId,thread_type:'client',client_id:clientUser.clientId,client_name:clientUser.name||'',sender:'client',content:newMsg.trim(),read:false});
     setNewMsg(''); load();
   };
 
@@ -51,7 +51,7 @@ export default function ClientMessages() {
         <div className="px-4 py-3 border-t" style={{backgroundColor:'var(--cp-card-bg)',borderColor:'var(--cp-border)'}}>
           <div className="flex items-center gap-2">
             <button onClick={()=>fileRef.current?.click()} className="p-2 rounded-xl" style={{backgroundColor:'var(--cp-bg)',color:'var(--cp-text-dim)'}}><Paperclip className="w-4 h-4"/></button>
-            <input ref={fileRef} type="file" className="hidden" onChange={async(e)=>{const f=e.target.files[0];if(f){await db.Message.create({client_id:clientUser.clientId,client_name:clientUser.name||'',sender:'client',content:`📎 ${f.name}`,read:false});load();}}}/>
+            <input ref={fileRef} type="file" className="hidden" onChange={async(e)=>{const f=e.target.files[0];if(f){await db.Message.create({thread_id:clientUser.clientId,thread_type:'client',client_id:clientUser.clientId,client_name:clientUser.name||'',sender:'client',content:`📎 ${f.name}`,read:false});load();}}}/>
             <input value={newMsg} onChange={e=>setNewMsg(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()} placeholder="Message your trainer..." className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none" style={{backgroundColor:'var(--cp-bg)',color:'var(--cp-text)',border:'1px solid var(--cp-border)'}}/>
             <button onClick={send} disabled={!newMsg.trim()} className="p-2.5 rounded-xl disabled:opacity-40" style={{backgroundColor:'var(--cp-accent)',color:'white'}}><Send className="w-4 h-4"/></button>
           </div>
