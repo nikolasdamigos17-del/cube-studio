@@ -61,3 +61,36 @@ export function sbSignOut() {
   try { if (s?.access_token) fetch(`${sbUrl()}/auth/v1/logout`, { method: 'POST', headers: { apikey: sbAnon(), Authorization: 'Bearer ' + s.access_token } }); } catch {}
   localStorage.removeItem('sb_session');
 }
+
+/* Ζητά από τη Supabase να στείλει email επαναφοράς κωδικού. */
+export async function sbRecover(email, redirectTo) {
+  const url = `${sbUrl()}/auth/v1/recover` + (redirectTo ? `?redirect_to=${encodeURIComponent(redirectTo)}` : '');
+  const r = await fetch(url, {
+    method: 'POST', headers: { apikey: sbAnon(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.msg || j.error_description || j.error || 'Αποτυχία αποστολής email.'); }
+  return true;
+}
+
+/* Ορίζει νέο κωδικό χρησιμοποιώντας το token επαναφοράς (από το link του email). */
+export async function sbUpdatePassword(newPassword, accessToken) {
+  const r = await fetch(`${sbUrl()}/auth/v1/user`, {
+    method: 'PUT', headers: { apikey: sbAnon(), Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: newPassword }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.msg || j.error_description || j.error || 'Αποτυχία αλλαγής κωδικού.');
+  return j;
+}
+
+/* Διαβάζει token επαναφοράς από το URL (#access_token=...&type=recovery). */
+export function parseRecoveryHash() {
+  try {
+    const h = (window.location.hash || '').replace(/^#/, '');
+    if (!h) return null;
+    const p = new URLSearchParams(h);
+    if (p.get('type') === 'recovery' && p.get('access_token')) return p.get('access_token');
+  } catch {}
+  return null;
+}
