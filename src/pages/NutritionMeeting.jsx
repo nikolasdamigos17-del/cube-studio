@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Minus, ArrowLeft, ArrowRight, Loader2, Scale, RotateCcw, Pencil, Plus, CalendarDays, Clock } from 'lucide-react';
 import { db, callAI } from '../lib/db';
+import { isWithingsConnected, syncWithingsToClient } from '../lib/withings';
 
 /* ═══════════════ Σταθερά ═══════════════ */
 
@@ -836,8 +837,11 @@ const loadRecipes = async () => {
                 <Scale style={{ width:28, height:28, color:ACC }}/>
               </div>
               <p style={{ fontSize:18, fontWeight:800, margin:'0 0 6px' }}>Αναμονή μέτρησης από τη ζυγαριά…</p>
-              <p style={{ ...S.dim, fontSize:13.5, maxWidth:420, margin:'0 auto' }}>Κάνε τη ζύγιση στο IMBODY — μόλις καταχωρηθεί, τα αποτελέσματα θα εμφανιστούν εδώ αυτόματα.</p>
+              <p style={{ ...S.dim, fontSize:13.5, maxWidth:420, margin:'0 auto' }}>Κάνε τη ζύγιση στη ζυγαριά Withings — μόλις καταχωρηθεί, τα αποτελέσματα θα εμφανιστούν εδώ αυτόματα.</p>
               <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:24, flexWrap:'wrap' }}>
+                {isWithingsConnected() && (
+                  <button onClick={async()=>{ try{ const rec=await syncWithingsToClient(db, clientId); setCurrent(rec); setHistory(h=>[...h, rec]); }catch(e){ alert(String(e.message||e)); } }} style={S.btn(true)}>Λήψη από Withings</button>
+                )}
                 {history.length > 0 && (
                   <button onClick={useLatest} style={S.btn(false)}>Χρήση τελευταίας μέτρησης ({history[history.length-1].date})</button>
                 )}

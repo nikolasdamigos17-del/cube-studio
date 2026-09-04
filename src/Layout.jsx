@@ -4,7 +4,8 @@ import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
 import BarbellNav, { BarbellDock, useBarColors } from './components/BarbellNav';
 import ThemeSwatch from './components/ThemeSwatch';
-import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, ChevronDown, MoreHorizontal, X, Settings, Globe } from 'lucide-react';
+import ApiSettingsModal from './components/ApiSettingsModal';
+import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, ChevronDown, MoreHorizontal, X, Settings, Globe, Key } from 'lucide-react';
 import { useAppContext } from './lib/AppContext';
 import { db } from './lib/db';
 import { format } from 'date-fns';
@@ -56,6 +57,7 @@ function DesktopSettings({ open: sidebarOpen, onHoldOpen }) {
   const { themeName, switchTheme, themes, cubeOff, toggleCubeOff } = useTheme();
   const { lang, toggle } = useLang();
   const [open, setOpen] = React.useState(false);
+  const [apiOpen, setApiOpen] = React.useState(false);
   const [pos, setPos] = React.useState({ left:74, bottom:16 });
   const btnRef = React.useRef(null);
   const dark = Object.entries(themes).filter(([, t]) => t.group === 'dark');
@@ -135,8 +137,16 @@ function DesktopSettings({ open: sidebarOpen, onHoldOpen }) {
                 <span style={{ position:'absolute', top:3, left: cubeOff ? 21 : 3, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
               </button>
             </div>
+            <button onClick={() => { setApiOpen(true); setOpen(false); }}
+              style={{ marginTop:12, width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
+                borderRadius:12, cursor:'pointer', border:'1px solid hsl(var(--border))', background:'hsl(var(--muted))',
+                color:'hsl(var(--foreground))' }}>
+              <Key size={16} style={{ color:'hsl(var(--primary))' }}/>
+              <span style={{ fontSize:12.5, fontWeight:700 }}>Ενσωματώσεις / API</span>
+            </button>
           </div>
         </>, document.body)}
+      {apiOpen && <ApiSettingsModal onClose={() => setApiOpen(false)} />}
     </>
   );
 }
@@ -147,6 +157,7 @@ function BottomBar({ unread, requests }) {
   const { logout } = useAppContext();
   const { themeName, switchTheme, themes, cubeOff, toggleCubeOff } = useTheme();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [apiOpen, setApiOpen] = useState(false);
   const [moreTab, setMoreTab] = useState('menu'); // 'menu' | 'settings'
   const { accent, tab: tabActive, idle, idleLabel } = useBarColors();
   const isActive = (path) => loc.pathname === path || (path !== '/' && loc.pathname.startsWith(path));
@@ -267,6 +278,12 @@ function BottomBar({ unread, requests }) {
                     <span style={{ position:'absolute', top:3, left: cubeOff ? 23 : 3, width:22, height:22, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
                   </button>
                 </div>
+                <button onClick={()=>{ setApiOpen(true); setMoreOpen(false); }}
+                  className="w-full mt-3 flex items-center gap-3 py-3 px-3 rounded-2xl"
+                  style={{ background:'hsl(var(--muted)/0.5)', color:'hsl(var(--foreground))' }}>
+                  <Key size={18} style={{ color:'hsl(var(--primary))' }}/>
+                  <span className="text-sm font-semibold">Ενσωματώσεις / API</span>
+                </button>
               </>
             )}
 
@@ -278,6 +295,8 @@ function BottomBar({ unread, requests }) {
           </div>
         </>
       )}
+
+      {apiOpen && <ApiSettingsModal onClose={() => setApiOpen(false)} />}
 
       {/* ── Barbell bezel: opaque base, content never passes behind it ── */}
       <BarbellDock>

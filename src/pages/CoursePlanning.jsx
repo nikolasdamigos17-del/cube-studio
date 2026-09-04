@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, X, Lock, Loader2, Target, Leaf, Utensils, Scale, Plus, Sparkles, Home, Dumbbell, TrendingUp, Wallet, MessageCircle } from 'lucide-react';
 import { db } from '../lib/db';
+import { isWithingsConnected, syncWithingsToClient } from '../lib/withings';
 
 /* ═══════════ Στατικά δεδομένα ═══════════ */
 
@@ -386,8 +387,11 @@ export default function CoursePlanning() {
                   <Scale style={{ width:26, height:26, color:ACC }}/>
                 </div>
                 <p style={{ fontSize:17, fontWeight:800, margin:'0 0 6px' }}>Αναμονή μέτρησης από τη ζυγαριά…</p>
-                <p style={{ ...S.dim, fontSize:13, margin:'0 auto', maxWidth:420 }}>Κάνε τη ζύγιση στο IMBODY — μόλις καταχωρηθεί νέα μέτρηση για τον/την {client.name?.split(' ')[0]}, θα εμφανιστεί εδώ αυτόματα.</p>
-                <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:22 }}>
+                <p style={{ ...S.dim, fontSize:13, margin:'0 auto', maxWidth:420 }}>Κάνε τη ζύγιση στη ζυγαριά Withings — μόλις καταχωρηθεί νέα μέτρηση για τον/την {client.name?.split(' ')[0]}, θα εμφανιστεί εδώ αυτόματα.</p>
+                <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:22, flexWrap:'wrap' }}>
+                  {isWithingsConnected() && (
+                    <button onClick={async()=>{ try{ const rec=await syncWithingsToClient(db, clientId); setCaptured(rec); }catch(e){ alert(String(e.message||e)); } }} style={S.btn(true)}>Λήψη από Withings</button>
+                  )}
                   <button onClick={()=>setManualOpen(v=>!v)} style={S.btn(false)}>Χειροκίνητη καταχώρηση</button>
                   <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontSize:12.5, color:'rgba(255,255,255,0.5)', cursor:'pointer' }}>
                     <input type="checkbox" checked={skipMeasure} onChange={e=>setSkipMeasure(e.target.checked)}/> Παράλειψη για τώρα

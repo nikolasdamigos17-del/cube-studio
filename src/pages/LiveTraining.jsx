@@ -227,7 +227,7 @@ function Welcome({ plan, clientName, onStart }) {
         )}
 
         <button onClick={onStart} style={{ width:'100%', padding:16, borderRadius:15, border:'none',
-          cursor:'pointer', background:ACCENT, color:'#04140a', fontSize:15, fontWeight:800,
+          cursor:'pointer', color:'#04140a', fontSize:15, fontWeight:800,
           fontFamily:'var(--cp-font)', letterSpacing:'.02em',
           background:'linear-gradient(180deg,#e0457b,#b52f78)', boxShadow:'0 6px 26px rgba(224,69,123,.45)' }}>
           ▶ ΕΝΑΡΞΗ ΠΡΟΠΟΝΗΣΗΣ

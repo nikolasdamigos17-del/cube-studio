@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { sbSignOut, sbEnsureFresh } from './supabaseAuth';
 
 const AppContext = createContext();
 
@@ -9,6 +10,7 @@ export const AppProvider = ({ children }) => {
 
   // Restore session on page reload
   useEffect(() => {
+    try { sbEnsureFresh().catch(() => {}); } catch {}
     try {
       const saved = localStorage.getItem('studio_session');
       if (saved) {
@@ -39,6 +41,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const logout = () => {
+    try { sbSignOut(); } catch {}
     localStorage.removeItem('studio_session');
     setAppMode(null);
     setClientUser(null);

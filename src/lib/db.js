@@ -1,3 +1,4 @@
+import { SUPABASE_URL, SUPABASE_ANON, sbAccessToken } from './supabaseConfig';
 const generateId = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 const getStore = (key) => { try { const d = localStorage.getItem(`studio_${key}`); return d ? JSON.parse(d) : []; } catch { return []; } };
 const setStore = (key, data) => { try { localStorage.setItem(`studio_${key}`, JSON.stringify(data)); } catch {} };
@@ -45,26 +46,91 @@ const createEntity = (storeName) => ({
   },
 });
 
+// ── SUPABASE BACKEND (προαιρετικό) ────────────────────────────────────────────
+// Ενεργό ΜΟΝΟ όταν υπάρχουν supabase_url + supabase_anon_key ΚΑΙ studio_use_supabase='1'.
+// Αλλιώς χρησιμοποιείται το τοπικό localStorage — τίποτα δεν σπάει.
+const sbCfg = () => {
+  try {
+    const on = localStorage.getItem('studio_use_supabase') === '1';
+    const url = (localStorage.getItem('supabase_url') || SUPABASE_URL).replace(/\/+$/, '');
+    const key = localStorage.getItem('supabase_anon_key') || SUPABASE_ANON;
+    return (on && url && key) ? { url, key } : null;
+  } catch { return null; }
+};
+export const USE_SUPABASE = !!sbCfg();
+const sbHeaders = (extra = {}) => {
+  const { key } = sbCfg();
+  const token = sbAccessToken() || key; // token συνδεδεμένου χρήστη → περνά το RLS
+  return { apikey: key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...extra };
+};
+const sbBase = (table) => `${sbCfg().url}/rest/v1/studio_${table}`;
+
+const createSupabaseEntity = (storeName) => {
+  const sortDocs = (arr, sortField) => {
+    const asc = !sortField.startsWith('-'); const field = sortField.replace('-', '');
+    return [...arr].sort((a, b) => { const av = a[field] || ''; const bv = b[field] || ''; return asc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1); });
+  };
+  const all = async () => {
+    const r = await fetch(sbBase(storeName) + '?select=doc&limit=10000', { headers: sbHeaders() });
+    if (!r.ok) throw new Error('Supabase list ' + storeName + ' ' + r.status);
+    return (await r.json()).map(x => x.doc);
+  };
+  return {
+    list: async (sortField = 'created_date', limit = 500) => sortDocs(await all(), sortField).slice(0, limit),
+    filter: async (filters = {}, sortField = 'created_date', limit = 500) => {
+      const items = (await all()).filter(item => Object.entries(filters).every(([k, v]) => item[k] === v));
+      return sortDocs(items, sortField).slice(0, limit);
+    },
+    create: async (data) => {
+      const now = new Date().toISOString();
+      const rec = { ...data, id: generateId(), created_date: now, updated_date: now };
+      const r = await fetch(sbBase(storeName), { method: 'POST', headers: sbHeaders({ Prefer: 'return=minimal' }),
+        body: JSON.stringify({ id: rec.id, doc: rec, created_date: now, updated_date: now }) });
+      if (!r.ok) throw new Error('Supabase create ' + storeName + ' ' + r.status);
+      return rec;
+    },
+    update: async (id, data) => {
+      const cr = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}&select=doc&limit=1`, { headers: sbHeaders() });
+      const cur = (await cr.json())[0]?.doc || {};
+      const now = new Date().toISOString();
+      const merged = { ...cur, ...data, id, updated_date: now };
+      const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: sbHeaders({ Prefer: 'return=minimal' }),
+        body: JSON.stringify({ doc: merged, updated_date: now }) });
+      if (!r.ok) throw new Error('Supabase update ' + storeName + ' ' + r.status);
+      return merged;
+    },
+    delete: async (id) => {
+      const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: sbHeaders({ Prefer: 'return=minimal' }) });
+      if (!r.ok) throw new Error('Supabase delete ' + storeName + ' ' + r.status);
+      return { success: true };
+    },
+    get: async (id) => { const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}&select=doc&limit=1`, { headers: sbHeaders() }); return (await r.json())[0]?.doc || null; },
+    subscribe: () => () => {},
+  };
+};
+
+const pick = (storeName) => USE_SUPABASE ? createSupabaseEntity(storeName) : createEntity(storeName);
+
 export const db = {
-  Client: createEntity('clients'),
-  Appointment: createEntity('appointments'),
-  TrainingPlan: createEntity('training_plans'),
-  NutritionPlan: createEntity('nutrition_plans'),
-  ClientProgress: createEntity('client_progress'),
-  ClientNote: createEntity('client_notes'),
-  Payment: createEntity('payments'),
-  CreditEntry: createEntity('credit_entries'),
-  TodoItem: createEntity('todos'),
-  Message: createEntity('messages'),
-  Group: createEntity('groups'),
-  Announcement: createEntity('announcements'),
-  MonthlyRecipe: createEntity('monthly_recipes'),
-  ClientReminder: createEntity('client_reminders'),
-  AppointmentRequest: createEntity('appointment_requests'),
-  NutritionProfile: createEntity('nutrition_profiles'),
-  NutritionMeeting: createEntity('nutrition_meetings'),
-  WaterLog: createEntity('water_logs'),
-  SupplementLog: createEntity('supplement_logs'),
+  Client: pick('clients'),
+  Appointment: pick('appointments'),
+  TrainingPlan: pick('training_plans'),
+  NutritionPlan: pick('nutrition_plans'),
+  ClientProgress: pick('client_progress'),
+  ClientNote: pick('client_notes'),
+  Payment: pick('payments'),
+  CreditEntry: pick('credit_entries'),
+  TodoItem: pick('todos'),
+  Message: pick('messages'),
+  Group: pick('groups'),
+  Announcement: pick('announcements'),
+  MonthlyRecipe: pick('monthly_recipes'),
+  ClientReminder: pick('client_reminders'),
+  AppointmentRequest: pick('appointment_requests'),
+  NutritionProfile: pick('nutrition_profiles'),
+  NutritionMeeting: pick('nutrition_meetings'),
+  WaterLog: pick('water_logs'),
+  SupplementLog: pick('supplement_logs'),
 };
 
 // ── AI CALL ───────────────────────────────────────────────────────────────────
@@ -77,8 +143,9 @@ const GREEK_DIRECTIVE = `
 export async function callAI(prompt, systemPrompt) {
   const lang = localStorage.getItem('cube_lang') || 'en';
   if (lang === 'el') systemPrompt = (systemPrompt || '') + GREEK_DIRECTIVE;
-  const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!API_KEY) { console.error('Missing VITE_ANTHROPIC_API_KEY env variable'); return '__ERROR__ Missing API key'; }
+  const savedKey = (typeof localStorage !== 'undefined') ? localStorage.getItem('studio_api_key') : null;
+  const API_KEY = (savedKey && savedKey.trim()) || import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if (!API_KEY) { console.error('Λείπει το Anthropic API key — όρισέ το στις Ρυθμίσεις → Ενσωματώσεις / API (ή στο VITE_ANTHROPIC_API_KEY)'); return '__ERROR__ Missing API key'; }
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -111,6 +178,7 @@ export async function callAI(prompt, systemPrompt) {
 
 // ── SEED DEMO DATA ────────────────────────────────────────────────────────────
 export const seedDemoData = () => {
+  if (USE_SUPABASE) return; // ποτέ demo data στη cloud βάση
   if (getStore('clients').length > 0) return;
   const fmt = (d) => d.toISOString().split('T')[0];
   const dAgo = (n) => { const d=new Date(); d.setDate(d.getDate()-n); return fmt(d); };

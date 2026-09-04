@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { Dumbbell, Eye, EyeOff, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { db } from '../lib/db';
 import { useAppContext } from '../lib/AppContext';
+import { supabaseEnabled } from '../lib/supabaseConfig';
+import { sbSignUp, sbSignIn } from '../lib/supabaseAuth';
 
 export default function ActivateAccount() {
   const [params] = useSearchParams();
@@ -39,6 +41,11 @@ export default function ActivateAccount() {
       account_status: 'active', account_created_at: new Date().toISOString(), invite_token: '',
     };
     try {
+      if (supabaseEnabled()) {
+        // Δημιουργία κανονικού λογαριασμού Supabase για τον πελάτη
+        try { await sbSignUp(email.trim().toLowerCase(), pw); } catch (e) { /* μπορεί να υπάρχει ήδη */ }
+        try { await sbSignIn(email.trim().toLowerCase(), pw); } catch (e) {}
+      }
       await db.Client.update(client.id, patch);
       setState('done');
       /* Ο πελάτης συνδέεται αυτόματα· αν το ανοίγει ο προπονητής (master) για δοκιμή, ΔΕΝ του αλλάζουμε session. */
