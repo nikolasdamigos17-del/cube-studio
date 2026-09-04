@@ -8,6 +8,20 @@ import { sbRecover, sbUpdatePassword, parseRecoveryHash } from '../lib/supabaseA
 /* /forgot (email-entry) και /reset. Δύο λειτουργίες:
    • Supabase ON  → στέλνει email επαναφοράς· το link γυρίζει με token στο #hash → ορισμός νέου κωδικού.
    • Supabase OFF → τοπικά: επαλήθευση email και ορισμός κωδικού επιτόπου (ή /reset?c=&token=).  */
+function Shell({ children }) {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <div className="flex items-center gap-2 mb-8 justify-center">
+          <div className="w-9 h-9 rounded-xl bg-foreground flex items-center justify-center"><Dumbbell className="w-5 h-5 text-background" strokeWidth={2.5}/></div>
+          <span className="font-bold text-foreground text-lg" style={{ fontFamily:'var(--font-display)' }}>The Cube</span>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function ResetPassword() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -70,18 +84,6 @@ export default function ResetPassword() {
       setPhase('done');
     } catch (e) { setErr(e.message || 'Κάτι πήγε στραβά.'); setBusy(false); }
   };
-
-  const Shell = ({ children }) => (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <div className="flex items-center gap-2 mb-8 justify-center">
-          <div className="w-9 h-9 rounded-xl bg-foreground flex items-center justify-center"><Dumbbell className="w-5 h-5 text-background" strokeWidth={2.5}/></div>
-          <span className="font-bold text-foreground text-lg" style={{ fontFamily:'var(--font-display)' }}>The Cube</span>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
 
   if (phase === 'checking') return <Shell><div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div></Shell>;
 

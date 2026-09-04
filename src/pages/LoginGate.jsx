@@ -72,40 +72,10 @@ export default function LoginGate() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Left — dark brand panel */}
-      <div className="hidden lg:flex flex-col justify-between bg-foreground p-10 flex-shrink-0" style={{ width: 400 }}>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-background/10 flex items-center justify-center">
-            <Dumbbell className="w-5 h-5 text-background" strokeWidth={2.5} />
-          </div>
-          <span className="font-semibold text-background" style={{ fontFamily: 'var(--font-display)', fontSize: 15 }}>Cube</span>
-        </div>
-
-        <div>
-          <h1 className="text-4xl font-bold text-background leading-tight mb-4"
-            style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
-            The Cube.<br />Personal Training Studio.
-          </h1>
-          <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
-            Training plans, nutrition, client progress and payments — all in one workspace built for personal trainers.
-          </p>
-          <div className="mt-8 space-y-3">
-            {['AI-powered training & nutrition plans', 'Live in-app workout tracking', 'Client portal included', 'Full logistics & billing'].map(f => (
-              <div key={f} className="flex items-center gap-3 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                <div className="w-1.5 h-1.5 rounded-full bg-white/40 flex-shrink-0" />
-                {f}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>Personal Training Studio</p>
-      </div>
-
-      {/* Right — form */}
+      {/* Centered form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm animate-slide-up">
-          <div className="lg:hidden flex items-center gap-2 mb-8">
+          <div className="flex items-center gap-2 mb-8">
             <div className="w-8 h-8 rounded-xl bg-foreground flex items-center justify-center">
               <Dumbbell className="w-4 h-4 text-background" strokeWidth={2.5} />
             </div>

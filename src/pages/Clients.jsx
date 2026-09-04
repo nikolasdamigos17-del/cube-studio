@@ -25,12 +25,8 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
   const grp = f.services === 'group_training' || f.services === 'group_training_nutrition';
   const hasTraining  = ['personal_training','personal_training_nutrition','group_training','group_training_nutrition'].includes(f.services);
   const hasNutrition = ['nutrition_only','personal_training_nutrition','group_training_nutrition'].includes(f.services);
-  const PROGRAMS = [
-    { v:'personal_training',           icon:'🏋️', label:'Προπόνηση',            desc:'Personal training' },
-    { v:'nutrition_only',              icon:'🥗', label:'Διατροφή',             desc:'Nutrition Center' },
-    { v:'personal_training_nutrition', icon:'⚡', label:'Προπόνηση + Διατροφή', desc:'Πλήρες πρόγραμμα' },
-    { v:'group_training',              icon:'👥', label:'Group',                desc:'Ομαδικές προπονήσεις' },
-  ];
+  const setTraining = (t) => { const base = t === 'group' ? 'group_training' : 'personal_training'; set('services', hasNutrition ? base + '_nutrition' : base); };
+  const toggleNutrition = () => { const base = grp ? 'group_training' : 'personal_training'; set('services', hasNutrition ? base : base + '_nutrition'); };
   const save = async () => {
     setSaving(true);
     const payload = { ...f };
@@ -89,7 +85,7 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
         <div className="grid grid-cols-2 gap-3 mb-5">
           <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Ονοματεπώνυμο *</label><input value={f.name||''} onChange={e=>set('name',e.target.value)} className="input-base mt-1" placeholder="π.χ. Μαρία Παπαδάκη"/></div>
           <div><label className="text-xs font-medium text-gray-500 uppercase">Τηλέφωνο</label><input value={f.phone||''} onChange={e=>set('phone',e.target.value)} className="input-base mt-1" placeholder="+30 …"/></div>
-          <div><label className="text-xs font-medium text-gray-500 uppercase">Email</label>
+          <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Email</label>
             <div className="flex gap-2 mt-1">
               <input value={f.email||''} onChange={e=>set('email',e.target.value)} className="input-base flex-1" type="email" placeholder="email@…"/>
               <button onClick={sendInvite} disabled={inviting||!f.email} title="Αποστολή πρόσκλησης στην εφαρμογή" className="flex items-center gap-1.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40 flex-shrink-0" style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)'}}>
@@ -112,27 +108,26 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
           </div>
         )}
 
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Πρόγραμμα</p>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {PROGRAMS.map(p=>{
-            const on = p.v==='group_training' ? grp : f.services===p.v;
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Προπόνηση *</p>
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {[['personal','🏋️','Personal','Ατομική προπόνηση'],['group','👥','Group','Ομαδική προπόνηση']].map(([t,icon,label,desc])=>{
+            const on = (t==='group') === grp;
             return (
-              <button key={p.v} onClick={()=>set('services', p.v)}
+              <button key={t} onClick={()=>setTraining(t)}
                 className={`text-left p-3 rounded-xl border-2 transition-all ${on?'border-gray-900 bg-gray-50':'border-gray-100 hover:border-gray-300'}`}>
-                <span className="text-xl">{p.icon}</span>
-                <p className="text-sm font-semibold text-gray-900 mt-1">{p.label}</p>
-                <p className="text-[11px] text-gray-400">{p.desc}</p>
+                <span className="text-xl">{icon}</span>
+                <p className="text-sm font-semibold text-gray-900 mt-1">{label}</p>
+                <p className="text-[11px] text-gray-400">{desc}</p>
               </button>
             );
           })}
         </div>
-        {grp && (
-          <button onClick={()=>set('services', f.services==='group_training_nutrition'?'group_training':'group_training_nutrition')}
-            className={`flex items-center gap-2 text-sm mb-5 px-3 py-2 rounded-xl border-2 w-full ${f.services==='group_training_nutrition'?'border-emerald-500 bg-emerald-50 text-emerald-700':'border-gray-100 text-gray-500'}`}>
-            <span className={`w-4 h-4 rounded flex items-center justify-center ${f.services==='group_training_nutrition'?'bg-emerald-500':'border border-gray-300'}`}>{f.services==='group_training_nutrition'&&<Check className="w-3 h-3 text-white"/>}</span>
-            🥗 Το group + διατροφή (η διατροφή χρεώνεται ατομικά)
-          </button>
-        )}
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Διατροφή</p>
+        <button onClick={toggleNutrition}
+          className={`flex items-center gap-2 text-sm mb-5 px-3 py-2.5 rounded-xl border-2 w-full ${hasNutrition?'border-emerald-500 bg-emerald-50 text-emerald-700':'border-gray-100 text-gray-500 hover:border-gray-300'}`}>
+          <span className={`w-4 h-4 rounded flex items-center justify-center ${hasNutrition?'bg-emerald-500':'border border-gray-300'}`}>{hasNutrition&&<Check className="w-3 h-3 text-white"/>}</span>
+          🥗 Προσθήκη διατροφής{grp?' (χρεώνεται ατομικά)':''}
+        </button>
 
         <div className="grid grid-cols-2 gap-3 mb-5">
           {hasTraining&&<div><label className="text-xs font-medium text-gray-500 uppercase">Προπονήσεις / εβδομάδα</label><input type="number" min="1" value={f.sessions_per_week||''} onChange={e=>set('sessions_per_week',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}

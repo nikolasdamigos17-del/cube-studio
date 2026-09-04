@@ -6,6 +6,20 @@ import { useAppContext } from '../lib/AppContext';
 import { supabaseEnabled } from '../lib/supabaseConfig';
 import { sbSignUp, sbSignIn } from '../lib/supabaseAuth';
 
+function Shell({ children }) {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <div className="flex items-center gap-2 mb-8 justify-center">
+          <div className="w-9 h-9 rounded-xl bg-foreground flex items-center justify-center"><Dumbbell className="w-5 h-5 text-background" strokeWidth={2.5}/></div>
+          <span className="font-bold text-foreground text-lg" style={{ fontFamily:'var(--font-display)' }}>The Cube</span>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function ActivateAccount() {
   const [params] = useSearchParams();
   const clientId = params.get('c') || '';
@@ -52,18 +66,6 @@ export default function ActivateAccount() {
       if (appMode !== 'master') setTimeout(() => loginAsClient({ ...client, ...patch, clientId: client.id }), 1400);
     } catch { setErr('Κάτι πήγε στραβά. Δοκίμασε ξανά.'); setSaving(false); }
   };
-
-  const Shell = ({ children }) => (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <div className="flex items-center gap-2 mb-8 justify-center">
-          <div className="w-9 h-9 rounded-xl bg-foreground flex items-center justify-center"><Dumbbell className="w-5 h-5 text-background" strokeWidth={2.5}/></div>
-          <span className="font-bold text-foreground text-lg" style={{ fontFamily:'var(--font-display)' }}>The Cube</span>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
 
   if (state === 'checking') return <Shell><div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground"/></div></Shell>;
 
