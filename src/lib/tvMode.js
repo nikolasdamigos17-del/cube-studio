@@ -7,7 +7,7 @@ const KEY_ON  = 'cube_tv_mode';
 const KEY_ROT = 'cube_tv_rot';          /* 'cw' | 'ccw' */
 
 export const isTvMode = () => { try { return localStorage.getItem(KEY_ON) === '1'; } catch { return false; } };
-export const setTvMode = (on) => { try { on ? localStorage.setItem(KEY_ON, '1') : localStorage.removeItem(KEY_ON); } catch {} };
+export const setTvMode = (on) => { try { on ? localStorage.setItem(KEY_ON, '1') : localStorage.removeItem(KEY_ON); } catch {} try { window.dispatchEvent(new Event('cube-tv-change')); } catch {} };
 
 export const getTvRotation = () => { try { return localStorage.getItem(KEY_ROT) === 'ccw' ? 'ccw' : 'cw'; } catch { return 'cw'; } };
 export const setTvRotation = (rot) => { try { localStorage.setItem(KEY_ROT, rot === 'ccw' ? 'ccw' : 'cw'); } catch {} };

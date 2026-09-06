@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { portalTarget } from './lib/tvMode';
+import { portalTarget, isTvMode, setTvMode } from './lib/tvMode';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
@@ -59,6 +59,7 @@ function DesktopSettings({ open: sidebarOpen, onHoldOpen }) {
   const { lang, toggle } = useLang();
   const [open, setOpen] = React.useState(false);
   const [apiOpen, setApiOpen] = React.useState(false);
+  const [tvOn, setTvOn] = React.useState(isTvMode());
   const [pos, setPos] = React.useState({ left:74, bottom:16 });
   const btnRef = React.useRef(null);
   const dark = Object.entries(themes).filter(([, t]) => t.group === 'dark');
@@ -138,6 +139,17 @@ function DesktopSettings({ open: sidebarOpen, onHoldOpen }) {
                 <span style={{ position:'absolute', top:3, left: cubeOff ? 21 : 3, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
               </button>
             </div>
+            <div style={{ marginTop:12, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+              <div>
+                <p className="text-[11px] font-bold" style={{ color:'hsl(var(--foreground))', margin:0 }}>📺 Περιστροφή TV</p>
+                <p className="text-[9px]" style={{ color:'hsl(var(--muted-foreground))', margin:0 }}>Portrait για κάθετη οθόνη — αλλιώς landscape</p>
+              </div>
+              <button onClick={() => { const v = !tvOn; setTvMode(v); setTvOn(v); }} aria-pressed={tvOn} title="Περιστροφή TV"
+                style={{ width:42, height:24, borderRadius:999, border:'none', cursor:'pointer', position:'relative', flexShrink:0,
+                  background: tvOn ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground)/0.3)', transition:'background .2s' }}>
+                <span style={{ position:'absolute', top:3, left: tvOn ? 21 : 3, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
+              </button>
+            </div>
             <button onClick={() => { setApiOpen(true); setOpen(false); }}
               style={{ marginTop:12, width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px',
                 borderRadius:12, cursor:'pointer', border:'1px solid hsl(var(--border))', background:'hsl(var(--muted))',
@@ -159,6 +171,7 @@ function BottomBar({ unread, requests }) {
   const { themeName, switchTheme, themes, cubeOff, toggleCubeOff } = useTheme();
   const [moreOpen, setMoreOpen] = useState(false);
   const [apiOpen, setApiOpen] = useState(false);
+  const [tvOn, setTvOn] = useState(isTvMode());
   const [moreTab, setMoreTab] = useState('menu'); // 'menu' | 'settings'
   const { accent, tab: tabActive, idle, idleLabel } = useBarColors();
   const isActive = (path) => loc.pathname === path || (path !== '/' && loc.pathname.startsWith(path));
@@ -277,6 +290,17 @@ function BottomBar({ unread, requests }) {
                     style={{ width:48, height:28, borderRadius:999, border:'none', cursor:'pointer', position:'relative', flexShrink:0,
                       background: cubeOff ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground)/0.3)', transition:'background .2s' }}>
                     <span style={{ position:'absolute', top:3, left: cubeOff ? 23 : 3, width:22, height:22, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
+                  </button>
+                </div>
+                <div style={{ marginTop:14, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+                  <div>
+                    <p className="text-[13px] font-bold" style={{ color:'hsl(var(--foreground))', margin:0 }}>📺 Περιστροφή TV</p>
+                    <p className="text-[11px]" style={{ color:'hsl(var(--muted-foreground))', margin:0 }}>Portrait για κάθετη οθόνη — αλλιώς landscape</p>
+                  </div>
+                  <button onClick={() => { const v = !tvOn; setTvMode(v); setTvOn(v); }} aria-pressed={tvOn} title="Περιστροφή TV"
+                    style={{ width:48, height:28, borderRadius:999, border:'none', cursor:'pointer', position:'relative', flexShrink:0,
+                      background: tvOn ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground)/0.3)', transition:'background .2s' }}>
+                    <span style={{ position:'absolute', top:3, left: tvOn ? 23 : 3, width:22, height:22, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
                   </button>
                 </div>
                 <button onClick={()=>{ setApiOpen(true); setMoreOpen(false); }}
