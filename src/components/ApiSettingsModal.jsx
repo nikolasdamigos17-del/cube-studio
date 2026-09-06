@@ -3,7 +3,7 @@ import { portalTarget } from '../lib/tvMode';
 import { createPortal } from 'react-dom';
 import { Key, Sparkles, Database, Scale, X, Check, Eye, EyeOff, ExternalLink, ChevronDown, Save, ShieldAlert, Copy, Link2, Unplug } from 'lucide-react';
 import { WITHINGS_CLIENT_ID, withingsAuthorizeUrl, withingsCallbackUrl, isWithingsConnected, disconnectWithings } from '../lib/withings';
-import { SUPABASE_URL, SUPABASE_ANON } from '../lib/supabaseConfig';
+import { SUPABASE_URL, SUPABASE_ANON, supabaseEnabled } from '../lib/supabaseConfig';
 
 /* ── Ρυθμίσεις → Ενσωματώσεις & API ──────────────────────────────────────────
    Κλειδιά τοπικά στον browser (localStorage). Το Withings Client SECRET ΔΕΝ
@@ -91,7 +91,7 @@ export default function ApiSettingsModal({ onClose }) {
     wId: get(LS.withings_id) || WITHINGS_CLIENT_ID,
     sUrl: get(LS.supabase_url) || SUPABASE_URL,
     sKey: get(LS.supabase_key) || SUPABASE_ANON,
-    useSb: (typeof localStorage !== 'undefined' && localStorage.getItem('studio_use_supabase') === '1'),
+    useSb: supabaseEnabled(),
   });
   const [saved, setSaved] = useState(false);
   const [howto, setHowto] = useState(false);
@@ -111,8 +111,7 @@ export default function ApiSettingsModal({ onClose }) {
     put(LS.withings_id, v.wId);
     put(LS.supabase_url, v.sUrl);
     put(LS.supabase_key, v.sKey);
-    if (v.useSb) localStorage.setItem('studio_use_supabase', '1');
-    else localStorage.removeItem('studio_use_supabase');
+    localStorage.setItem('studio_use_supabase', v.useSb ? '1' : '0');
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };

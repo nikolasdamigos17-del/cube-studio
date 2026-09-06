@@ -8,7 +8,7 @@ export const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 export const sbUrl  = () => { try { return (localStorage.getItem('supabase_url') || SUPABASE_URL).replace(/\/+$/, ''); } catch { return SUPABASE_URL; } };
 export const sbAnon = () => { try { return localStorage.getItem('supabase_anon_key') || SUPABASE_ANON; } catch { return SUPABASE_ANON; } };
 
-export const supabaseEnabled = () => { try { return localStorage.getItem('studio_use_supabase') === '1'; } catch { return false; } };
+export const supabaseEnabled = () => { try { return localStorage.getItem('studio_use_supabase') !== '0'; } catch { return true; } };
 
 export function sbSession() {
   try { const s = JSON.parse(localStorage.getItem('sb_session') || 'null'); return (s && s.access_token) ? s : null; }

@@ -139,7 +139,7 @@ export default function LoginGate() {
 
             {supabaseEnabled() && (
               <button
-                onClick={() => { try { localStorage.removeItem('studio_use_supabase'); } catch {} window.location.reload(); }}
+                onClick={() => { try { localStorage.setItem('studio_use_supabase','0'); } catch {} window.location.reload(); }}
                 className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-3"
               >
                 Πρόβλημα σύνδεσης; Τοπική λειτουργία

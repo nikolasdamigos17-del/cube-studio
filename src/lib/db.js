@@ -51,7 +51,7 @@ const createEntity = (storeName) => ({
 // Αλλιώς χρησιμοποιείται το τοπικό localStorage — τίποτα δεν σπάει.
 const sbCfg = () => {
   try {
-    const on = localStorage.getItem('studio_use_supabase') === '1';
+    const on = localStorage.getItem('studio_use_supabase') !== '0';
     const url = (localStorage.getItem('supabase_url') || SUPABASE_URL).replace(/\/+$/, '');
     const key = localStorage.getItem('supabase_anon_key') || SUPABASE_ANON;
     return (on && url && key) ? { url, key } : null;
