@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../lib/db';
 import CubeBackground from '../components/CubeBackground';
-import TvFrame from '../components/TvFrame';
 
 /* ── Παλμός palette (ίδιο με Live Training) ── */
 const ACCENT = '#e0457b';
@@ -149,7 +148,7 @@ export default function GroupTraining() {
   );
 
   return (
-    <TvFrame>
+    <>
     <div style={{ ...S.page, background:PULSE_BG }}
       onMouseDown={screen === 'run' ? onMouseDown : undefined}
       onContextMenu={screen === 'run' ? (e)=>e.preventDefault() : undefined}>
@@ -251,6 +250,6 @@ export default function GroupTraining() {
         @media (max-width:560px){ }
       `}</style>
     </div>
-    </TvFrame>
+    </>
   );
 }

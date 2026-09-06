@@ -12,6 +12,9 @@ export const setTvMode = (on) => { try { on ? localStorage.setItem(KEY_ON, '1') 
 export const getTvRotation = () => { try { return localStorage.getItem(KEY_ROT) === 'ccw' ? 'ccw' : 'cw'; } catch { return 'cw'; } };
 export const setTvRotation = (rot) => { try { localStorage.setItem(KEY_ROT, rot === 'ccw' ? 'ccw' : 'cw'); } catch {} };
 
+/* Στόχος για createPortal ώστε τα modals να μπαίνουν ΜΕΣΑ στο περιστρεφόμενο frame */
+export const portalTarget = () => { try { return document.getElementById('portal-root') || document.body; } catch { return document.body; } };
+
 /* ── ?tv=1 / ?tv=0 στο URL (τρέχει μία φορά στο load, side-effect κάτω) ── */
 export function applyTvParamFromUrl() {
   try {
@@ -19,7 +22,7 @@ export function applyTvParamFromUrl() {
     if (p === null) return;
     setTvMode(p === '1' || p === 'true');
     toast(p === '1' || p === 'true'
-      ? '📺 TV mode ενεργό — το Live Training θα γυρίσει σε portrait'
+      ? '📺 TV mode ενεργό — η εφαρμογή θα γυρίσει σε portrait'
       : 'TV mode απενεργοποιήθηκε');
   } catch {}
 }

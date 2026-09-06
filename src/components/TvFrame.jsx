@@ -75,6 +75,7 @@ export default function TvFrame({ children }) {
       </div>
 
       {keyTest && <KeyTest onClose={() => setKeyTest(false)} />}
+      <div id="portal-root" />
     </div>
   );
 }

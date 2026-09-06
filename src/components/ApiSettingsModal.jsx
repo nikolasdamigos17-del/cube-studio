@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { portalTarget } from '../lib/tvMode';
 import { createPortal } from 'react-dom';
 import { Key, Sparkles, Database, Scale, X, Check, Eye, EyeOff, ExternalLink, ChevronDown, Save, ShieldAlert, Copy, Link2, Unplug } from 'lucide-react';
 import { WITHINGS_CLIENT_ID, withingsAuthorizeUrl, withingsCallbackUrl, isWithingsConnected, disconnectWithings } from '../lib/withings';
@@ -265,6 +266,6 @@ export default function ApiSettingsModal({ onClose }) {
         </div>
       </div>
     </div>,
-    document.body
+    portalTarget()
   );
 }

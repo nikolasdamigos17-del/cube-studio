@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { portalTarget } from '../../lib/tvMode';
 import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import { Home, Dumbbell, Salad, BarChart2, CreditCard, MessageCircle, LogOut, Sun, Moon, ChevronDown, Check, MoreHorizontal, Settings, Globe } from 'lucide-react';
@@ -291,7 +292,7 @@ export default function ClientLayout({ children, title }) {
               </button>
           </BarbellNav>
         </BarbellDock>
-        </>, document.body)}
+        </>, portalTarget())}
       </div>
     );
   }

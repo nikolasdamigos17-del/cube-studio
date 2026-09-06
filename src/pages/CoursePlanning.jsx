@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, X, Lock, Loader2, Target, Leaf, Utensils, Scale, Plus, Sparkles, Home, Dumbbell, TrendingUp, Wallet, MessageCircle } from 'lucide-react';
 import { db } from '../lib/db';
-import { isWithingsConnected, syncWithingsToClient } from '../lib/withings';
+import { isWithingsConnected, saveWithingsMeasureToClient } from '../lib/withings';
+import { calcBodyStats } from '../lib/bodyCalc';
+import WithingsPicker from '../components/WithingsPicker';
 
 /* ═══════════ Στατικά δεδομένα ═══════════ */
 
@@ -80,6 +82,7 @@ export default function CoursePlanning() {
   const [goalType, setGoalType] = useState('');
   const [targetWeight, setTargetWeight] = useState('');
   const [goalNotes, setGoalNotes] = useState('');
+  const [heightCm, setHeightCm] = useState('');
 
   /* βήμα 2 — προφίλ */
   const [flags, setFlags] = useState({ vegetarian:false, vegan:false, lactose_free:false, nut_allergy:false });
@@ -96,6 +99,7 @@ export default function CoursePlanning() {
   /* βήμα 4 — μέτρηση */
   const startRef = useRef(new Date().toISOString());
   const [captured, setCaptured] = useState(null);
+  const [wPick, setWPick] = useState(false);
   const [skipMeasure, setSkipMeasure] = useState(false);
   const [manual, setManual] = useState({ weight_kg:'', body_fat_pct:'', muscle_mass_kg:'', body_water_pct:'' });
   const [manualOpen, setManualOpen] = useState(false);
@@ -107,6 +111,7 @@ export default function CoursePlanning() {
     if (!clientId) return;
     const [c, profs] = await Promise.all([db.Client.get(clientId), db.NutritionProfile.filter({ client_id: clientId })]);
     setClient(c);
+    if (c?.height_cm || c?.height) setHeightCm(String(c.height_cm || c.height));
     const p = profs[0];
     if (p) {
       setExisting(p);
@@ -173,6 +178,8 @@ export default function CoursePlanning() {
       skipped_measurement: !captured && skipMeasure ? true : false,
       setup_completed: true,
     };
+    const hVal = parseFloat(heightCm);
+    if (hVal > 0) { try { await db.Client.update(clientId, { height_cm: hVal, height: hVal }); } catch {} }
     if (existing?.id) await db.NutritionProfile.update(existing.id, payload);
     else await db.NutritionProfile.create(payload);
     setSaving(false);
@@ -263,7 +270,11 @@ export default function CoursePlanning() {
                 ))}
               </div>
             </div>
-            <div style={{ ...S.card, display:'grid', gridTemplateColumns:'180px 1fr', gap:16 }}>
+            <div style={{ ...S.card, display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:16 }}>
+              <div>
+                <p style={{ ...S.lbl, marginBottom:8 }}>Ύψος (cm)</p>
+                <input style={S.inp} type="number" step="1" value={heightCm} onChange={e=>setHeightCm(e.target.value)} placeholder="π.χ. 178"/>
+              </div>
               <div>
                 <p style={{ ...S.lbl, marginBottom:8 }}>Στόχος βάρους (kg)</p>
                 <input style={S.inp} type="number" step="0.5" value={targetWeight} onChange={e=>setTargetWeight(e.target.value)} placeholder="προαιρετικό"/>
@@ -390,8 +401,10 @@ export default function CoursePlanning() {
                 <p style={{ ...S.dim, fontSize:13, margin:'0 auto', maxWidth:420 }}>Κάνε τη ζύγιση στη ζυγαριά Withings — μόλις καταχωρηθεί νέα μέτρηση για τον/την {client.name?.split(' ')[0]}, θα εμφανιστεί εδώ αυτόματα.</p>
                 <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:22, flexWrap:'wrap' }}>
                   {isWithingsConnected() && (
-                    <button onClick={async()=>{ try{ const rec=await syncWithingsToClient(db, clientId); setCaptured(rec); }catch(e){ alert(String(e.message||e)); } }} style={S.btn(true)}>Λήψη από Withings</button>
+                    <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
                   )}
+                  {wPick && <WithingsPicker onClose={()=>setWPick(false)}
+                    onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m, calcBodyStats(client, m.weight)); setCaptured(rec); setWPick(false); }}/>}
                   <button onClick={()=>setManualOpen(v=>!v)} style={S.btn(false)}>Χειροκίνητη καταχώρηση</button>
                   <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontSize:12.5, color:'rgba(255,255,255,0.5)', cursor:'pointer' }}>
                     <input type="checkbox" checked={skipMeasure} onChange={e=>setSkipMeasure(e.target.checked)}/> Παράλειψη για τώρα

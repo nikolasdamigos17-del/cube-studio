@@ -4,7 +4,6 @@ import { addCredit, getBalance, addGroupCredit, getGroupTrainingBalance } from '
 import { useLocation, useNavigate } from 'react-router-dom';
 import { EQUIPMENT } from '../lib/gymEquipment';
 import CubeBackground from '../components/CubeBackground';
-import TvFrame from '../components/TvFrame';
 
 /* ── audio ────────────────────────────────────────────────────────────── */
 const beep = (freq = 880, dur = .18, vol = .4) => {
@@ -468,14 +467,14 @@ export default function LiveTraining() {
   }, [screen, addRep, undoRep, endSet, nav]);
 
   if (!plan) return (
-    <TvFrame>
+    <>
     <div style={{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', gap:16,
       alignItems:'center', justifyContent:'center', position:'relative', zIndex:1 }}>
       <p style={{ color:'#fff' }}>Δεν επιλέχθηκε πλάνο.</p>
       <button onClick={() => nav(-1)} style={{ padding:'10px 24px', borderRadius:10, border:'none',
         background:ACCENT, color:'#04140a', cursor:'pointer', fontWeight:700 }}>Πίσω</button>
     </div>
-    </TvFrame>
+    </>
   );
 
   const totals = {
@@ -490,7 +489,7 @@ export default function LiveTraining() {
   };
 
   return (
-    <TvFrame>
+    <>
     <div style={{ minHeight:'var(--lt-vh, 100vh)', position:'relative', overflowX:'hidden' }}>
       <CubeBackground/>
       <div style={{ position:'fixed', inset:0, zIndex:0, background:'rgba(0,0,0,.62)', pointerEvents:'none' }}/>
@@ -634,6 +633,6 @@ export default function LiveTraining() {
         @keyframes ltFade{from{opacity:0}to{opacity:1}}
       `}</style>
     </div>
-    </TvFrame>
+    </>
   );
 }

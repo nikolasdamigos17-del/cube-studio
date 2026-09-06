@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { portalTarget } from './lib/tvMode';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/logo-cube.png';
@@ -145,7 +146,7 @@ function DesktopSettings({ open: sidebarOpen, onHoldOpen }) {
               <span style={{ fontSize:12.5, fontWeight:700 }}>Ενσωματώσεις / API</span>
             </button>
           </div>
-        </>, document.body)}
+        </>, portalTarget())}
       {apiOpen && <ApiSettingsModal onClose={() => setApiOpen(false)} />}
     </>
   );
@@ -333,7 +334,7 @@ function BottomBar({ unread, requests }) {
         </BarbellNav>
       </BarbellDock>
     </>,
-    document.body
+    portalTarget()
   );
 }
 

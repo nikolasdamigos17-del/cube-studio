@@ -71,6 +71,39 @@ async function getValidAccessToken() {
 /* meastype → πεδίο. 1=βάρος, 6=λίπος%, 76=μυϊκή μάζα, 77=νερό%, 88=οστά, 5=άλιπη, 8=λίπος(kg) */
 const MT = { 1: 'weight', 6: 'fat_pct', 76: 'muscle', 77: 'water', 88: 'bone', 5: 'fat_free', 8: 'fat_mass' };
 
+function parseGrp(g) {
+  const out = { date: g.date * 1000 };
+  for (const m of (g.measures || [])) { const k = MT[m.type]; if (k) out[k] = +(m.value * Math.pow(10, m.unit)).toFixed(1); }
+  return out;
+}
+
+/* Οι πιο πρόσφατες ζυγίσεις (για επιλογή από τον trainer). */
+export async function fetchRecentWithingsMeasures(limit = 6) {
+  const access_token = await getValidAccessToken();
+  const r = await fetch('/api/withings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'measure', access_token, meastypes: '1,5,6,8,76,77,88', category: 1 }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (j.status !== 0) throw new Error('Withings measure error (status ' + j.status + ')');
+  const grps = (j.body?.measuregrps || []).slice().sort((a, b) => b.date - a.date);
+  return grps.map(parseGrp).filter(m => m.weight != null).slice(0, limit);
+}
+
+/* Αποθήκευση ΣΥΓΚΕΚΡΙΜΕΝΗΣ ζύγισης στον πελάτη (+ extra π.χ. bmi/bmr). */
+export async function saveWithingsMeasureToClient(db, clientId, m, extra = {}) {
+  return db.ClientProgress.create({
+    client_id: clientId,
+    date: new Date(m.date || Date.now()).toISOString().split('T')[0],
+    weight_kg: m.weight,
+    body_fat_pct: m.fat_pct ?? null,
+    muscle_mass_kg: m.muscle ?? null,
+    body_water_pct: m.water ?? null,
+    source: 'withings',
+    ...extra,
+  });
+}
+
 /* Πιο πρόσφατη μέτρηση (προαιρετικά μόνο μετά από sinceMs). */
 export async function fetchLatestWithingsMeasure(sinceMs) {
   const access_token = await getValidAccessToken();
