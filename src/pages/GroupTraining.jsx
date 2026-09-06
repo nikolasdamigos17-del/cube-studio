@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../lib/db';
 import CubeBackground from '../components/CubeBackground';
+import TvFrame from '../components/TvFrame';
 
 /* ── Παλμός palette (ίδιο με Live Training) ── */
 const ACCENT = '#e0457b';
@@ -77,8 +78,8 @@ export default function GroupTraining() {
   };
 
   const S = {
-    page:{ minHeight:'100vh', position:'relative', overflowX:'hidden', color:'#f3ecff', fontFamily:'var(--cp-font, "Space Grotesk", sans-serif)' },
-    center:{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 20px', position:'relative', zIndex:1, textAlign:'center' },
+    page:{ minHeight:'var(--lt-vh, 100vh)', position:'relative', overflowX:'hidden', color:'#f3ecff', fontFamily:'var(--cp-font, "Space Grotesk", sans-serif)' },
+    center:{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 20px', position:'relative', zIndex:1, textAlign:'center' },
     kicker:{ fontSize:10.5, letterSpacing:'.3em', textTransform:'uppercase', color:'rgba(224,69,123,.9)', fontWeight:700, margin:0 },
     cta:(bg)=>({ border:'none', borderRadius:15, padding:'15px 30px', fontSize:15, fontWeight:800, cursor:'pointer', color:'#fff', fontFamily:'inherit',
       background: bg || 'linear-gradient(180deg,#e0457b,#b52f78)', boxShadow:'0 6px 26px rgba(224,69,123,.4)' }),
@@ -148,6 +149,7 @@ export default function GroupTraining() {
   );
 
   return (
+    <TvFrame>
     <div style={{ ...S.page, background:PULSE_BG }}
       onMouseDown={screen === 'run' ? onMouseDown : undefined}
       onContextMenu={screen === 'run' ? (e)=>e.preventDefault() : undefined}>
@@ -198,7 +200,7 @@ export default function GroupTraining() {
 
       {/* ── RUN (δύο προπονήσεις δίπλα-δίπλα + χρονόμετρα) ── */}
       {screen === 'run' && (
-        <div style={{ position:'relative', zIndex:1, minHeight:'100vh', display:'flex', flexDirection:'column', userSelect:'none' }}>
+        <div style={{ position:'relative', zIndex:1, minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', userSelect:'none' }}>
           <div style={{ display:'flex', flex:1, alignItems:'stretch' }}>
             <Column i={0}/>
             <div style={{ width:1, background:'linear-gradient(180deg, transparent, rgba(224,69,123,.5), rgba(139,92,246,.5), transparent)', flexShrink:0 }}/>
@@ -249,5 +251,6 @@ export default function GroupTraining() {
         @media (max-width:560px){ }
       `}</style>
     </div>
+    </TvFrame>
   );
 }

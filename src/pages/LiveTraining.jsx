@@ -4,6 +4,7 @@ import { addCredit, getBalance, addGroupCredit, getGroupTrainingBalance } from '
 import { useLocation, useNavigate } from 'react-router-dom';
 import { EQUIPMENT } from '../lib/gymEquipment';
 import CubeBackground from '../components/CubeBackground';
+import TvFrame from '../components/TvFrame';
 
 /* ── audio ────────────────────────────────────────────────────────────── */
 const beep = (freq = 880, dur = .18, vol = .4) => {
@@ -195,7 +196,7 @@ function Welcome({ plan, clientName, onStart }) {
   const reps = exs.reduce((s, e) => s + setsOf(e).reduce((x, d) => x + repTargetOf(d), 0), 0);
   const eq = [...new Set(exs.map(e => e.eq).filter(Boolean))];
   return (
-    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', justifyContent:'center',
+    <div style={{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', justifyContent:'center',
       alignItems:'center', padding:'32px 20px', position:'relative', zIndex:1, textAlign:'center' }}>
       <div style={{ maxWidth:440, width:'100%' }}>
         <p style={{ fontSize:10, letterSpacing:'.24em', textTransform:'uppercase',
@@ -245,7 +246,7 @@ function ResultsReview({ draft, onEdit, onConfirm, saving }) {
   const inp = { width:'100%', background:'rgba(0,0,0,.5)', border:'1px solid rgba(255,255,255,.16)', borderRadius:9,
     color:'#fff', padding:'7px 6px', fontSize:14, fontWeight:700, textAlign:'center', fontFamily:'inherit', outline:'none' };
   return (
-    <div style={{ minHeight:'100vh', position:'relative', zIndex:1, padding:'30px 16px 44px', maxWidth:600, margin:'0 auto' }}>
+    <div style={{ minHeight:'var(--lt-vh, 100vh)', position:'relative', zIndex:1, padding:'30px 16px 44px', maxWidth:600, margin:'0 auto' }}>
       <p style={{ fontSize:10, letterSpacing:'.3em', color:ACCENT, fontWeight:800, textTransform:'uppercase', margin:'0 0 8px' }}>Αποτελέσματα προπόνησης</p>
       <h1 style={{ fontSize:23, fontWeight:800, color:'#fff', margin:'0 0 6px', fontFamily:'var(--cp-font)' }}>Έλεγχος πριν την αποθήκευση</h1>
       <p style={{ fontSize:12.5, color:'rgba(255,255,255,.5)', margin:'0 0 20px' }}>Αν κάτι δεν ισχύει, διόρθωσε επαναλήψεις ή κιλά — μετά πάτησε Επιβεβαίωση.</p>
@@ -286,7 +287,7 @@ function ResultsReview({ draft, onEdit, onConfirm, saving }) {
 /* ── finish ───────────────────────────────────────────────────────────── */
 function Finish({ plan, clientName, totals, deduction, onClose }) {
   return (
-    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', justifyContent:'center',
+    <div style={{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', justifyContent:'center',
       alignItems:'center', padding:'40px 20px', position:'relative', zIndex:1, textAlign:'center' }}>
       <div style={{ maxWidth:400, width:'100%' }}>
         <div style={{ fontSize:56, marginBottom:10 }}>🏆</div>
@@ -458,7 +459,7 @@ export default function LiveTraining() {
       }
       if (screen !== 'run') { if (e.key === 'Escape') nav(-1); return; }
       if (['ArrowUp', 'ArrowRight', ' '].includes(e.key)) { e.preventDefault(); addRep(); }
-      if (['ArrowDown', 'ArrowLeft'].includes(e.key)) { e.preventDefault(); undoRep(); }
+      if (['ArrowDown', 'ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); undoRep(); }
       if (['Enter', 'PageDown'].includes(e.key)) { e.preventDefault(); endSet(); }
       if (e.key === 'Escape') nav(-1);
     };
@@ -467,12 +468,14 @@ export default function LiveTraining() {
   }, [screen, addRep, undoRep, endSet, nav]);
 
   if (!plan) return (
-    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', gap:16,
+    <TvFrame>
+    <div style={{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', gap:16,
       alignItems:'center', justifyContent:'center', position:'relative', zIndex:1 }}>
       <p style={{ color:'#fff' }}>Δεν επιλέχθηκε πλάνο.</p>
       <button onClick={() => nav(-1)} style={{ padding:'10px 24px', borderRadius:10, border:'none',
         background:ACCENT, color:'#04140a', cursor:'pointer', fontWeight:700 }}>Πίσω</button>
     </div>
+    </TvFrame>
   );
 
   const totals = {
@@ -487,7 +490,8 @@ export default function LiveTraining() {
   };
 
   return (
-    <div style={{ minHeight:'100vh', position:'relative', overflowX:'hidden' }}>
+    <TvFrame>
+    <div style={{ minHeight:'var(--lt-vh, 100vh)', position:'relative', overflowX:'hidden' }}>
       <CubeBackground/>
       <div style={{ position:'fixed', inset:0, zIndex:0, background:'rgba(0,0,0,.62)', pointerEvents:'none' }}/>
 
@@ -503,7 +507,7 @@ export default function LiveTraining() {
       )}
 
       {screen === 'run' && ex && (
-        <div style={{ position:'relative', zIndex:1, minHeight:'100vh', display:'flex',
+        <div style={{ position:'relative', zIndex:1, minHeight:'var(--lt-vh, 100vh)', display:'flex',
           flexDirection:'column', padding:'14px 16px 0', background:PULSE_BG }}>
 
           {/* ── 1. every exercise with its set dots ── */}
@@ -630,5 +634,6 @@ export default function LiveTraining() {
         @keyframes ltFade{from{opacity:0}to{opacity:1}}
       `}</style>
     </div>
+    </TvFrame>
   );
 }
