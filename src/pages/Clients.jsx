@@ -17,6 +17,7 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
     services: forGroup ? 'group_training' : 'personal_training',
     sessions_per_week:3, nutrition_meetings_per_month:2, monthly_price:'', active:true });
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
   const [savedId, setSavedId] = useState(null);
   const [inviting, setInviting] = useState(false);
   const [inviteInfo, setInviteInfo] = useState(null);
@@ -27,7 +28,7 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
   const hasNutrition = ['nutrition_only','personal_training_nutrition','group_training_nutrition'].includes(f.services);
   const setTraining = (t) => { const base = t === 'group' ? 'group_training' : 'personal_training'; set('services', hasNutrition ? base + '_nutrition' : base); };
   const toggleNutrition = () => { const base = grp ? 'group_training' : 'personal_training'; set('services', hasNutrition ? base : base + '_nutrition'); };
-  const save = async () => {
+  const save = async () => { setErr(''); try {
     setSaving(true);
     const payload = { ...f };
     if (!client?.id) {
@@ -48,9 +49,9 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
       onClose(); onSaved(); onGroupClient(created); return;
     }
     onSaved(); onClose();
-  };
+  } catch (e) { setErr('Η αποθήκευση απέτυχε: ' + String(e?.message || e)); setSaving(false); } };
 
-  const sendInvite = async () => {
+  const sendInvite = async () => { setErr(''); try {
     if (!f.email || !f.email.trim()) { alert('Βάλε πρώτα το email του πελάτη.'); return; }
     setInviting(true);
     let id = client?.id || savedId;
@@ -70,7 +71,7 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
     const c = { id, ...f, ...patch };
     setInviteInfo({ link: activationLink(c), mailto: inviteMailto(c), email: f.email.trim() });
     setInviting(false);
-  };
+  } catch (e) { setErr('Η πρόσκληση απέτυχε: ' + String(e?.message || e)); setInviting(false); } };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -137,6 +138,7 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
 
         {!client&&<p className="text-[11px] text-gray-400 mb-4">Χρώμα προφίλ & κωδικός portal δημιουργούνται αυτόματα. Στόχος, μετρήσεις και διατροφικό προφίλ ορίζονται στο Course Planning — όχι εδώ.</p>}
 
+        {err && <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">{err}</div>}
         <div className="flex gap-2">
           <button onClick={onClose} className="btn btn-secondary flex-1">Άκυρο</button>
           <button onClick={save} disabled={saving||!f.name} className="btn btn-primary flex-1">{saving?'Αποθήκευση…':client?'Αποθήκευση':'Εγγραφή πελάτη'}</button>

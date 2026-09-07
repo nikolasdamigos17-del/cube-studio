@@ -1,4 +1,5 @@
 import { SUPABASE_URL, SUPABASE_ANON, sbAccessToken } from './supabaseConfig';
+import { sbEnsureFresh } from './supabaseAuth';
 const generateId = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 const getStore = (key) => { try { const d = localStorage.getItem(`studio_${key}`); return d ? JSON.parse(d) : []; } catch { return []; } };
 const setStore = (key, data) => { try { localStorage.setItem(`studio_${key}`, JSON.stringify(data)); } catch {} };
@@ -62,6 +63,7 @@ const sbHeaders = (extra = {}) => {
   const token = sbAccessToken() || key; // token συνδεδεμένου χρήστη → περνά το RLS
   return { apikey: key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...extra };
 };
+const sbReady = () => sbEnsureFresh().catch(() => {}); // ανανέωση token αν έληξε, πριν από κάθε αίτημα
 const sbBase = (table) => `${sbCfg().url}/rest/v1/studio_${table}`;
 
 const createSupabaseEntity = (storeName) => {
@@ -70,6 +72,7 @@ const createSupabaseEntity = (storeName) => {
     return [...arr].sort((a, b) => { const av = a[field] || ''; const bv = b[field] || ''; return asc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1); });
   };
   const all = async () => {
+    await sbReady();
     const r = await fetch(sbBase(storeName) + '?select=doc&limit=10000', { headers: sbHeaders() });
     if (!r.ok) throw new Error('Supabase list ' + storeName + ' ' + r.status);
     return (await r.json()).map(x => x.doc);
@@ -81,6 +84,7 @@ const createSupabaseEntity = (storeName) => {
       return sortDocs(items, sortField).slice(0, limit);
     },
     create: async (data) => {
+      await sbReady();
       const now = new Date().toISOString();
       const rec = { ...data, id: generateId(), created_date: now, updated_date: now };
       const r = await fetch(sbBase(storeName), { method: 'POST', headers: sbHeaders({ Prefer: 'return=minimal' }),
@@ -89,6 +93,7 @@ const createSupabaseEntity = (storeName) => {
       return rec;
     },
     update: async (id, data) => {
+      await sbReady();
       const cr = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}&select=doc&limit=1`, { headers: sbHeaders() });
       const cur = (await cr.json())[0]?.doc || {};
       const now = new Date().toISOString();
@@ -99,11 +104,12 @@ const createSupabaseEntity = (storeName) => {
       return merged;
     },
     delete: async (id) => {
+      await sbReady();
       const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: sbHeaders({ Prefer: 'return=minimal' }) });
       if (!r.ok) throw new Error('Supabase delete ' + storeName + ' ' + r.status);
       return { success: true };
     },
-    get: async (id) => { const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}&select=doc&limit=1`, { headers: sbHeaders() }); return (await r.json())[0]?.doc || null; },
+    get: async (id) => { await sbReady(); const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}&select=doc&limit=1`, { headers: sbHeaders() }); return (await r.json())[0]?.doc || null; },
     subscribe: () => () => {},
   };
 };
