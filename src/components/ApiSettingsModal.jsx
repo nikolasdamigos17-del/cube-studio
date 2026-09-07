@@ -91,7 +91,6 @@ export default function ApiSettingsModal({ onClose }) {
     wId: get(LS.withings_id) || WITHINGS_CLIENT_ID,
     sUrl: get(LS.supabase_url) || SUPABASE_URL,
     sKey: get(LS.supabase_key) || SUPABASE_ANON,
-    useSb: (typeof localStorage !== 'undefined' && localStorage.getItem('studio_use_supabase') === '1'),
   });
   const [saved, setSaved] = useState(false);
   const [howto, setHowto] = useState(false);
@@ -111,8 +110,6 @@ export default function ApiSettingsModal({ onClose }) {
     put(LS.withings_id, v.wId);
     put(LS.supabase_url, v.sUrl);
     put(LS.supabase_key, v.sKey);
-    if (v.useSb) localStorage.setItem('studio_use_supabase', '1');
-    else localStorage.removeItem('studio_use_supabase');
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -225,30 +222,11 @@ export default function ApiSettingsModal({ onClose }) {
 
           {/* Supabase */}
           <Section icon={Database} tint={VIOLET} title="Supabase (cloud βάση δεδομένων)"
-            subtitle="Cloud αποθήκευση αντί για τοπική. Χρειάζεται URL + key ΚΑΙ εκτέλεση του schema (supabase-schema.sql)."
-            badge={<StatusDot ok={v.useSb} okLabel="Ενεργό" offLabel="Ανενεργό"/>}>
+            subtitle="Η βάση δεδομένων της εφαρμογής — πάντα ενεργή σε όλες τις συσκευές."
+            badge={<StatusDot ok={true} okLabel="Ενεργό" offLabel="Ενεργό"/>}>
             <Field label="Project URL" mono value={v.sUrl} onChange={val => set('sUrl', val)} placeholder="https://xxxx.supabase.co" />
             <Field label="anon / public key" secret mono value={v.sKey} onChange={val => set('sKey', val)} placeholder="eyJhbGci..." />
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginTop:4, padding:'11px 13px',
-              borderRadius:12, background:'hsl(var(--muted))' }}>
-              <div style={{ minWidth:0 }}>
-                <p style={{ margin:0, fontSize:13, fontWeight:800, color:'hsl(var(--foreground))' }}>Χρήση Supabase ως βάση</p>
-                <p style={{ margin:'2px 0 0', fontSize:11, color:'hsl(var(--muted-foreground))' }}>Απενεργό = τοπική αποθήκευση (ασφαλές). Χρειάζεται reload μετά την αλλαγή.</p>
-              </div>
-              <button onClick={() => set('useSb', !v.useSb)} aria-pressed={v.useSb}
-                style={{ width:46, height:26, borderRadius:999, border:'none', cursor:'pointer', position:'relative', flexShrink:0,
-                  background: v.useSb ? TEAL : 'hsl(var(--muted-foreground)/0.35)', transition:'background .2s' }}>
-                <span style={{ position:'absolute', top:3, left: v.useSb ? 23 : 3, width:20, height:20, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.3)' }}/>
-              </button>
-            </div>
-            {v.useSb && (
-              <div style={{ display:'flex', gap:9, alignItems:'flex-start', marginTop:12, padding:'10px 12px', borderRadius:11, background:`${VIOLET}12`, border:`1px solid ${VIOLET}33` }}>
-                <ShieldAlert size={15} style={{ color:VIOLET, flexShrink:0, marginTop:1 }}/>
-                <p style={{ margin:0, fontSize:11, lineHeight:1.5, color:'hsl(var(--foreground))' }}>
-                  Μόλις πατήσεις Αποθήκευση, κάνε <b>Reload</b> τη σελίδα για να ενεργοποιηθεί. Αν κάτι δεν παίζει, σβήσε τον διακόπτη → επιστρέφεις στην τοπική αποθήκευση.
-                </p>
-              </div>
-            )}
+
           </Section>
         </div>
 

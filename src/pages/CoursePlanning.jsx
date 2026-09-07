@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, X, Lock, Loader2, Target, Leaf, Utensils, Scale, Plus, Sparkles, Home, Dumbbell, TrendingUp, Wallet, MessageCircle } from 'lucide-react';
 import { db } from '../lib/db';
 import { isWithingsConnected, saveWithingsMeasureToClient } from '../lib/withings';
-import { calcBodyStats } from '../lib/bodyCalc';
 import WithingsPicker from '../components/WithingsPicker';
 
 /* ═══════════ Στατικά δεδομένα ═══════════ */
@@ -404,7 +403,7 @@ export default function CoursePlanning() {
                     <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
                   )}
                   {wPick && <WithingsPicker onClose={()=>setWPick(false)}
-                    onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m, calcBodyStats(client, m.weight)); setCaptured(rec); setWPick(false); }}/>}
+                    onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m); setCaptured(rec); setWPick(false); }}/>}
                   <button onClick={()=>setManualOpen(v=>!v)} style={S.btn(false)}>Χειροκίνητη καταχώρηση</button>
                   <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontSize:12.5, color:'rgba(255,255,255,0.5)', cursor:'pointer' }}>
                     <input type="checkbox" checked={skipMeasure} onChange={e=>setSkipMeasure(e.target.checked)}/> Παράλειψη για τώρα

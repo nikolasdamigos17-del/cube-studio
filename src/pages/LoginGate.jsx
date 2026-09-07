@@ -4,11 +4,9 @@ import { Dumbbell, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAppContext } from '../lib/AppContext';
 import { useLang } from '../lib/LangContext';
 import { db } from '../lib/db';
-import { supabaseEnabled } from '../lib/supabaseConfig';
 import { sbSignIn } from '../lib/supabaseAuth';
 
 const MASTER_EMAIL = 'nikolasdamigos17@gmail.com';
-const MASTER_PASSWORD = 'neymarlol12';
 
 export default function LoginGate() {
   const { loginAsMaster, loginAsClient } = useAppContext();
@@ -25,48 +23,20 @@ export default function LoginGate() {
     setLoading(true); setErr('');
     await new Promise(r => setTimeout(r, 400));
 
-    // ── Supabase mode: κανονικό Auth ──────────────────────────────────────────
-    if (supabaseEnabled()) {
-      const key = email.trim().toLowerCase();
-      try {
-        await sbSignIn(key, password);
-      } catch (e) { setErr(e.message || 'Λάθος email ή κωδικός.'); setLoading(false); return; }
-      // Ρόλος: προπονητής (master email) ή πελάτης (ταιριάζει σε καρτέλα)
-      if (key === MASTER_EMAIL.toLowerCase()) { loginAsMaster(); return; }
-      try {
-        const clients = await db.Client.list('name');
-        const match = clients.find(c =>
-          (c.portal_email || '').trim().toLowerCase() === key || (c.email || '').trim().toLowerCase() === key);
-        if (match) { loginAsClient({ ...match, clientId: match.id }); return; }
-        setErr('Ο λογαριασμός δεν αντιστοιχεί σε προπονητή ή πελάτη.');
-      } catch (e) { setErr('Σφάλμα ανάγνωσης δεδομένων: ' + (e.message || e)); }
-      setLoading(false);
-      return;
-    }
-
-    // Trainer (master)
-    if (email.trim().toLowerCase() === MASTER_EMAIL.toLowerCase() && password === MASTER_PASSWORD) {
-      loginAsMaster();
-      return;
-    }
-
-    // Client
+    // ── Supabase Auth — ο μοναδικός τρόπος σύνδεσης ──────────────────────────
+    const key = email.trim().toLowerCase();
+    try {
+      await sbSignIn(key, password);
+    } catch (e) { setErr(e.message || 'Λάθος email ή κωδικός.'); setLoading(false); return; }
+    // Ρόλος: προπονητής (master email) ή πελάτης (ταιριάζει σε καρτέλα)
+    if (key === MASTER_EMAIL.toLowerCase()) { loginAsMaster(); return; }
     try {
       const clients = await db.Client.list('name');
-      const key = email.trim().toLowerCase();
       const match = clients.find(c =>
-        ((c.portal_email || '').trim().toLowerCase() === key || (c.email || '').trim().toLowerCase() === key) &&
-        c.portal_password === password
-      );
+        (c.portal_email || '').trim().toLowerCase() === key || (c.email || '').trim().toLowerCase() === key);
       if (match) { loginAsClient({ ...match, clientId: match.id }); return; }
-    } catch (e) {
-      console.error('Login error:', e);
-      setErr('Σφάλμα σύνδεσης. Δοκίμασε ξανά.');
-      setLoading(false);
-      return;
-    }
-
-    setErr('Λάθος email ή κωδικός. Δοκίμασε ξανά.');
+      setErr('Ο λογαριασμός δεν αντιστοιχεί σε προπονητή ή πελάτη.');
+    } catch (e) { setErr('Σφάλμα ανάγνωσης δεδομένων: ' + (e.message || e)); }
     setLoading(false);
   };
 
@@ -137,14 +107,6 @@ export default function LoginGate() {
               {loading ? <><Loader2 className="w-4 h-4 animate-spin" />{tr('login_signing')}</> : tr('login_btn')}
             </button>
 
-            {supabaseEnabled() && (
-              <button
-                onClick={() => { try { localStorage.removeItem('studio_use_supabase'); } catch {} window.location.reload(); }}
-                className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-3"
-              >
-                Πρόβλημα σύνδεσης; Τοπική λειτουργία
-              </button>
-            )}
           </div>
         </div>
       </div>

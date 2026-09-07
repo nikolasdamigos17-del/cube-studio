@@ -21,6 +21,13 @@ export default function TvFrame({ children }) {
   const [fs, setFs] = useState(false);
 
   useEffect(() => {
+    const sync = () => { setTvOn(isTvMode()); setRot(getTvRotation()); setVp({ w: window.innerWidth, h: window.innerHeight }); };
+    window.addEventListener('cube-tv-change', sync);
+    window.addEventListener('storage', sync);
+    return () => { window.removeEventListener('cube-tv-change', sync); window.removeEventListener('storage', sync); };
+  }, []);
+
+  useEffect(() => {
     if (!tvOn) return;
     const onR = () => setVp({ w: window.innerWidth, h: window.innerHeight });
     const onF = () => setFs(!!document.fullscreenElement);

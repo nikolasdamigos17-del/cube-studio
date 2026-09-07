@@ -51,13 +51,12 @@ const createEntity = (storeName) => ({
 // Αλλιώς χρησιμοποιείται το τοπικό localStorage — τίποτα δεν σπάει.
 const sbCfg = () => {
   try {
-    const on = localStorage.getItem('studio_use_supabase') === '1';
     const url = (localStorage.getItem('supabase_url') || SUPABASE_URL).replace(/\/+$/, '');
     const key = localStorage.getItem('supabase_anon_key') || SUPABASE_ANON;
-    return (on && url && key) ? { url, key } : null;
-  } catch { return null; }
+    return { url, key };
+  } catch { return { url: SUPABASE_URL, key: SUPABASE_ANON }; }
 };
-export const USE_SUPABASE = !!sbCfg();
+export const USE_SUPABASE = true; // υποχρεωτικά Supabase — χωρίς τοπική λειτουργία
 const sbHeaders = (extra = {}) => {
   const { key } = sbCfg();
   const token = sbAccessToken() || key; // token συνδεδεμένου χρήστη → περνά το RLS

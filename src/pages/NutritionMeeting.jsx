@@ -5,7 +5,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Minus, ArrowLeft, ArrowRight, Loader2, Scale, RotateCcw, Pencil, Plus, CalendarDays, Clock } from 'lucide-react';
 import { db, callAI } from '../lib/db';
 import { isWithingsConnected, saveWithingsMeasureToClient } from '../lib/withings';
-import { calcBodyStats, bmiLabel } from '../lib/bodyCalc';
 import WithingsPicker from '../components/WithingsPicker';
 
 /* ═══════════════ Σταθερά ═══════════════ */
@@ -723,7 +722,7 @@ const loadRecipes = async () => {
     const mtg = await db.NutritionMeeting.create({
       client_id: clientId, client_name: client.name, date: todayStr(),
       progress_id: current?.id || null, prev_progress_id: prev?.id || null,
-      measurement: current ? { weight_kg: current.weight_kg, body_fat_pct: current.body_fat_pct, muscle_mass_kg: current.muscle_mass_kg, body_water_pct: current.body_water_pct, ...calcBodyStats(client, current.weight_kg) } : null,
+      measurement: current ? { weight_kg: current.weight_kg, body_fat_pct: current.body_fat_pct, muscle_mass_kg: current.muscle_mass_kg, body_water_pct: current.body_water_pct } : null,
       decisions, maybe_meals: maybe,
       selected_meals: cart.map(({ slot, name, main_ingredients, calories, protein, source }) => ({ slot, name, main_ingredients, calories, protein, source })),
       next_appointment_id: booked?.id || null, status: 'ordered',
@@ -847,7 +846,7 @@ const loadRecipes = async () => {
                   <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
                 )}
                 {wPick && <WithingsPicker onClose={()=>setWPick(false)}
-                  onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m, calcBodyStats(client, m.weight)); setCurrent(rec); setHistory(h=>[...h, rec]); setWPick(false); }}/>}
+                  onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m); setCurrent(rec); setHistory(h=>[...h, rec]); setWPick(false); }}/>}
                 {history.length > 0 && (
                   <button onClick={useLatest} style={S.btn(false)}>Χρήση τελευταίας μέτρησης ({history[history.length-1].date})</button>
                 )}
@@ -883,15 +882,6 @@ const loadRecipes = async () => {
                   </div>
                   <DeltaChip d={dlt(current, prev, 'weight_kg')} dir={goodDir('weight_kg', profile?.goal_type)}/>
                 </div>
-                {(() => { const st = calcBodyStats(client, current.weight_kg); if (st.bmi == null && st.bmr == null) return null;
-                  const chip = { fontSize:12.5, fontWeight:800, padding:'7px 14px', borderRadius:999, border:'1px solid rgba(255,255,255,0.14)', color:'rgba(255,255,255,0.88)', position:'relative' };
-                  return (
-                    <div style={{ display:'flex', gap:9, justifyContent:'center', flexWrap:'wrap', marginTop:16, position:'relative' }}>
-                      {st.bmi != null && <span style={chip}>ΔΜΣ (BMI) {st.bmi}</span>}
-                      {st.bmi != null && <span style={{ ...chip, color:'#a7f3d0', borderColor:'rgba(16,185,129,.35)' }}>{bmiLabel(st.bmi)}</span>}
-                      {st.bmr != null && <span style={chip}>BMR {st.bmr} kcal</span>}
-                    </div>
-                  ); })()}
                 {(() => {
                   const firstW = num(history[0]?.weight_kg), curW = num(current.weight_kg), tgt = num(profile?.target_weight);
                   if (firstW == null || curW == null || tgt == null || firstW === tgt) return null;
@@ -935,18 +925,6 @@ const loadRecipes = async () => {
                 </div>
               </div>
 
-              {/* δευτερεύοντες δείκτες */}
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12 }}>
-                {[['bmi','BMI'],['bmr','BMR'],['visceral_fat','Σπλαχνικό λίπος'],['bone_mass_kg','Οστική μάζα kg']].map(([k,l], i) => (
-                  <div key={k} className="nmreveal" style={{ ...S.card, padding:'13px 15px', animationDelay:`${0.52 + i*0.07}s` }}>
-                    <p style={{ ...S.lbl, fontSize:9.5, margin:'0 0 6px' }}>{l}</p>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6 }}>
-                      <span style={{ fontSize:21, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>{num(current[k]) ?? '—'}</span>
-                      <DeltaChip d={dlt(current, prev, k)} dir={0}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
               <p style={{ ...S.dim, fontSize:12, textAlign:'center', marginTop:18 }}>Όταν ολοκληρώσετε τη συζήτηση, πάτησε το διακριτικό Next πάνω δεξιά.</p>
             </div>
           )
