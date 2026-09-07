@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dumbbell, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAppContext } from '../lib/AppContext';
@@ -17,6 +17,15 @@ export default function LoginGate() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('cube_session_expired') === '1') {
+        sessionStorage.removeItem('cube_session_expired');
+        setErr('Η σύνδεση έληξε — συνδέσου ξανά.');
+      }
+    } catch {}
+  }, []);
 
   const doLogin = async () => {
     if (!email || !password) return;

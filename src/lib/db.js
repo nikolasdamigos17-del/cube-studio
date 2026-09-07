@@ -63,7 +63,18 @@ const sbHeaders = (extra = {}) => {
   const token = sbAccessToken() || key; // token συνδεδεμένου χρήστη → περνά το RLS
   return { apikey: key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...extra };
 };
-const sbReady = () => sbEnsureFresh().catch(() => {}); // ανανέωση token αν έληξε, πριν από κάθε αίτημα
+const sbReady = () => sbEnsureFresh().catch(() => {});
+/* Νεκρή συνεδρία (401): καθάρισμα + επιστροφή στο login με μήνυμα */
+const sbAuthFail = (r) => {
+  if (r && r.status === 401) {
+    try {
+      localStorage.removeItem('sb_session');
+      localStorage.removeItem('studio_session');
+      sessionStorage.setItem('cube_session_expired', '1');
+    } catch {}
+    try { window.location.assign('/'); } catch {}
+  }
+}; // ανανέωση token αν έληξε, πριν από κάθε αίτημα
 const sbBase = (table) => `${sbCfg().url}/rest/v1/studio_${table}`;
 
 const createSupabaseEntity = (storeName) => {
@@ -74,7 +85,7 @@ const createSupabaseEntity = (storeName) => {
   const all = async () => {
     await sbReady();
     const r = await fetch(sbBase(storeName) + '?select=doc&limit=10000', { headers: sbHeaders() });
-    if (!r.ok) throw new Error('Supabase list ' + storeName + ' ' + r.status);
+    if (!r.ok) { sbAuthFail(r); throw new Error('Supabase list ' + storeName + ' ' + r.status); }
     return (await r.json()).map(x => x.doc);
   };
   return {
@@ -89,7 +100,7 @@ const createSupabaseEntity = (storeName) => {
       const rec = { ...data, id: generateId(), created_date: now, updated_date: now };
       const r = await fetch(sbBase(storeName), { method: 'POST', headers: sbHeaders({ Prefer: 'return=minimal' }),
         body: JSON.stringify({ id: rec.id, doc: rec, created_date: now, updated_date: now }) });
-      if (!r.ok) throw new Error('Supabase create ' + storeName + ' ' + r.status);
+      if (!r.ok) { sbAuthFail(r); throw new Error('Supabase create ' + storeName + ' ' + r.status); }
       return rec;
     },
     update: async (id, data) => {
@@ -100,13 +111,13 @@ const createSupabaseEntity = (storeName) => {
       const merged = { ...cur, ...data, id, updated_date: now };
       const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: sbHeaders({ Prefer: 'return=minimal' }),
         body: JSON.stringify({ doc: merged, updated_date: now }) });
-      if (!r.ok) throw new Error('Supabase update ' + storeName + ' ' + r.status);
+      if (!r.ok) { sbAuthFail(r); throw new Error('Supabase update ' + storeName + ' ' + r.status); }
       return merged;
     },
     delete: async (id) => {
       await sbReady();
       const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: sbHeaders({ Prefer: 'return=minimal' }) });
-      if (!r.ok) throw new Error('Supabase delete ' + storeName + ' ' + r.status);
+      if (!r.ok) { sbAuthFail(r); throw new Error('Supabase delete ' + storeName + ' ' + r.status); }
       return { success: true };
     },
     get: async (id) => { await sbReady(); const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}&select=doc&limit=1`, { headers: sbHeaders() }); return (await r.json())[0]?.doc || null; },
