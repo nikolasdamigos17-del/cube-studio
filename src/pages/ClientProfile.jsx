@@ -4,6 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Edit3, Plus, Trash2, X, BarChart2, Dumbbell, Salad, CreditCard, StickyNote, Pin } from 'lucide-react';
 import { db } from '../lib/db';
+import { deleteClientCascade } from '../lib/clientOps';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const METRICS = [{key:'weight_kg',label:'Weight',unit:'kg',color:'#6366f1'},{key:'body_fat_pct',label:'Body Fat',unit:'%',color:'#ef4444'},{key:'muscle_mass_kg',label:'Muscle',unit:'kg',color:'#10b981'},{key:'body_water_pct',label:'Water',unit:'%',color:'#3b82f6'},{key:'bone_mass_kg',label:'Bone',unit:'kg',color:'#8b5cf6'},{key:'bmr',label:'BMR',unit:'kcal',color:'#f59e0b'},{key:'bmi',label:'BMI',unit:'',color:'#ec4899'},{key:'visceral_fat',label:'Visceral Fat',unit:'',color:'#f97316'},{key:'steps',label:'Steps',unit:'',color:'#22c55e'},{key:'sleep_hours',label:'Sleep',unit:'h',color:'#a78bfa'},{key:'water_liters',label:'Water Intake',unit:'L',color:'#06b6d4'}];
@@ -144,12 +145,8 @@ export default function ClientProfile() {
             <div className="flex gap-2">
               <button onClick={()=>setConfirmDel(false)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium">Ακύρωση</button>
               <button onClick={async()=>{
-                try {
-                  const rel = [db.NutritionProfile, db.NutritionMeeting, db.TrainingPlan, db.NutritionPlan, db.ClientProgress, db.ClientNote, db.ClientReminder, db.AppointmentRequest, db.WaterLog, db.SupplementLog, db.Appointment];
-                  for (const ent of rel) { try { const rows = await ent.filter({ client_id: client.id }, '-created_date', 500); for (const r of rows) { try { await ent.delete(r.id); } catch {} } } catch {} }
-                  await db.Client.delete(client.id);
-                  navigate('/Clients');
-                } catch (e) { alert('Η διαγραφή απέτυχε: ' + String(e?.message||e)); }
+                try { await deleteClientCascade(client.id); navigate('/Clients'); }
+                catch (e) { alert('Η διαγραφή απέτυχε: ' + String(e?.message||e)); }
               }} className="flex-1 bg-rose-600 text-white rounded-xl py-2.5 text-sm font-semibold">Ναι, διαγραφή</button>
             </div>
           </div>
