@@ -76,3 +76,17 @@ export async function deleteGroup(group, clients) {
   }
   await db.Group.delete(group.id);
 }
+
+
+/* Πελάτες με group_id που δείχνει σε ΣΒΗΣΜΕΝΟ group: αόρατοι στη σελίδα Clients
+   αλλά μετρούσαν σε Calendar/Οικονομικά. Εδώ «ξε-ορφανεύουν». */
+export function unorphanClients(clients, groups) {
+  const gids = new Set((groups || []).map(g => g.id));
+  return (clients || []).map(c => (c.group_id && !gids.has(c.group_id)) ? { ...c, group_id: '' } : c);
+}
+export async function repairOrphanGroupIds(db, clients, groups) {
+  const gids = new Set((groups || []).map(g => g.id));
+  for (const c of (clients || [])) {
+    if (c.group_id && !gids.has(c.group_id)) { try { await db.Client.update(c.id, { group_id: '' }); } catch {} }
+  }
+}

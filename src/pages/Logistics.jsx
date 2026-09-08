@@ -4,7 +4,7 @@ import { format, parseISO, differenceInDays, addMonths, startOfMonth, endOfMonth
 import { Plus, Trash2, X, Euro, Edit3, Settings, TrendingUp, Calendar, AlertTriangle, ChevronRight, Check, CreditCard, Users, BarChart2, Loader2, Undo2, Wallet } from 'lucide-react';
 import { db } from '../lib/db';
 import { creditBalance, addCredit, REASON_LABELS, addGroupCredit, getGroupTrainingBalance, getBalance, groupTrainingBalance } from '../lib/credits';
-import { groupDisplayName, firstName, GROUP_CAP, isIndividual, groupWeek, groupPrice, nutritionPrice, hasNutrition } from '../lib/groups';
+import { groupDisplayName, firstName, GROUP_CAP, isIndividual, groupWeek, groupPrice, nutritionPrice, hasNutrition, unorphanClients } from '../lib/groups';
 
 const METHOD_EMOJI = { cash:'💵', card:'💳', transfer:'🏦', other:'📄' };
 const METHOD_COLOR = { cash:'bg-green-50 text-green-700 border-green-100', card:'bg-blue-50 text-blue-700 border-blue-100', transfer:'bg-purple-50 text-purple-700 border-purple-100', other:'bg-gray-100 text-gray-600 border-gray-200' };
@@ -646,7 +646,7 @@ export default function Logistics() {
       db.CreditEntry.list('-date', 2000),
       db.Group.list('name'),
     ]);
-    setClients(c); setPayments(p); setEntries(e); setGroups(g);
+    setClients(unorphanClients(c, g)); setPayments(p); setEntries(e); setGroups(g);
   };
   useEffect(()=>{ load(); },[]);
   useEffect(()=>{ if (location.state?.openLogPay) { setShowWizard(true); window.history.replaceState({},''); } },[location.state]);

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, ChevronRight, X, Users, Users2, Check, Trash2, UserPlus, Lock, Mail, Copy, Send } from 'lucide-react';
 import { db } from '../lib/db';
-import { GROUP_CAP, firstName, groupDisplayName, isIndividual, createEmptyGroup, addMemberToGroup, removeMemberFromGroup, deleteGroup } from '../lib/groups';
+import { GROUP_CAP, firstName, groupDisplayName, isIndividual, createEmptyGroup, addMemberToGroup, removeMemberFromGroup, deleteGroup, unorphanClients, repairOrphanGroupIds } from '../lib/groups';
 import { genToken, inviteMailto, activationLink } from '../lib/invites';
 
 const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#8b5cf6','#06b6d4','#84cc16','#f97316'];
@@ -198,7 +198,9 @@ export default function Clients() {
 
   const load = async () => {
     const [c,g] = await Promise.all([db.Client.list('name'), db.Group.list('name')]);
-    setClients(c); setGroups(g);
+    const cFixed = unorphanClients(c, g);
+    repairOrphanGroupIds(db, c, g); // μόνιμη επιδιόρθωση στη βάση, στο παρασκήνιο
+    setClients(cFixed); setGroups(g);
   };
   useEffect(()=>{ load(); },[]);
 

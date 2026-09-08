@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth, parseISO, addMonths, subMonths, addWeeks, subWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus, X, Clock, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { db } from '../lib/db';
-import { groupDisplayName } from '../lib/groups';
+import { groupDisplayName, unorphanClients } from '../lib/groups';
 
 // ── Event Modal ───────────────────────────────────────────────────────────────
-function EventModal({ onClose, onSaved, clients, groups=[], defaultDate }) {
-  const [f, setF] = useState({ title:'', client_id:'', group_id:'', client_name:'', client_color:'', type:'training', date:defaultDate||format(new Date(),'yyyy-MM-dd'), start_time:'09:00', duration_minutes:60, status:'scheduled', notes:'' });
+function EventModal({ onClose, onSaved, clients, groups=[], defaultDate, event=null }) {
+  const [f, setF] = useState(() => ({
+    title:'', client_id:'', group_id:'', client_name:'', client_color:'', type:'training',
+    date:defaultDate||format(new Date(),'yyyy-MM-dd'), start_time:'09:00', duration_minutes:60, status:'scheduled', notes:'',
+    ...(event || {}),
+  }));
   const [saving, setSaving] = useState(false);
   const set = (k,v) => setF(p=>({...p,[k]:v}));
   const hc = (val) => {
@@ -19,11 +23,23 @@ function EventModal({ onClose, onSaved, clients, groups=[], defaultDate }) {
     }
   };
   const selVal = f.group_id ? 'group:'+f.group_id : f.client_id;
-  const save = async () => { setSaving(true); await db.Appointment.create(f); setSaving(false); onSaved(); onClose(); };
+  const save = async () => {
+    setSaving(true);
+    try {
+      if (event?.id) await db.Appointment.update(event.id, f);
+      else await db.Appointment.create(f);
+      setSaving(false); onSaved(); onClose();
+    } catch (e) { setSaving(false); alert('Αποτυχία αποθήκευσης: ' + String(e?.message||e)); }
+  };
+  const del = async () => {
+    if (!event?.id || !confirm('Διαγραφή αυτού του event;')) return;
+    try { await db.Appointment.delete(event.id); onSaved(); onClose(); }
+    catch (e) { alert('Αποτυχία διαγραφής: ' + String(e?.message||e)); }
+  };
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box max-w-md p-6 w-full" onClick={e=>e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-foreground text-lg" style={{fontFamily:'var(--font-display)'}}>New Event</h2><button onClick={onClose} className="btn-ghost btn-icon"><X className="w-4 h-4"/></button></div>
+        <div className="flex items-center justify-between mb-4"><h2 className="font-bold text-foreground text-lg" style={{fontFamily:'var(--font-display)'}}>{event?.id ? 'Επεξεργασία event' : 'New Event'}</h2><button onClick={onClose} className="btn-ghost btn-icon"><X className="w-4 h-4"/></button></div>
         <div className="space-y-3">
           <div><label className="section-label">Title *</label><input value={f.title} onChange={e=>set('title',e.target.value)} className="input-base mt-1"/></div>
           <div><label className="section-label">Πελάτης ή group</label><select value={selVal} onChange={e=>hc(e.target.value)} className="input-base mt-1"><option value="">Διάλεξε πελάτη ή group</option><optgroup label="Άτομα">{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</optgroup>{groups.length>0 && <optgroup label="Groups">{groups.map(g=><option key={g.id} value={"group:"+g.id}>👥 {groupDisplayName(g, clients)}</option>)}</optgroup>}</select></div>
@@ -38,6 +54,7 @@ function EventModal({ onClose, onSaved, clients, groups=[], defaultDate }) {
           <div><label className="section-label">Notes</label><textarea value={f.notes} onChange={e=>set('notes',e.target.value)} rows={2} className="input-base mt-1 resize-none"/></div>
         </div>
         <div className="flex gap-2 mt-4">
+          {event?.id && <button onClick={del} title="Διαγραφή" className="btn btn-secondary px-3 text-red-500">🗑</button>}
           <button onClick={onClose} className="btn btn-secondary flex-1">Cancel</button>
           <button onClick={save} disabled={saving||!f.title||!f.date} className="btn btn-primary flex-1">{saving?'Saving…':'Save'}</button>
         </div>
@@ -51,6 +68,7 @@ function RequestsPanel({ onClose, onUpdated }) {
   const [requests, setRequests] = useState([]);
   const [allAppointments, setAllAppointments] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [editEvent, setEditEvent] = useState(null);
   const [time, setTime] = useState('09:00');
   const [duration, setDuration] = useState(60);
   const [note, setNote] = useState('');
@@ -254,7 +272,7 @@ export default function CalendarPage() {
       db.Group.list('name'),
     ]);
     const countered = await db.AppointmentRequest.filter({ status: 'client_countered' });
-    setAppointments(a); setClients(c); setGroups(g);
+    setAppointments(a); setClients(unorphanClients(c, g)); setGroups(g);
     setPendingCount(req.length + countered.length);
   };
   useEffect(() => { load(); const iv = setInterval(load, 10000); return () => clearInterval(iv); }, []);
@@ -324,7 +342,8 @@ export default function CalendarPage() {
                     <div className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full mb-1 ${isToday?'bg-foreground text-background':'text-muted-foreground'}`}>{format(day,'d')}</div>
                     <div className="space-y-0.5">
                       {appts.slice(0,3).map(a=>(
-                        <div key={a.id} className={`text-xs px-1.5 py-0.5 rounded-md truncate ${statusColor[a.status]||''}`}
+                        <div key={a.id} className={`text-xs px-1.5 py-0.5 rounded-md truncate cursor-pointer hover:opacity-80 ${statusColor[a.status]||''}`}
+                          onClick={(e)=>{ e.stopPropagation(); setEditEvent(a); setShowModal(true); }}
                           style={{backgroundColor:(a.client_color||'#6366f1')+'22',color:a.client_color||'#6366f1',borderLeft:`2px solid ${a.client_color||'#6366f1'}`}}>
                           {a.status==='proposed'?'📤 ':''}{a.title}
                         </div>
@@ -364,7 +383,8 @@ export default function CalendarPage() {
                         const height=Math.max(((a.duration_minutes||60)/60)*56,24);
                         const color=a.client_color||'#6366f1';
                         return (
-                          <div key={a.id} className="absolute left-0.5 right-0.5 rounded-lg px-1.5 py-1 z-10 overflow-hidden"
+                          <div key={a.id} className="absolute left-0.5 right-0.5 rounded-lg px-1.5 py-1 z-10 overflow-hidden cursor-pointer hover:opacity-80"
+                            onClick={(e)=>{ e.stopPropagation(); setEditEvent(a); setShowModal(true); }}
                             style={{top,height,backgroundColor:color+'22',borderLeft:`3px solid ${color}`,outline:a.status==='proposed'?`2px solid #a855f7`:'none'}}>
                             <p className="text-xs font-semibold truncate" style={{color}}>{a.status==='proposed'?'📤 ':''}{a.title}</p>
                             <p className="text-xs truncate" style={{color:color+'99'}}>{a.start_time}</p>
@@ -380,7 +400,7 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {showModal && <EventModal onClose={()=>setShowModal(false)} onSaved={load} clients={clients} groups={groups} defaultDate={defaultDate}/>}
+      {showModal && <EventModal onClose={()=>{setShowModal(false); setEditEvent(null);}} onSaved={load} clients={clients} groups={groups} defaultDate={defaultDate} event={editEvent}/>}
       {showRequests && <RequestsPanel onClose={()=>setShowRequests(false)} onUpdated={load}/>}
     </div>
   );
