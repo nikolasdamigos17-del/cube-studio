@@ -48,7 +48,27 @@ export default async function handler(req, res) {
         if (!/already|exists|registered/i.test(msg)) {
           res.status(200).json({ ok: false, reason: 'auth', detail: msg }); return;
         }
-        // Υπάρχει ήδη auth λογαριασμός με αυτό το email → συνεχίζουμε κανονικά.
+        // Υπάρχει ήδη auth λογαριασμός (π.χ. από παλιότερη δοκιμή):
+        // βρες τον και όρισε τον ΝΕΟ κωδικό + επιβεβαίωση email, ώστε να μπαίνει κανονικά.
+        try {
+          let userId = null;
+          for (let page = 1; page <= 5 && !userId; page++) {
+            const lr = await fetch(`${SB_URL}/auth/v1/admin/users?page=${page}&per_page=200`, { headers: H });
+            const lj = await lr.json().catch(() => ({}));
+            const users = Array.isArray(lj) ? lj : (lj.users || []);
+            const u = users.find(x => String(x.email || '').toLowerCase() === email);
+            if (u) userId = u.id;
+            if (users.length < 200) break;
+          }
+          if (userId) {
+            const ur = await fetch(`${SB_URL}/auth/v1/admin/users/${userId}`, {
+              method: 'PUT', headers: H,
+              body: JSON.stringify({ password, email_confirm: true }),
+            });
+            if (!ur.ok) { const uj = await ur.json().catch(() => ({}));
+              res.status(200).json({ ok: false, reason: 'auth', detail: 'update: ' + (uj.msg || ur.status) }); return; }
+          }
+        } catch {}
       }
 
       // 2) Ενημέρωση καρτέλας + κατανάλωση token (χωρίς plaintext κωδικό)
