@@ -12,7 +12,7 @@ const SERVICE_LABELS = {
 };
 
 /* ═══════════════ Νέος / επεξεργασία πελάτη ═══════════════ */
-function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupClient }) {
+export function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupClient }) {
   const [f, setF] = useState(client || { name:'', phone:'', email:'',
     services: forGroup ? 'group_training' : 'personal_training',
     sessions_per_week:3, nutrition_meetings_per_month:2, monthly_price:'', active:true });

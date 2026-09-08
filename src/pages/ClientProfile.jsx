@@ -5,6 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Edit3, Plus, Trash2, X, BarChart2, Dumbbell, Salad, CreditCard, StickyNote, Pin } from 'lucide-react';
 import { db } from '../lib/db';
 import { deleteClientCascade } from '../lib/clientOps';
+import { AddClientModal } from './Clients';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const METRICS = [{key:'weight_kg',label:'Weight',unit:'kg',color:'#6366f1'},{key:'body_fat_pct',label:'Body Fat',unit:'%',color:'#ef4444'},{key:'muscle_mass_kg',label:'Muscle',unit:'kg',color:'#10b981'},{key:'body_water_pct',label:'Water',unit:'%',color:'#3b82f6'},{key:'bone_mass_kg',label:'Bone',unit:'kg',color:'#8b5cf6'},{key:'bmr',label:'BMR',unit:'kcal',color:'#f59e0b'},{key:'bmi',label:'BMI',unit:'',color:'#ec4899'},{key:'visceral_fat',label:'Visceral Fat',unit:'',color:'#f97316'},{key:'steps',label:'Steps',unit:'',color:'#22c55e'},{key:'sleep_hours',label:'Sleep',unit:'h',color:'#a78bfa'},{key:'water_liters',label:'Water Intake',unit:'L',color:'#06b6d4'}];
@@ -67,6 +68,7 @@ export default function ClientProfile() {
   const [tab, setTab] = useState('overview');
   const [confirmDel, setConfirmDel] = useState(false);
   const [planEdit, setPlanEdit] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
   const [progress, setProgress] = useState([]);
   const [plans, setPlans] = useState([]);
   const [nutrition, setNutrition] = useState([]);
@@ -128,6 +130,7 @@ export default function ClientProfile() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
+          <button onClick={()=>setEditOpen(true)} className="flex items-center gap-1.5 border border-gray-200 bg-white px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50"><Edit3 className="w-4 h-4"/> Επεξεργασία</button>
           <button onClick={()=>setPlanEdit({ sessions_per_week:client.sessions_per_week||3, nutrition_meetings_per_month:client.nutrition_meetings_per_month||0, monthly_price:client.monthly_price||'', session_duration_hours:client.session_duration_hours||1, nutrition_price:(client.nutrition_price!=null&&client.nutrition_price!=='')?client.nutrition_price:(client.monthly_price||'') })} className="flex items-center gap-1.5 border border-gray-200 bg-white px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">📦 Πλάνο</button>
           <button onClick={async()=>{ const nf=!client.frozen; await db.Client.update(client.id,{frozen:nf}); setClient({...client, frozen:nf}); }} className={`flex items-center gap-1.5 border px-3 py-2.5 rounded-xl text-sm font-medium ${client.frozen?'border-sky-200 bg-sky-50 text-sky-600':'border-gray-200 bg-white hover:bg-gray-50'}`}>{client.frozen?'🔓 Unfreeze':'❄️ Freeze'}</button>
           <button onClick={()=>setConfirmDel(true)} className="flex items-center gap-1.5 border border-rose-200 bg-rose-50 text-rose-600 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-rose-100">🗑 Διαγραφή</button>
@@ -136,6 +139,8 @@ export default function ClientProfile() {
       </div>
 
       {client.frozen && <div className="mb-4 px-4 py-2.5 rounded-xl bg-sky-50 border border-sky-100 text-sky-700 text-sm font-medium">❄️ Ο πελάτης είναι σε κατάσταση freeze (ανενεργός) — δεν μετράει στα ενεργά στατιστικά.</div>}
+
+      {editOpen && <AddClientModal client={client} clients={[]} onClose={()=>setEditOpen(false)} onSaved={load}/>}
 
       {confirmDel && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-5" onClick={()=>setConfirmDel(false)}>
