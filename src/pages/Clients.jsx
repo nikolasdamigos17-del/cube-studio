@@ -151,8 +151,10 @@ export function AddClientModal({ onClose, onSaved, client, clients, forGroup, on
 
         <div className="grid grid-cols-2 gap-3 mb-5">
           {hasTraining&&<div><label className="text-xs font-medium text-gray-500 uppercase">Προπονήσεις / εβδομάδα</label><input type="number" min="1" value={f.sessions_per_week||''} onChange={e=>set('sessions_per_week',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}
+          {hasTraining&&<div><label className="text-xs font-medium text-gray-500 uppercase">Διάρκεια συνεδρίας (ώρες)</label><input type="number" step="0.5" min="0.5" value={f.session_duration_hours||''} onChange={e=>set('session_duration_hours',parseFloat(e.target.value)||'')} className="input-base mt-1" placeholder="1"/></div>}
           {hasNutrition&&<div><label className="text-xs font-medium text-gray-500 uppercase">Διατροφικές συναντήσεις / μήνα</label><input type="number" min="1" value={f.nutrition_meetings_per_month||''} onChange={e=>set('nutrition_meetings_per_month',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}
-          <div className={hasTraining&&hasNutrition?'col-span-2':''}><label className="text-xs font-medium text-gray-500 uppercase">Μηνιαία τιμή (€)</label><input type="number" value={f.monthly_price||''} onChange={e=>set('monthly_price',parseFloat(e.target.value)||'')} className="input-base mt-1"/></div>
+          {hasNutrition&&<div><label className="text-xs font-medium text-gray-500 uppercase">Τιμή διατροφής / μήνα (€)</label><input type="number" step="0.5" value={f.nutrition_price??''} onChange={e=>set('nutrition_price',e.target.value===''?'':parseFloat(e.target.value)||0)} className="input-base mt-1" placeholder="= μηνιαία τιμή"/></div>}
+          <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Μηνιαία τιμή (€)</label><input type="number" value={f.monthly_price||''} onChange={e=>set('monthly_price',parseFloat(e.target.value)||'')} className="input-base mt-1"/></div>
         </div>
 
         {!client&&<p className="text-[11px] text-gray-400 mb-4">Χρώμα προφίλ & κωδικός portal δημιουργούνται αυτόματα. Στόχος, μετρήσεις και διατροφικό προφίλ ορίζονται στο Course Planning — όχι εδώ.</p>}
