@@ -13,7 +13,8 @@ export const groupDisplayName = (group, clients) => {
 };
 
 export const isGroupService = (svc) => svc === 'group_training' || svc === 'group_training_nutrition';
-export const isIndividual   = (c)   => !c.group_id && !isGroupService(c.services);
+/* Individual = ΔΕΝ είναι σε group. Η υπηρεσία δεν κρύβει ποτέ πελάτη από τη ρίζα (Clients). */
+export const isIndividual   = (c)   => !c.group_id;
 const hasNutritionSvc = (svc) => svc === 'personal_training_nutrition' || svc === 'nutrition_only' || svc === 'group_training_nutrition';
 
 const toGroupService = (svc) => hasNutritionSvc(svc) ? 'group_training_nutrition' : 'group_training';

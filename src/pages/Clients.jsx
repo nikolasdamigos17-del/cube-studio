@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, ChevronRight, X, Users, Users2, Check, Trash2, UserPlus, Lock, Mail, Copy, Send } from 'lucide-react';
 import { db } from '../lib/db';
 import { GROUP_CAP, firstName, groupDisplayName, isIndividual, createEmptyGroup, addMemberToGroup, removeMemberFromGroup, deleteGroup, unorphanClients, repairOrphanGroupIds } from '../lib/groups';
-import { deleteClientCascade } from '../lib/clientOps';
 import { genToken, inviteMailto, activationLink } from '../lib/invites';
 
 const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#8b5cf6','#06b6d4','#84cc16','#f97316'];
@@ -212,8 +211,6 @@ export default function Clients() {
   const shownGroups = groups.filter(g => !q || groupDisplayName(g, clients).toLowerCase().includes(q));
   const availableForGroup = clients.filter(c => !c.group_id);
   const openGroups = groups.filter(g => (g.member_ids||[]).length < GROUP_CAP);
-  const memberIds = new Set(groups.flatMap(g => g.member_ids || []));
-  const strays = clients.filter(c => !isIndividual(c) && !memberIds.has(c.id));
 
   const createGroup = async () => { await createEmptyGroup(); load(); };
   const doAddExisting = async (group, clientId) => { await addMemberToGroup(group, clientId, clients); setPickForGroup(null); load(); };
@@ -250,24 +247,6 @@ export default function Clients() {
       </div>
 
       <div className="relative mb-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Αναζήτηση σε individuals ή groups…" className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-gray-400"/></div>
-
-      {strays.length > 0 && (
-        <div className="mb-6">
-          <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-3">⚠ Καρτέλες εκτός λίστας ({strays.length}) — κατάλοιπα που εμφανίζονται σε Nutrition/Calendar</p>
-          <div className="space-y-2">
-            {strays.map(c => (
-              <div key={c.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/60">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{c.name || '(χωρίς όνομα)'}</p>
-                  <p className="text-[11px] text-gray-500 truncate">{c.email || '—'} · {c.services || '—'}</p>
-                </div>
-                <button onClick={async()=>{ if(confirm(`Οριστική διαγραφή «${c.name||c.id}» και όλων των δεδομένων του;`)){ try { await deleteClientCascade(c.id); load(); } catch(e){ alert('Αποτυχία διαγραφής: '+String(e?.message||e)); } } }}
-                  className="p-2 rounded-lg hover:bg-red-100 flex-shrink-0" title="Πλήρης διαγραφή"><Trash2 className="w-4 h-4 text-red-500"/></button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
 
