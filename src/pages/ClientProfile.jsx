@@ -143,7 +143,14 @@ export default function ClientProfile() {
             <p className="text-sm text-gray-500 mb-5">Ο/Η {client.name} θα διαγραφεί οριστικά από τη λίστα πελατών.</p>
             <div className="flex gap-2">
               <button onClick={()=>setConfirmDel(false)} className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm font-medium">Ακύρωση</button>
-              <button onClick={async()=>{ await db.Client.delete(client.id); navigate('/Clients'); }} className="flex-1 bg-rose-600 text-white rounded-xl py-2.5 text-sm font-semibold">Ναι, διαγραφή</button>
+              <button onClick={async()=>{
+                try {
+                  const rel = [db.NutritionProfile, db.NutritionMeeting, db.TrainingPlan, db.NutritionPlan, db.ClientProgress, db.ClientNote, db.ClientReminder, db.AppointmentRequest, db.WaterLog, db.SupplementLog, db.Appointment];
+                  for (const ent of rel) { try { const rows = await ent.filter({ client_id: client.id }, '-created_date', 500); for (const r of rows) { try { await ent.delete(r.id); } catch {} } } catch {} }
+                  await db.Client.delete(client.id);
+                  navigate('/Clients');
+                } catch (e) { alert('Η διαγραφή απέτυχε: ' + String(e?.message||e)); }
+              }} className="flex-1 bg-rose-600 text-white rounded-xl py-2.5 text-sm font-semibold">Ναι, διαγραφή</button>
             </div>
           </div>
         </div>

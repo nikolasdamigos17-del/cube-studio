@@ -18,6 +18,7 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
     sessions_per_week:3, nutrition_meetings_per_month:2, monthly_price:'', active:true });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const locked = client?.account_status === 'active'; // το email είναι ο τρόπος σύνδεσης
   const [savedId, setSavedId] = useState(null);
   const [inviting, setInviting] = useState(false);
   const [inviteInfo, setInviteInfo] = useState(null);
@@ -31,6 +32,8 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
   const save = async () => { setErr(''); try {
     setSaving(true);
     const payload = { ...f };
+    if (payload.height_cm) { const h = parseFloat(payload.height_cm); if (h > 0) { payload.height_cm = h; payload.height = h; } }
+    if (locked) { delete payload.email; delete payload.portal_email; } // το login email μένει ως έχει
     if (!client?.id) {
       payload.theme_color = COLORS[Math.floor(Math.random()*COLORS.length)];
       payload.portal_password = `${(f.name||'Cube').trim().split(' ')[0]}${new Date().getFullYear()}!`;
@@ -94,13 +97,21 @@ function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupCl
               ))}
             </div>
           </div>
+          <div><label className="text-xs font-medium text-gray-500 uppercase">Ημ. γέννησης</label><input value={f.date_of_birth||''} onChange={e=>set('date_of_birth',e.target.value)} className="input-base mt-1" type="date"/></div>
+          <div><label className="text-xs font-medium text-gray-500 uppercase">Ύψος (cm)</label><input value={f.height_cm||f.height||''} onChange={e=>set('height_cm',e.target.value)} className="input-base mt-1" type="number" placeholder="π.χ. 178"/></div>
           <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Email</label>
             <div className="flex gap-2 mt-1">
-              <input value={f.email||''} onChange={e=>set('email',e.target.value)} className="input-base flex-1" type="email" placeholder="email@…"/>
-              <button onClick={sendInvite} disabled={inviting||!f.email} title="Αποστολή πρόσκλησης στην εφαρμογή" className="flex items-center gap-1.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40 flex-shrink-0" style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)'}}>
-                {inviting? '…' : <><Send className="w-3.5 h-3.5"/> Πρόσκληση</>}
-              </button>
+              <input value={f.email||''} onChange={e=>set('email',e.target.value)} readOnly={locked}
+                className={`input-base flex-1 ${locked?'opacity-60 cursor-not-allowed bg-gray-50':''}`} type="email" placeholder="email@…"/>
+              {locked ? (
+                <span className="flex items-center gap-1.5 px-3 rounded-xl text-xs font-semibold flex-shrink-0 bg-emerald-50 text-emerald-700 border border-emerald-200">✓ Ενεργός</span>
+              ) : (
+                <button onClick={sendInvite} disabled={inviting||!f.email} title="Αποστολή πρόσκλησης στην εφαρμογή" className="flex items-center gap-1.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40 flex-shrink-0" style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)'}}>
+                  {inviting? '…' : <><Send className="w-3.5 h-3.5"/> Πρόσκληση</>}
+                </button>
+              )}
             </div>
+            {locked && <p className="text-[11px] text-gray-400 mt-1">🔒 Το email είναι ο τρόπος σύνδεσης του πελάτη — δεν αλλάζει. Όλα τα υπόλοιπα επεξεργάζονται ελεύθερα.</p>}
           </div>
         </div>
 
