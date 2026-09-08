@@ -68,7 +68,6 @@ function RequestsPanel({ onClose, onUpdated }) {
   const [requests, setRequests] = useState([]);
   const [allAppointments, setAllAppointments] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [editEvent, setEditEvent] = useState(null);
   const [time, setTime] = useState('09:00');
   const [duration, setDuration] = useState(60);
   const [note, setNote] = useState('');
@@ -260,6 +259,7 @@ export default function CalendarPage() {
   const [clients, setClients] = useState([]);
   const [groups, setGroups] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [editEvent, setEditEvent] = useState(null);
   const [showRequests, setShowRequests] = useState(false);
   const [defaultDate, setDefaultDate] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
