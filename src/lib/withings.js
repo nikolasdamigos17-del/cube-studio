@@ -29,6 +29,11 @@ export function isWithingsConnected() {
 
 export function disconnectWithings() {
   try { localStorage.removeItem('withings_tokens'); localStorage.removeItem('withings_state'); } catch {}
+  (async () => { try {
+    const { db } = await import('./db');
+    const rows = await db.WithingsTokens.list('-updated_date', 10);
+    for (const r of rows) { try { await db.WithingsTokens.delete(r.id); } catch {} }
+  } catch {} })();
 }
 
 function saveTokens(b) {
@@ -39,7 +44,25 @@ function saveTokens(b) {
     expires_at: Date.now() + (Number(b.expires_in || 10800) - 60) * 1000,
   };
   localStorage.setItem('withings_tokens', JSON.stringify(tok));
+  pushSharedTokens(tok); // κοινά για όλες τις συσκευές (μέσω βάσης)
   return tok;
+}
+
+/* Τα tokens ζουν και στη βάση ώστε η σύνδεση Withings να ισχύει παντού. */
+async function pushSharedTokens(tok) {
+  try {
+    const { db } = await import('./db');
+    const rows = await db.WithingsTokens.list('-updated_date', 3);
+    if (rows[0]?.id) await db.WithingsTokens.update(rows[0].id, { tokens: tok });
+    else await db.WithingsTokens.create({ tokens: tok });
+  } catch {}
+}
+async function loadSharedTokens() {
+  try {
+    const { db } = await import('./db');
+    const rows = await db.WithingsTokens.list('-updated_date', 3);
+    return rows.find(r => r?.tokens?.access_token)?.tokens || null;
+  } catch { return null; }
 }
 
 /* Ανταλλαγή του authorization code με tokens (μέσω του δικού μας serverless). */
@@ -56,8 +79,12 @@ export async function withingsExchangeCode(code) {
 }
 
 async function getValidAccessToken() {
-  const tok = JSON.parse(localStorage.getItem('withings_tokens') || 'null');
-  if (!tok?.access_token) throw new Error('Το Withings δεν είναι συνδεδεμένο');
+  let tok = JSON.parse(localStorage.getItem('withings_tokens') || 'null');
+  if (!tok?.access_token) {
+    tok = await loadSharedTokens();
+    if (tok?.access_token) { try { localStorage.setItem('withings_tokens', JSON.stringify(tok)); } catch {} }
+  }
+  if (!tok?.access_token) throw new Error('Το Withings δεν είναι συνδεδεμένο. Πήγαινε Ρυθμίσεις → Ενσωματώσεις / API → «Σύνδεση με Withings» (μία φορά, από όποια συσκευή θες).');
   if (Date.now() < (tok.expires_at || 0)) return tok.access_token;
   const r = await fetch('/api/withings', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

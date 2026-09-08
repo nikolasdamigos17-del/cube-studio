@@ -147,6 +147,7 @@ export const db = {
   NutritionMeeting: pick('nutrition_meetings'),
   WaterLog: pick('water_logs'),
   SupplementLog: pick('supplement_logs'),
+  WithingsTokens: pick('withings_tokens'),
 };
 
 // ── AI CALL ───────────────────────────────────────────────────────────────────

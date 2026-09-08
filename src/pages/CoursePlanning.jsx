@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, X, Lock, Loader2, Target, Leaf, Utensils, Scale, Plus, Sparkles, Home, Dumbbell, TrendingUp, Wallet, MessageCircle } from 'lucide-react';
 import { db } from '../lib/db';
-import { isWithingsConnected, saveWithingsMeasureToClient } from '../lib/withings';
+import { saveWithingsMeasureToClient } from '../lib/withings';
 import WithingsPicker from '../components/WithingsPicker';
 
 /* ═══════════ Στατικά δεδομένα ═══════════ */
@@ -399,9 +399,7 @@ export default function CoursePlanning() {
                 <p style={{ fontSize:17, fontWeight:800, margin:'0 0 6px' }}>Αναμονή μέτρησης από τη ζυγαριά…</p>
                 <p style={{ ...S.dim, fontSize:13, margin:'0 auto', maxWidth:420 }}>Κάνε τη ζύγιση στη ζυγαριά Withings — μόλις καταχωρηθεί νέα μέτρηση για τον/την {client.name?.split(' ')[0]}, θα εμφανιστεί εδώ αυτόματα.</p>
                 <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:22, flexWrap:'wrap' }}>
-                  {isWithingsConnected() && (
-                    <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
-                  )}
+                  <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
                   {wPick && <WithingsPicker onClose={()=>setWPick(false)}
                     onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m); setCaptured(rec); setWPick(false); }}/>}
                   <button onClick={()=>setManualOpen(v=>!v)} style={S.btn(false)}>Χειροκίνητη καταχώρηση</button>

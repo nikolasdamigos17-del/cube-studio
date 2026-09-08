@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Minus, ArrowLeft, ArrowRight, Loader2, Scale, RotateCcw, Pencil, Plus, CalendarDays, Clock } from 'lucide-react';
 import { db, callAI } from '../lib/db';
-import { isWithingsConnected, saveWithingsMeasureToClient } from '../lib/withings';
+import { saveWithingsMeasureToClient } from '../lib/withings';
 import WithingsPicker from '../components/WithingsPicker';
 
 /* ═══════════════ Σταθερά ═══════════════ */
@@ -842,9 +842,7 @@ const loadRecipes = async () => {
               <p style={{ fontSize:18, fontWeight:800, margin:'0 0 6px' }}>Αναμονή μέτρησης από τη ζυγαριά…</p>
               <p style={{ ...S.dim, fontSize:13.5, maxWidth:420, margin:'0 auto' }}>Κάνε τη ζύγιση στη ζυγαριά Withings — μόλις καταχωρηθεί, τα αποτελέσματα θα εμφανιστούν εδώ αυτόματα.</p>
               <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:24, flexWrap:'wrap' }}>
-                {isWithingsConnected() && (
-                  <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
-                )}
+                <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
                 {wPick && <WithingsPicker onClose={()=>setWPick(false)}
                   onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m); setCurrent(rec); setHistory(h=>[...h, rec]); setWPick(false); }}/>}
                 {history.length > 0 && (
