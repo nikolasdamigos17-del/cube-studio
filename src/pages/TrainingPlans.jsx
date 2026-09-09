@@ -5,6 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { db, callAI } from '../lib/db';
 import { EQUIPMENT, EXERCISE_DB, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
 import { isIndividual, groupDisplayName, firstName, GROUP_CAP } from '../lib/groups';
+import GroupsPanel from '../components/GroupsPanel';
 
 // ── Equipment Label Badge ─────────────────────────────────────────────────────
 function EqBadge({ eqKey, small = false }) {
@@ -857,6 +858,7 @@ export default function TrainingPlans() {
             </div>
           )}
 
+          <GroupsPanel clients={clients} groups={groups} onChanged={load}/>
           {shownGroups.length>0 && (
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"><Users2 className="w-4 h-4"/> Groups</p>

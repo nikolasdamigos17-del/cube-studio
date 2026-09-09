@@ -327,16 +327,22 @@ ${candTxt}
   };
   const openAssign = async () => {
     setFinishMode('assign');
-    const list = (data.appts || [])
+    let all = data.appts || [];
+    try { all = await db.Appointment.list('-date', 400); } catch {}
+    const gid = data.client?.group_id || '';
+    const list = all
       .filter(a => (a.date || '') >= todayStr() && a.status !== 'cancelled' && !a.plan_id && (a.type === 'training' || !a.type))
+      .filter(a => a.client_id === effClientId || (!a.client_id && !a.group_id) || (gid && a.group_id === gid))
       .sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time))
-      .slice(0, 10);
+      .slice(0, 12);
     setOpenAppts(list);
   };
   const doAssign = async (appt) => {
     setSaving(true);
     const plan = await createPlan({ date: appt.date });
-    await db.Appointment.update(appt.id, { plan_id: plan.id });
+    const patch = { plan_id: plan.id };
+    if (!appt.client_id && !appt.group_id) { patch.client_id = effClientId; patch.client_name = data.client?.name || ''; }
+    await db.Appointment.update(appt.id, patch);
     afterFinish(`Ανατέθηκε στο ραντεβού ${appt.date} · ${appt.start_time}.`);
   };
 
@@ -622,7 +628,7 @@ ${candTxt}
                       <CalendarDays style={{ width:16, height:16, color:ACC, flexShrink:0 }}/>
                       <div style={{ flex:1 }}>
                         <p style={{ margin:0, fontSize:13.5, fontWeight:800 }}>{a.date} · {a.start_time}</p>
-                        <p style={{ ...S.dim, margin:0, fontSize:11.5 }}>{a.title || 'Ραντεβού'} · {a.duration_minutes || 60}′</p>
+                        <p style={{ ...S.dim, margin:0, fontSize:11.5 }}>{a.title || 'Ραντεβού'} · {a.duration_minutes || 60}′{!a.client_id && !a.group_id ? ' · χωρίς πελάτη — θα συνδεθεί' : a.group_id ? ' · 👥 group' : ''}</p>
                       </div>
                       <span style={{ fontSize:11.5, fontWeight:800, color:ACC }}>Ανάθεση →</span>
                     </button>

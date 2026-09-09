@@ -6,7 +6,7 @@ import { GROUP_CAP, firstName, groupDisplayName, isIndividual, createEmptyGroup,
 import { genToken, inviteMailto, activationLink } from '../lib/invites';
 
 const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#8b5cf6','#06b6d4','#84cc16','#f97316'];
-const SERVICE_LABELS = {
+export const SERVICE_LABELS = {
   personal_training:'Personal Training', personal_training_nutrition:'PT + Nutrition',
   nutrition_only:'Nutrition Only', group_training:'Group Training', group_training_nutrition:'Group + Nutrition',
 };
@@ -170,7 +170,7 @@ export function AddClientModal({ onClose, onSaved, client, clients, forGroup, on
 }
 
 /* ═══════════════ Μικρό sheet ροής ═══════════════ */
-function Sheet({ title, sub, onClose, children }) {
+export function Sheet({ title, sub, onClose, children }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose}/>
@@ -193,10 +193,6 @@ export default function Clients() {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [addForGroup, setAddForGroup] = useState(null);
-  const [choiceGroup, setChoiceGroup] = useState(null);
-  const [pickForGroup, setPickForGroup] = useState(null);
-  const [placeClient, setPlaceClient] = useState(null);
 
   const load = async () => {
     const [c,g] = await Promise.all([db.Client.list('name'), db.Group.list('name')]);
@@ -211,13 +207,7 @@ export default function Clients() {
   const activeIndiv = individuals.filter(c=>!c.frozen);
   const frozenIndiv = individuals.filter(c=>c.frozen);
   const shownGroups = groups.filter(g => !q || groupDisplayName(g, clients).toLowerCase().includes(q));
-  const availableForGroup = clients.filter(c => !c.group_id);
-  const openGroups = groups.filter(g => (g.member_ids||[]).length < GROUP_CAP);
 
-  const createGroup = async () => { await createEmptyGroup(); load(); };
-  const doAddExisting = async (group, clientId) => { await addMemberToGroup(group, clientId, clients); setPickForGroup(null); load(); };
-  const doPlace = async (group, clientId) => { await addMemberToGroup(group, clientId, clients); setPlaceClient(null); load(); };
-  const doPlaceNew = async (clientId) => { const g = await createEmptyGroup(); await addMemberToGroup(g, clientId, clients); setPlaceClient(null); load(); };
 
   const IndividualCard = ({ c, frozen }) => (
     <div onClick={()=>navigate(`/ClientProfile?id=${c.id}`)}
@@ -243,14 +233,13 @@ export default function Clients() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div><h1 className="page-title">Πελάτες & Groups</h1><p className="page-subtitle">{individuals.length} individuals · {groups.length} groups</p></div>
         <div className="flex gap-2">
-          <button onClick={createGroup} className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-200"><Users2 className="w-4 h-4"/>Δημιουργία group</button>
           <button onClick={()=>{setShowAdd(true);setEditing(null);setAddForGroup(null);}} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800"><Plus className="w-4 h-4"/>Νέος πελάτης</button>
         </div>
       </div>
 
       <div className="relative mb-6"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Αναζήτηση σε individuals ή groups…" className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-gray-400"/></div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
+      <div>
 
         {/* ── INDIVIDUALS ── */}
         <section>
@@ -266,113 +255,15 @@ export default function Clients() {
           )}
         </section>
 
-        {/* ── GROUPS ── */}
-        <section>
-          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2"><Users2 className="w-4 h-4"/> Groups ({groups.length})</p>
-          <div className="space-y-4">
-            {shownGroups.length===0 && (
-              <div className="card p-8 text-center text-gray-400">
-                <Users2 className="w-10 h-10 mx-auto mb-2 opacity-30"/>
-                <p className="text-sm font-medium text-gray-500">Κανένα group ακόμα</p>
-                <button onClick={createGroup} className="mt-3 text-sm font-semibold text-gray-900 underline">Δημιουργία group</button>
-              </div>
-            )}
-            {shownGroups.map(g=>{
-              const members = (g.member_ids||[]).map(id=>clients.find(c=>c.id===id)).filter(Boolean);
-              const full = members.length >= GROUP_CAP;
-              return (
-                <div key={g.id} className={`card p-5 ${full?'border-emerald-200':'border-dashed'}`}>
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <button onClick={()=>navigate(`/GroupProfile?id=${g.id}`)} className="flex items-center gap-3 min-w-0 text-left group/gh">
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{background:full?'linear-gradient(135deg,#e0457b,#8b5cf6)':'#f3f4f6'}}>{full?'👥':'➕'}</div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 truncate group-hover/gh:underline">{groupDisplayName(g, clients)}</p>
-                        <p className="text-xs text-gray-400">{members.length}/{GROUP_CAP} μέλη · πλάνο group</p>
-                      </div>
-                    </button>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {full
-                        ? <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><Lock className="w-3 h-3"/> Πλήρες</span>
-                        : <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Ανοιχτό</span>}
-                      <button onClick={async()=>{ if(confirm(`Διαγραφή του group «${groupDisplayName(g,clients)}»; Τα μέλη επιστρέφουν σε individuals.`)){ await deleteGroup(g, clients); load(); } }} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-red-400"/></button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    {members.map(m=>(
-                      <div key={m.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-gray-50">
-                        <div onClick={()=>navigate(`/ClientProfile?id=${m.id}`)} className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{backgroundColor:m.theme_color||'#6366f1'}}>{m.name?.charAt(0)}</div>
-                          <div className="min-w-0"><p className="text-sm font-medium text-gray-900 truncate">{m.name}</p>{m.services==='group_training_nutrition'&&<p className="text-[10px] text-emerald-600">🥗 + διατροφή (ατομικά)</p>}</div>
-                        </div>
-                        <button onClick={async()=>{ await removeMemberFromGroup(g, m.id, clients); load(); }} className="p-1.5 hover:bg-white rounded-lg" title="Αφαίρεση από το group"><X className="w-3.5 h-3.5 text-gray-400"/></button>
-                      </div>
-                    ))}
-                    {members.length===0 && <p className="text-sm text-gray-400 py-2 text-center">Άδειο group — πρόσθεσε μέλη.</p>}
-                  </div>
-
-                  {!full && (
-                    <button onClick={()=>setChoiceGroup(g)} className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-900 hover:text-gray-900 transition-colors">
-                      <UserPlus className="w-4 h-4"/> Προσθήκη στο group
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
       </div>
 
       {/* ── modals ── */}
-      {(showAdd||editing||addForGroup)&&<AddClientModal clients={clients} client={editing} forGroup={addForGroup}
-        onClose={()=>{setShowAdd(false);setEditing(null);setAddForGroup(null);}}
-        onSaved={load} onGroupClient={(c)=>setPlaceClient(c)}/>}
+      {(showAdd||editing)&&<AddClientModal clients={clients} client={editing}
+        onClose={()=>{setShowAdd(false);setEditing(null);}}
+        onSaved={load}/>}
 
-      {choiceGroup && (
-        <Sheet title="Προσθήκη μέλους" sub={groupDisplayName(choiceGroup, clients)} onClose={()=>setChoiceGroup(null)}>
-          <div className="space-y-2">
-            <button onClick={()=>{ setPickForGroup(choiceGroup); setChoiceGroup(null); }} className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-100 hover:border-gray-900 text-left">
-              <Users className="w-5 h-5 text-gray-500"/><div><p className="font-semibold text-gray-900 text-sm">Υπάρχων πελάτης</p><p className="text-xs text-gray-400">Διάλεξε από τους πελάτες σου</p></div>
-            </button>
-            <button onClick={()=>{ setAddForGroup(choiceGroup); setChoiceGroup(null); }} className="w-full flex items-center gap-3 p-4 rounded-xl border-2 border-gray-100 hover:border-gray-900 text-left">
-              <UserPlus className="w-5 h-5 text-gray-500"/><div><p className="font-semibold text-gray-900 text-sm">Νέος πελάτης</p><p className="text-xs text-gray-400">Κανονική εγγραφή — μπαίνει κατευθείαν στο group</p></div>
-            </button>
-          </div>
-        </Sheet>
-      )}
 
-      {pickForGroup && (
-        <Sheet title="Υπάρχων πελάτης" sub={`→ ${groupDisplayName(pickForGroup, clients)}`} onClose={()=>setPickForGroup(null)}>
-          <div className="space-y-1.5">
-            {availableForGroup.length===0 && <p className="text-sm text-gray-400 text-center py-4">Δεν υπάρχουν διαθέσιμοι πελάτες — όλοι ανήκουν ήδη σε group.</p>}
-            {availableForGroup.map(c=>(
-              <button key={c.id} onClick={()=>doAddExisting(pickForGroup, c.id)} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-gray-900 text-left">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{backgroundColor:c.theme_color||'#6366f1'}}>{c.name?.charAt(0)}</div>
-                <div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-900 truncate">{c.name}</p><p className="text-xs text-gray-400">{SERVICE_LABELS[c.services]||'—'}</p></div>
-                <ChevronRight className="w-4 h-4 text-gray-300"/>
-              </button>
-            ))}
-          </div>
-        </Sheet>
-      )}
 
-      {placeClient && (
-        <Sheet title="Σε ποιο group;" sub={`${firstName(placeClient.name)} επέλεξε group πρόγραμμα`} onClose={()=>{ setPlaceClient(null); load(); }}>
-          <div className="space-y-1.5">
-            <button onClick={()=>doPlaceNew(placeClient.id)} className="w-full flex items-center gap-3 p-3.5 rounded-xl border-2 border-gray-900 bg-gray-900 text-white text-left mb-2">
-              <Plus className="w-5 h-5"/><div><p className="text-sm font-semibold">Δημιουργία νέου group</p><p className="text-xs text-white/60">Φτιάχνει group με τον/την {firstName(placeClient.name)}</p></div>
-            </button>
-            {openGroups.length>0 && <p className="text-xs font-semibold text-gray-400 uppercase pt-1 pb-1">Ανοιχτά group</p>}
-            {openGroups.map(g=>(
-              <button key={g.id} onClick={()=>doPlace(g, placeClient.id)} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-gray-900 text-left">
-                <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">👥</div>
-                <div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-900 truncate">{groupDisplayName(g, clients)}</p><p className="text-xs text-gray-400">{(g.member_ids||[]).length}/{GROUP_CAP} μέλη</p></div>
-                <ChevronRight className="w-4 h-4 text-gray-300"/>
-              </button>
-            ))}
-          </div>
-        </Sheet>
-      )}
     </div>
   );
 }
