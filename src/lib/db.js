@@ -161,24 +161,33 @@ export async function callAI(prompt, systemPrompt) {
   const lang = localStorage.getItem('cube_lang') || 'en';
   if (lang === 'el') systemPrompt = (systemPrompt || '') + GREEK_DIRECTIVE;
   const savedKey = (typeof localStorage !== 'undefined') ? localStorage.getItem('studio_api_key') : null;
-  const API_KEY = (savedKey && savedKey.trim()) || import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!API_KEY) { console.error('Λείπει το Anthropic API key — όρισέ το στις Ρυθμίσεις → Ενσωματώσεις / API (ή στο VITE_ANTHROPIC_API_KEY)'); return '__ERROR__ Missing API key'; }
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
-        system: systemPrompt || 'You are a helpful fitness and nutrition assistant.',
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
+    let response;
+    if (savedKey && savedKey.trim()) {
+      // Προαιρετικό τοπικό κλειδί (override) — απευθείας κλήση
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': savedKey.trim(),
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4096,
+          system: systemPrompt || 'You are a helpful fitness and nutrition assistant.',
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+    } else {
+      // Κανονική διαδρομή: το κλειδί ζει στον server (ίδιο για ΟΛΕΣ τις συσκευές)
+      response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, system: systemPrompt || '' }),
+      });
+    }
     if (!response.ok) {
       const errText = await response.text();
       console.error('API error:', response.status, errText);
