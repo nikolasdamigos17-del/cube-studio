@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Trash2, X, Sparkles, ChevronRight, ChevronDown, ExternalLink, Loader2, Check, AlertCircle, Pencil, RotateCcw, Plus, Minus, ArrowLeft, Users, ClipboardList, CalendarClock, Lock, Search, ChefHat, Star } from 'lucide-react';
 import { db, callAI } from '../lib/db';
+import TransferPlanModal from '../components/TransferPlanModal';
 import { addCredit, getBalance } from '../lib/credits';
 
 const MEAL_TYPES = [
@@ -437,7 +438,7 @@ Return ONLY a JSON array - one object per meal:
 }
 
 // ── Plan Card ────────────────────────────────────────────────────────────────
-function PlanCard({ plan, onDelete }) {
+function PlanCard({ plan, onDelete, onTransfer }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="card hover:shadow-sm transition-shadow">
@@ -445,7 +446,7 @@ function PlanCard({ plan, onDelete }) {
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
             <p className="font-semibold text-foreground">{plan.title}</p>
-            <p className="text-sm text-muted-foreground mt-0.5">{plan.client_name||'—'} · {plan.date}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{plan.client_name||'—'} · {plan.date}{plan.transferred_from?` · 🔁 από ${plan.transferred_from}`:''}</p>
             <div className="flex gap-2 mt-2 flex-wrap">
               {plan.protein&&<span className="badge badge-green">P: {plan.protein}g</span>}
               {plan.carbs&&<span className="badge badge-blue">C: {plan.carbs}g</span>}
@@ -456,6 +457,7 @@ function PlanCard({ plan, onDelete }) {
             {plan.supplements?.length>0&&<div className="flex flex-wrap gap-1 mt-2">{plan.supplements.map((s,i)=><span key={i} className="badge" style={{background:'#f3e8ff',color:'#7c3aed'}}>💊 {s.name}</span>)}</div>}
           </div>
           <div className="flex items-center gap-2">
+            {onTransfer && <button onClick={e=>{e.stopPropagation();onTransfer(plan);}} title="Μεταφορά σε άλλον πελάτη (ίδια πιάτα, δικές του ποσότητες)" className="btn-ghost btn-icon hover:text-indigo-500"><Users className="w-4 h-4"/></button>}
             <button onClick={e=>{e.stopPropagation();onDelete(plan.id);}} className="btn-ghost btn-icon hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
             {expanded?<ChevronDown className="w-4 h-4 text-muted-foreground"/>:<ChevronRight className="w-4 h-4 text-muted-foreground"/>}
           </div>
@@ -652,6 +654,7 @@ export default function Nutrition() {
   const navigate = useNavigate();
   const location = useLocation();
   const [finMtg, setFinMtg] = useState(null);
+  const [transferPlan, setTransferPlan] = useState(null);
   useEffect(() => {
     const fm = location.state?.finishedMeeting;
     if (fm) { setFinMtg(fm); navigate('/Nutrition', { replace: true }); }
@@ -697,6 +700,8 @@ export default function Nutrition() {
     return (
       <div className="p-6 md:p-8 max-w-5xl mx-auto animate-fade-in">
         {finMtg && <DeductModal fm={finMtg} onDone={()=>setFinMtg(null)}/>}
+        {transferPlan && <TransferPlanModal plan={transferPlan} sourceClient={client} clients={clients}
+          onClose={()=>setTransferPlan(null)} onDone={load}/>}
         <button onClick={()=>setSel(null)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-5"><ArrowLeft className="w-4 h-4"/> Nutrition Center</button>
 
         <div className="flex items-center gap-4 mb-7">
@@ -780,7 +785,7 @@ export default function Nutrition() {
           <button onClick={()=>setShowWizard(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 transition-colors"><Sparkles className="w-4 h-4"/> Νέα διατροφή (AI Wizard)</button>
         </div>
         <div className="space-y-4">
-          {cPlans.map(p=><PlanCard key={p.id} plan={p} onDelete={async id=>{await db.NutritionPlan.delete(id);load();}}/>)}
+          {cPlans.map(p=><PlanCard key={p.id} plan={p} onTransfer={setTransferPlan} onDelete={async id=>{await db.NutritionPlan.delete(id);load();}}/>)}
           {!cPlans.length&&<div className="text-center py-10 text-muted-foreground text-sm">Καμία διατροφή ακόμα.</div>}
         </div>
       </div>
@@ -796,6 +801,8 @@ export default function Nutrition() {
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto animate-fade-in">
         {finMtg && <DeductModal fm={finMtg} onDone={()=>setFinMtg(null)}/>}
+        {transferPlan && <TransferPlanModal plan={transferPlan} sourceClient={client} clients={clients}
+          onClose={()=>setTransferPlan(null)} onDone={load}/>}
       {showRecipes && <RecipesModal recipes={recipes} onClose={()=>setShowRecipes(false)} onChanged={load}/>}
       <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
         <div><h1 className="page-title">Nutrition Center</h1><p className="page-subtitle">{nutriClients.length} πελάτες διατροφής · {pendingSetup} χωρίς Course Planning · {pendingOrders} εκκρεμείς διατροφές</p></div>
