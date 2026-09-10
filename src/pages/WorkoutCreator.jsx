@@ -15,24 +15,22 @@ const GOAL_LABELS = { fat_loss:'Απώλεια λίπους', muscle_gain:'Μυ�
 const TAG_COLORS = { 'ΠΟΡΕΙΑ':'#38bdf8', 'ΕΒΔΟΜΑΔΑ':'#f59e0b', 'ΑΔΥΝΑΜΙΕΣ':'#f87171', 'ΠΡΟΤΑΣΗ':'#22c55e' };
 const TAG_ICONS  = { 'ΠΟΡΕΙΑ':TrendingDown, 'ΕΒΔΟΜΑΔΑ':CalendarDays, 'ΑΔΥΝΑΜΙΕΣ':Dumbbell, 'ΠΡΟΤΑΣΗ':Sparkles };
 
-const SESSIONS = {
-  male: [
-    { key:'upper',     label:'Upper Body',   emoji:'💪', desc:'Στήθος, πλάτη, ώμοι, χέρια' },
-    { key:'lower',     label:'Lower Body',   emoji:'🦵', desc:'Πόδια, γλουτοί, γάμπες' },
-    { key:'full_body', label:'Full Body',    emoji:'🏋️', desc:'Ολόσωμη προπόνηση' },
-  ],
-  female: [
-    { key:'upper',     label:'Upper Body',   emoji:'💪', desc:'Στήθος, πλάτη, ώμοι, χέρια' },
-    { key:'lower',     label:'Lower Body',   emoji:'🦵', desc:'Πόδια, γλουτοί, γάμπες' },
-    { key:'glutes',    label:'Glute Focused', emoji:'🍑', desc:'Γλουτοί & οπίσθια αλυσίδα' },
-  ],
-};
-const TYPE_META = { upper:{label:'Upper Body',emoji:'💪'}, lower:{label:'Lower Body',emoji:'🦵'}, full_body:{label:'Full Body',emoji:'🏋️'}, glutes:{label:'Glutes',emoji:'🍑'} };
+/* Όλες οι μυϊκές ομάδες, ίδιες για άνδρες & γυναίκες */
+const ALL_SESSIONS = [
+  { key:'full_body', label:'Full Body',   emoji:'🏋️', desc:'Ολόσωμη προπόνηση' },
+  { key:'upper',     label:'Upper Body',  emoji:'💪', desc:'Στήθος, πλάτη, ώμοι, χέρια' },
+  { key:'lower',     label:'Lower Body',  emoji:'🦵', desc:'Πόδια, γλουτοί, γάμπες' },
+  { key:'legs',      label:'Legs',        emoji:'🦿', desc:'Τετρακέφαλοι, μηριαίοι, γάμπες' },
+  { key:'glutes',    label:'Glutes',      emoji:'🍑', desc:'Γλουτοί & οπίσθια αλυσίδα' },
+];
+const SESSIONS = { male: ALL_SESSIONS, female: ALL_SESSIONS };
+const TYPE_META = { upper:{label:'Upper Body',emoji:'💪'}, lower:{label:'Lower Body',emoji:'🦵'}, legs:{label:'Legs',emoji:'🦿'}, full_body:{label:'Full Body',emoji:'🏋️'}, glutes:{label:'Glutes',emoji:'🍑'} };
 const TYPE_GROUPS = {
-  upper: ['chest','back','shoulders','biceps','triceps'],
-  lower: ['legs','glutes','calves'],
-  glutes: ['glutes','legs'],
-  full_body: ['chest','back','shoulders','legs','glutes','core'],
+  upper: ['chest','back','shoulders','biceps','triceps','traps','forearms'],
+  lower: ['legs','glutes','calves','quads','hamstrings'],
+  legs:  ['legs','quads','hamstrings','calves'],
+  glutes: ['glutes','legs','hamstrings'],
+  full_body: ['chest','back','shoulders','legs','glutes','core','quads','hamstrings','biceps','triceps'],
 };
 const SCHEMES = {
   fat_loss:    { sets:3, reps:'12-15', rest:50 },

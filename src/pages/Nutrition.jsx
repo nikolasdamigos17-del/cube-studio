@@ -667,7 +667,6 @@ export default function Nutrition() {
   const [search, setSearch] = useState('');
   const [recipes, setRecipes] = useState([]);
   const [showRecipes, setShowRecipes] = useState(false);
-  const [showWizard, setShowWizard] = useState(false);
 
   const load = async () => {
     db.MonthlyRecipe.list('-created_date', 50).then(setRecipes).catch(()=>{});
@@ -686,7 +685,6 @@ export default function Nutrition() {
   const ordersOf = (id) => meetings.filter(m=>m.client_id===id && m.status==='ordered');
   const plansOf  = (id) => plans.filter(p=>p.client_id===id);
 
-  if (showWizard) return <AIWizard clients={nutriClients} onPlanCreated={load} onClose={()=>setShowWizard(false)}/>;
 
   const client = sel ? clients.find(c=>c.id===sel) : null;
 
@@ -782,7 +780,6 @@ export default function Nutrition() {
         {/* Διατροφές */}
         <div className="flex items-center justify-between mb-3">
           <p className="font-semibold text-foreground">Διατροφές ({cPlans.length})</p>
-          <button onClick={()=>setShowWizard(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 transition-colors"><Sparkles className="w-4 h-4"/> Νέα διατροφή (AI Wizard)</button>
         </div>
         <div className="space-y-4">
           {cPlans.map(p=><PlanCard key={p.id} plan={p} onTransfer={setTransferPlan} onDelete={async id=>{await db.NutritionPlan.delete(id);load();}}/>)}

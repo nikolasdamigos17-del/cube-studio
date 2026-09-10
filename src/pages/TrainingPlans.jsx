@@ -544,6 +544,7 @@ export default function TrainingPlans() {
   const [editPlan, setEditPlan] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [groups, setGroups] = useState([]);
+  const [groupsEdit, setGroupsEdit] = useState(false);
   const [selGroup, setSelGroup] = useState(null);
   const location = useLocation();
   /* deep-link από widgets */
@@ -858,10 +859,13 @@ export default function TrainingPlans() {
             </div>
           )}
 
-          <GroupsPanel clients={clients} groups={groups} onChanged={load}/>
+          <div className="flex items-center justify-between mb-2 mt-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2"><Users2 className="w-4 h-4"/> Groups ({groups.length})</p>
+            <button onClick={()=>setGroupsEdit(v=>!v)} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted">{groupsEdit ? '✓ Τέλος επεξεργασίας' : '✏️ Επεξεργασία'}</button>
+          </div>
+          {groupsEdit && <GroupsPanel clients={clients} groups={groups} onChanged={load}/>}
           {shownGroups.length>0 && (
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"><Users2 className="w-4 h-4"/> Groups</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {shownGroups.map(g=>{
                   const members = (g.member_ids||[]).map(id=>clients.find(c=>c.id===id)).filter(Boolean);
