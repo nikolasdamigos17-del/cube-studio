@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, ExternalLink, ShoppingCart, X, Salad, Check,
 import ClientLayout from '../components/client-portal/ClientLayout';
 import { useAppContext } from '../lib/AppContext';
 import { db } from '../lib/db';
+import { printNutritionPlanPdf } from '../lib/nutritionPdf';
 
 const cs = {
   card: { backgroundColor:'var(--cp-card-bg)', border:'1px solid var(--cp-border)', borderRadius:14 },
@@ -312,9 +313,14 @@ export default function ClientNutrition() {
                     </div>
                     {plan.notes&&<p style={{margin:0,fontSize:12,...cs.dim,fontStyle:'italic'}}>{plan.notes}</p>}
                   </div>
-                  <button onClick={()=>setGroceryOpen(true)} style={{width:'100%',padding:'11px 16px',border:'none',borderTop:'1px solid var(--cp-border)',backgroundColor:'var(--cp-accent)',display:'flex',alignItems:'center',justifyContent:'center',gap:8,cursor:'pointer'}}>
-                    <ShoppingCart style={{width:15,height:15,color:'#fff'}}/><span style={{fontSize:13,fontWeight:600,color:'#fff'}}>Grocery List</span>
-                  </button>
+                  <div style={{display:'flex',borderTop:'1px solid var(--cp-border)'}}>
+                    <button onClick={()=>setGroceryOpen(true)} style={{flex:1,padding:'11px 16px',border:'none',backgroundColor:'var(--cp-accent)',display:'flex',alignItems:'center',justifyContent:'center',gap:8,cursor:'pointer'}}>
+                      <ShoppingCart style={{width:15,height:15,color:'#fff'}}/><span style={{fontSize:13,fontWeight:600,color:'#fff'}}>Grocery List</span>
+                    </button>
+                    <button onClick={()=>printNutritionPlanPdf(plan, clientUser?.name)} style={{flex:1,padding:'11px 16px',border:'none',borderLeft:'1px solid rgba(255,255,255,0.25)',backgroundColor:'var(--cp-accent)',display:'flex',alignItems:'center',justifyContent:'center',gap:8,cursor:'pointer'}}>
+                      <span style={{fontSize:14}}>📄</span><span style={{fontSize:13,fontWeight:600,color:'#fff'}}>PDF</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Meal categories → tap a card to open its options list */}

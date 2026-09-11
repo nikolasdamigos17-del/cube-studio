@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { Trash2, X, Sparkles, ChevronRight, ChevronDown, ExternalLink, Loader2, Check, AlertCircle, Pencil, RotateCcw, Plus, Minus, ArrowLeft, Users, ClipboardList, CalendarClock, Lock, Search, ChefHat, Star } from 'lucide-react';
 import { db, callAI } from '../lib/db';
 import TransferPlanModal from '../components/TransferPlanModal';
+import { printNutritionPlanPdf } from '../lib/nutritionPdf';
 import { addCredit, getBalance } from '../lib/credits';
 
 const MEAL_TYPES = [
@@ -439,6 +440,8 @@ Return ONLY a JSON array - one object per meal:
 
 // ── Plan Card ────────────────────────────────────────────────────────────────
 function PlanCard({ plan, onDelete, onTransfer }) {
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const doPdf = async (e) => { e.stopPropagation(); if (pdfBusy) return; setPdfBusy(true); try { await printNutritionPlanPdf(plan, plan.client_name); } finally { setPdfBusy(false); } };
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="card hover:shadow-sm transition-shadow">
@@ -457,6 +460,7 @@ function PlanCard({ plan, onDelete, onTransfer }) {
             {plan.supplements?.length>0&&<div className="flex flex-wrap gap-1 mt-2">{plan.supplements.map((s,i)=><span key={i} className="badge" style={{background:'#f3e8ff',color:'#7c3aed'}}>💊 {s.name}</span>)}</div>}
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={doPdf} title="Εκτύπωση σε PDF — συνοπτικά γραμμάρια ανά γεύμα" className="btn-ghost btn-icon hover:text-emerald-600">{pdfBusy ? <Loader2 className="w-4 h-4 animate-spin"/> : <span style={{fontSize:11,fontWeight:800,letterSpacing:'.03em'}}>PDF</span>}</button>
             {onTransfer && <button onClick={e=>{e.stopPropagation();onTransfer(plan);}} title="Μεταφορά σε άλλον πελάτη (ίδια πιάτα, δικές του ποσότητες)" className="btn-ghost btn-icon hover:text-indigo-500"><Users className="w-4 h-4"/></button>}
             <button onClick={e=>{e.stopPropagation();onDelete(plan.id);}} className="btn-ghost btn-icon hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
             {expanded?<ChevronDown className="w-4 h-4 text-muted-foreground"/>:<ChevronRight className="w-4 h-4 text-muted-foreground"/>}
