@@ -305,7 +305,10 @@ async function genForSlot(slotKey, ctxData, avoid) {
 [{"name":"...","main_ingredients":["...","..."]}]`;
   const r = await callAI(prompt, 'You are a Greek sports-nutrition chef who knows Mediterranean cuisine and modern food trends. Return ONLY a valid JSON array. Start with [');
   const parsed = parseJsonArr(r);
-  if (parsed && parsed.length >= 5) return parsed.slice(0, 10);
+  if (parsed && parsed.length) {
+    const fresh = parsed.filter(m => m?.name && !avoid.includes(m.name));
+    if (fresh.length >= 3) return fresh.slice(0, 10);
+  }
   const ban = banned.map(b => b.toLowerCase());
   const ok = slotFallback(slotKey).filter(m =>
     !ban.some(b => m.name.toLowerCase().includes(b) || m.main_ingredients.some(i => i.toLowerCase().includes(b))) &&
@@ -663,8 +666,14 @@ const loadRecipes = async () => {
 
   const reroll = async (slotKey) => {
     setRerolling(p => ({ ...p, [slotKey]: true }));
-    const avoid = [ ...(shownRef.current[slotKey] || []), ...cart.map(c => c.name) ];
+    const avoid = [ ...(shownRef.current[slotKey] || []), ...cart.map(c => c.name) ].slice(-60);
     const list = await genForSlot(slotKey, { profile, client }, avoid);
+    if (!list.length) {
+      /* Το AI δεν έφερε νέες — ΚΡΑΤΑΜΕ τη δεκάδα που φαίνεται, δεν τη σβήνουμε */
+      setRerolling(p => ({ ...p, [slotKey]: false }));
+      alert('Δεν ήρθαν νέες προτάσεις (πιθανό πρόσκαιρο σφάλμα AI). Η τρέχουσα δεκάδα παραμένει — δοκίμασε ξανά σε λίγο.');
+      return;
+    }
     const full = injectStudioRecipes(slotKey, list);
     shownRef.current[slotKey] = [ ...(shownRef.current[slotKey] || []), ...list.map(m => m.name) ];
     setSuggestions(p => ({ ...p, [slotKey]: full }));
@@ -1064,7 +1073,7 @@ const loadRecipes = async () => {
                   );
                 })}
                 {!(suggestions[activeSlot] || []).length && (
-                  <p style={{ ...S.dim, fontSize:13 }}>Καμία πρόταση για αυτή την κατηγορία — δοκίμασε Reroll.</p>
+                  <p style={{ ...S.dim, fontSize:13 }}>Δεν ήρθαν προτάσεις (πιθανό πρόσκαιρο σφάλμα AI) — πάτα Reroll για νέα προσπάθεια.</p>
                 )}
               </div>
             </div>
