@@ -3,7 +3,7 @@ import { format, parseISO, subDays } from 'date-fns';
 import { ChevronDown, ChevronRight, ExternalLink, ShoppingCart, X, Salad, Check, Share2, Trash2, Droplets, Plus, Pill, ChevronLeft } from 'lucide-react';
 import ClientLayout from '../components/client-portal/ClientLayout';
 import { useAppContext } from '../lib/AppContext';
-import { db } from '../lib/db';
+import { db, callAI } from '../lib/db';
 import { printNutritionPlanPdf } from '../lib/nutritionPdf';
 
 const cs = {
@@ -16,6 +16,33 @@ const cs = {
 
 // ── Meal Sheet ────────────────────────────────────────────────────────────────
 function MealSheet({ meal, supplements, onClose }) {
+  /* Συνταγή με AI — cache ΤΟΠΙΚΑ ανά (διατροφή, γεύμα): ίδιο γεύμα σε ΑΛΛΗ
+     διατροφή = άλλες ποσότητες = δική του συνταγή. Καμία 2η κλήση στο AI. */
+  const cacheKey = `cube_recipe_${meal.planId || 'x'}_${(meal.name || '').trim()}_${meal.calories ?? ''}`;
+  const [recipe, setRecipe] = useState(() => { try { return JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch { return null; } });
+  const [recBusy, setRecBusy] = useState(false);
+  const [recErr, setRecErr] = useState('');
+
+  const makeRecipe = async () => {
+    setRecBusy(true); setRecErr('');
+    try {
+      const prompt = `Φτιάξε σύντομη, πρακτική συνταγή στα ΕΛΛΗΝΙΚΑ για το γεύμα «${meal.name}» (${meal.calories || '?'} kcal, ${meal.protein || '?'}g πρωτεΐνη).
+Υλικά όπως δίνονται: ${meal.ingredients || meal.description || '—'}.
+- Ποσότητες ΑΚΡΙΒΩΣ σε γραμμάρια/ml/τεμ. ώστε να βγαίνουν περίπου οι θερμίδες.
+- Σωστά, φυσικά ελληνικά. Σύντομα βήματα (3-6), χωρίς φλυαρία.
+Επίστρεψε ΜΟΝΟ JSON: {"items":["Γιαούρτι 150g","Βρώμη 30g"],"steps":["...","..."]}`;
+      const out = await callAI(prompt, 'Return ONLY valid JSON. No markdown. Start with {');
+      if (typeof out === 'string' && out.startsWith('__ERROR__')) throw new Error(out.replace('__ERROR__','').trim() || 'Σφάλμα AI');
+      let c = String(out).trim().replace(/^```json?\s*/i,'').replace(/\s*```$/,'').trim();
+      const a = c.indexOf('{'), z = c.lastIndexOf('}');
+      const j = JSON.parse(c.slice(a, z + 1));
+      if (!Array.isArray(j.items)) throw new Error('Μη έγκυρη συνταγή');
+      try { localStorage.setItem(cacheKey, JSON.stringify(j)); } catch {}
+      setRecipe(j);
+    } catch (e) { setRecErr(String(e?.message || e)); }
+    setRecBusy(false);
+  };
+
   return (
     <div style={{position:'fixed',inset:0,zIndex:60,display:'flex',alignItems:'flex-end',justifyContent:'center',backgroundColor:'rgba(0,0,0,0.5)'}}>
       <div style={{...cs.card,borderRadius:'20px 20px 0 0',width:'100%',maxWidth:500,maxHeight:'88vh',display:'flex',flexDirection:'column'}}>
@@ -49,6 +76,32 @@ function MealSheet({ meal, supplements, onClose }) {
               </div>
             </div>
           )}
+          {/* Συνταγή (AI, τοπική αποθήκευση ανά διατροφή) */}
+          <div>
+            <span style={cs.label}>Συνταγή</span>
+            {recipe ? (
+              <div style={{...cs.card,padding:'12px 14px'}}>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:recipe.steps?.length?10:0}}>
+                  {recipe.items.map((it,i)=>(<span key={i} style={{fontSize:12,padding:'4px 10px',borderRadius:8,backgroundColor:'var(--cp-bg)',border:'1px solid var(--cp-border)',...cs.text}}>{it}</span>))}
+                </div>
+                {(recipe.steps||[]).map((st,i)=>(
+                  <div key={i} style={{display:'flex',gap:8,marginBottom:6}}>
+                    <span style={{fontSize:11,fontWeight:800,color:'var(--cp-accent)',flexShrink:0,marginTop:1}}>{i+1}.</span>
+                    <span style={{fontSize:13,lineHeight:1.5,...cs.dim}}>{st}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{...cs.card,padding:'12px 14px',textAlign:'center'}}>
+                {recErr && <p style={{margin:'0 0 8px',fontSize:12,color:'#f87171'}}>{recErr}</p>}
+                <button onClick={makeRecipe} disabled={recBusy}
+                  style={{width:'100%',padding:'10px 14px',borderRadius:10,border:'none',cursor:'pointer',backgroundColor:'var(--cp-accent)',color:'#fff',fontSize:13,fontWeight:700,opacity:recBusy?0.6:1}}>
+                  {recBusy ? 'Ο εγκέφαλος γράφει τη συνταγή…' : '✨ Δημιουργία συνταγής'}
+                </button>
+                <p style={{margin:'8px 0 0',fontSize:10.5,...cs.dim}}>Φτιάχνεται μία φορά και αποθηκεύεται στη συσκευή — δεν ξαναγίνεται κλήση AI για αυτή τη διατροφή.</p>
+              </div>
+            )}
+          </div>
           {/* Supplement pairings */}
           {supplements?.length > 0 && (
             <div>
@@ -342,7 +395,7 @@ export default function ClientNutrition() {
                         </div>
                         <div style={{...cs.card,overflow:'hidden'}}>
                           {active.options?.map((opt,oi)=>(
-                            <button key={oi} onClick={()=>setSelectedMeal({...opt,supplements,planSections:plan.meal_sections})}
+                            <button key={oi} onClick={()=>setSelectedMeal({...opt,supplements,planSections:plan.meal_sections,planId:plan.id})}
                               style={{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'13px 16px',border:'none',backgroundColor:'transparent',borderTop: oi ? '1px solid var(--cp-border)' : 'none',cursor:'pointer',textAlign:'left'}}>
                               <div style={{width:3,height:36,borderRadius:2,backgroundColor:'var(--cp-accent)',flexShrink:0}}/>
                               <div style={{flex:1,minWidth:0}}>

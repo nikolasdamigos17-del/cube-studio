@@ -203,7 +203,8 @@ export default function Clients() {
   useEffect(()=>{ load(); },[]);
 
   const q = search.toLowerCase();
-  const individuals = clients.filter(c => isIndividual(c) && (c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)));
+  /* Η ρίζα δείχνει ΟΛΟΥΣ: personal ΚΑΙ μέλη group */
+  const individuals = clients.filter(c => (c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)));
   const activeIndiv = individuals.filter(c=>!c.frozen);
   const frozenIndiv = individuals.filter(c=>c.frozen);
   const shownGroups = groups.filter(g => !q || groupDisplayName(g, clients).toLowerCase().includes(q));
@@ -243,7 +244,7 @@ export default function Clients() {
 
         {/* ── INDIVIDUALS ── */}
         <section>
-          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> Individuals ({individuals.length})</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> Πελάτες ({individuals.length})</p>
           {activeIndiv.length===0 && frozenIndiv.length===0
             ? <div className="card p-10 text-center text-gray-400"><Users className="w-10 h-10 mx-auto mb-2 opacity-30"/><p className="text-sm">Κανένας ατομικός πελάτης</p></div>
             : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{activeIndiv.map(c=><IndividualCard key={c.id} c={c}/>)}</div>}

@@ -174,7 +174,7 @@ export async function callAI(prompt, systemPrompt) {
           'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'claude-sonnet-5',
           max_tokens: 4096,
           system: systemPrompt || 'You are a helpful fitness and nutrition assistant.',
           messages: [{ role: 'user', content: prompt }],
