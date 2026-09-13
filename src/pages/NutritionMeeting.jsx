@@ -327,13 +327,13 @@ const goodDir = (key, goal) => {
 };
 
 function DeltaChip({ d, dir }) {
-  if (d == null) return <span style={{ fontSize:11, color:'rgba(255,255,255,0.35)' }}>πρώτη μέτρηση</span>;
+  if (d == null) return <span style={{ fontSize:11, color:'rgba(17,24,39,0.55)' }}>πρώτη μέτρηση</span>;
   const good = dir !== 0 && Math.sign(d) === dir;
   const bad = dir !== 0 && d !== 0 && Math.sign(d) !== dir;
-  const col = d === 0 ? 'rgba(255,255,255,0.5)' : good ? '#4ade80' : bad ? '#f87171' : '#e2e8f0';
+  const col = d === 0 ? 'rgba(17,24,39,0.55)' : good ? '#4ade80' : bad ? '#f87171' : '#e2e8f0';
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:12.5, fontWeight:800, color:col,
-      background:'rgba(255,255,255,0.05)', border:`1px solid ${col}33`, padding:'3px 9px', borderRadius:999 }}>
+      background:'rgba(17,24,39,0.05)', border:`1px solid ${col}33`, padding:'3px 9px', borderRadius:999 }}>
       {d > 0 ? '▲' : d < 0 ? '▼' : '—'} {Math.abs(d)}
     </span>
   );
@@ -374,14 +374,14 @@ function RadialGauge({ label, value, max, unit, color, delta, dir, delay = 0 }) 
     <div style={{ textAlign:'center' }}>
       <svg viewBox="0 0 160 150" style={{ width:'100%', maxWidth:185, display:'block', margin:'0 auto' }}>
         <g transform="rotate(130 80 80)">
-          <circle cx="80" cy="80" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="11" strokeDasharray={`${span} ${C}`} strokeLinecap="round"/>
+          <circle cx="80" cy="80" r={R} fill="none" stroke="rgba(17,24,39,0.13)" strokeWidth="11" strokeDasharray={`${span} ${C}`} strokeLinecap="round"/>
           <circle cx="80" cy="80" r={R} fill="none" stroke={color} strokeWidth="11" strokeDasharray={`${span} ${C}`} strokeDashoffset={off} strokeLinecap="round"
             style={{ transition:'stroke-dashoffset 1.35s cubic-bezier(.22,1,.36,1)', filter:`drop-shadow(0 0 9px ${color}66)` }}/>
         </g>
         <text x="80" y="78" textAnchor="middle" fill="#fff" style={{ fontSize:30, fontWeight:800, fontVariantNumeric:'tabular-nums', fontFamily:'inherit' }}>{num(value) == null ? '—' : v.toFixed(1)}</text>
-        <text x="80" y="98" textAnchor="middle" fill="rgba(255,255,255,0.45)" style={{ fontSize:11, fontFamily:'inherit' }}>{unit}</text>
+        <text x="80" y="98" textAnchor="middle" fill="rgba(17,24,39,0.55)" style={{ fontSize:11, fontFamily:'inherit' }}>{unit}</text>
       </svg>
-      <p style={{ margin:'0 0 7px', fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.45)', fontWeight:700 }}>{label}</p>
+      <p style={{ margin:'0 0 7px', fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 }}>{label}</p>
       <DeltaChip d={delta} dir={dir}/>
     </div>
   );
@@ -397,18 +397,18 @@ function BarsCompare({ label, unit, prev, now, color, delta, dir, delay = 0 }) {
       <div style={{ height:H, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
         <div style={{ width:36, borderRadius:'10px 10px 4px 4px', minHeight:5,
           height: grow ? `${Math.max(4, (num(v) || 0) / mx * 100)}%` : '4%',
-          background: dim ? 'rgba(255,255,255,0.14)' : `linear-gradient(180deg, ${color}, ${color}77)`,
+          background: dim ? 'rgba(17,24,39,0.13)' : `linear-gradient(180deg, ${color}, ${color}77)`,
           boxShadow: dim ? 'none' : `0 0 18px ${color}55`,
           transition:'height 1.15s cubic-bezier(.22,1,.36,1)' }}/>
       </div>
-      <p style={{ margin:'8px 0 0', fontSize:16, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>{num(v) == null ? '—' : v}<span style={{ fontSize:10, color:'rgba(255,255,255,0.4)' }}> {unit}</span></p>
-      <p style={{ margin:0, fontSize:10, color:'rgba(255,255,255,0.4)' }}>{lbl}</p>
+      <p style={{ margin:'8px 0 0', fontSize:16, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>{num(v) == null ? '—' : v}<span style={{ fontSize:10, color:'rgba(17,24,39,0.55)' }}> {unit}</span></p>
+      <p style={{ margin:0, fontSize:10, color:'rgba(17,24,39,0.55)' }}>{lbl}</p>
     </div>
   );
   return (
     <div>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-        <p style={{ margin:0, fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.45)', fontWeight:700 }}>{label}</p>
+        <p style={{ margin:0, fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 }}>{label}</p>
         <DeltaChip d={delta} dir={dir}/>
       </div>
       <div style={{ display:'flex', gap:14, alignItems:'flex-end' }}>
@@ -423,7 +423,7 @@ function WeightJourney({ data, color, color2 }) {
   const pts = (data || []).map(d => ({ d: d.date, v: num(d.weight_kg) })).filter(x => x.v != null);
   const [drawn, setDrawn] = useState(false);
   useEffect(() => { const t = setTimeout(() => setDrawn(true), 250); return () => clearTimeout(t); }, []);
-  if (pts.length < 2) return <p style={{ color:'rgba(255,255,255,0.4)', fontSize:12.5, margin:0 }}>Χρειάζονται ≥2 μετρήσεις για την πορεία.</p>;
+  if (pts.length < 2) return <p style={{ color:'rgba(17,24,39,0.55)', fontSize:12.5, margin:0 }}>Χρειάζονται ≥2 μετρήσεις για την πορεία.</p>;
   const W = 640, H = 172, PX = 40, PY = 24;
   const vals = pts.map(x => x.v);
   const mn = Math.min(...vals), mx = Math.max(...vals), rng = (mx - mn) || 1;
@@ -450,8 +450,8 @@ function WeightJourney({ data, color, color2 }) {
       </defs>
       {[mn, mx].map((g, i) => (
         <g key={i}>
-          <line x1={PX} x2={W - PX} y1={Y(g)} y2={Y(g)} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 5"/>
-          <text x={PX - 7} y={Y(g) + 4} textAnchor="end" fill="rgba(255,255,255,0.35)" style={{ fontSize:10.5, fontFamily:'inherit', fontVariantNumeric:'tabular-nums' }}>{g.toFixed(1)}</text>
+          <line x1={PX} x2={W - PX} y1={Y(g)} y2={Y(g)} stroke="rgba(17,24,39,0.13)" strokeDasharray="3 5"/>
+          <text x={PX - 7} y={Y(g) + 4} textAnchor="end" fill="rgba(17,24,39,0.55)" style={{ fontSize:10.5, fontFamily:'inherit', fontVariantNumeric:'tabular-nums' }}>{g.toFixed(1)}</text>
         </g>
       ))}
       <path d={area} fill="url(#wjfill)" style={{ opacity: drawn ? 1 : 0, transition:'opacity 1.2s .4s' }}/>
@@ -463,8 +463,8 @@ function WeightJourney({ data, color, color2 }) {
       ))}
       <circle cx={X(pts.length - 1)} cy={Y(vals[vals.length - 1])} r="5" fill={color2 || color} style={{ filter:`drop-shadow(0 0 8px ${color2 || color})` }}/>
       <circle cx={X(pts.length - 1)} cy={Y(vals[vals.length - 1])} r="5" fill="none" stroke={color2 || color} strokeWidth="2" className="nmping"/>
-      <text x={X(0)} y={H - 6} textAnchor="start" fill="rgba(255,255,255,0.35)" style={{ fontSize:10, fontFamily:'inherit' }}>{pts[0].d}</text>
-      <text x={X(pts.length - 1)} y={H - 6} textAnchor="end" fill="rgba(255,255,255,0.35)" style={{ fontSize:10, fontFamily:'inherit' }}>{pts[pts.length - 1].d}</text>
+      <text x={X(0)} y={H - 6} textAnchor="start" fill="rgba(17,24,39,0.55)" style={{ fontSize:10, fontFamily:'inherit' }}>{pts[0].d}</text>
+      <text x={X(pts.length - 1)} y={H - 6} textAnchor="end" fill="rgba(17,24,39,0.55)" style={{ fontSize:10, fontFamily:'inherit' }}>{pts[pts.length - 1].d}</text>
     </svg>
   );
 }
@@ -475,10 +475,10 @@ function CompositionDonut({ weight, fatPct, muscleKg, delay = 0 }) {
   const mus = num(muscleKg);
   const [on, setOn] = useState(false);
   useEffect(() => { const t = setTimeout(() => setOn(true), 200 + delay * 1000); return () => clearTimeout(t); }, [delay]);
-  if (w == null || (fat == null && mus == null)) return <p style={{ color:'rgba(255,255,255,0.4)', fontSize:12.5, margin:0, textAlign:'center' }}>Χωρίς δεδομένα σύνθεσης.</p>;
+  if (w == null || (fat == null && mus == null)) return <p style={{ color:'rgba(17,24,39,0.55)', fontSize:12.5, margin:0, textAlign:'center' }}>Χωρίς δεδομένα σύνθεσης.</p>;
   const f = fat || 0, m = mus || 0, rest = Math.max(0, w - f - m);
   const R = 56, C = 2 * Math.PI * R;
-  const segs = [[f, '#f87171', 'Λίπος'], [m, '#34d399', 'Μυς'], [rest, 'rgba(255,255,255,0.14)', 'Λοιπά']];
+  const segs = [[f, '#f87171', 'Λίπος'], [m, '#34d399', 'Μυς'], [rest, 'rgba(17,24,39,0.13)', 'Λοιπά']];
   let acc = 0;
   return (
     <div style={{ textAlign:'center' }}>
@@ -493,12 +493,12 @@ function CompositionDonut({ weight, fatPct, muscleKg, delay = 0 }) {
           })}
         </g>
         <text x="75" y="71" textAnchor="middle" fill="#fff" style={{ fontSize:24, fontWeight:800, fontVariantNumeric:'tabular-nums', fontFamily:'inherit' }}>{w.toFixed(1)}</text>
-        <text x="75" y="90" textAnchor="middle" fill="rgba(255,255,255,0.45)" style={{ fontSize:10.5, fontFamily:'inherit' }}>kg σύνολο</text>
+        <text x="75" y="90" textAnchor="middle" fill="rgba(17,24,39,0.55)" style={{ fontSize:10.5, fontFamily:'inherit' }}>kg σύνολο</text>
       </svg>
-      <p style={{ margin:'0 0 8px', fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.45)', fontWeight:700 }}>Σύνθεση σώματος</p>
+      <p style={{ margin:'0 0 8px', fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 }}>Σύνθεση σώματος</p>
       <div style={{ display:'flex', justifyContent:'center', gap:12, flexWrap:'wrap' }}>
         {segs.map(([val, col, lbl]) => (
-          <span key={lbl} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, color:'rgba(255,255,255,0.65)' }}>
+          <span key={lbl} style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:11, color:'rgba(17,24,39,0.8)' }}>
             <span style={{ width:8, height:8, borderRadius:2, background:col, display:'inline-block' }}/>{lbl} {val ? val.toFixed(1) : '0'}kg
           </span>
         ))}
@@ -741,25 +741,25 @@ const loadRecipes = async () => {
 
   /* ── στυλ ── */
   const S = {
-    page:{ minHeight:'100vh', background:'#06060b', color:'#eef0f6', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)', position:'relative', overflow:'hidden' },
+    page:{ minHeight:'100vh', background:'#f5f6fa', color:'#111827', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)', position:'relative', overflow:'hidden' },
     wash:{ position:'fixed', inset:0, zIndex:0, background:`radial-gradient(1000px 500px at 15% -8%, ${P[0]}12, transparent 60%), radial-gradient(800px 460px at 100% 4%, ${P[1]}10, transparent 55%)`, transition:'background 1.2s ease' },
     kicker:{ fontSize:10.5, letterSpacing:'.34em', textTransform:'uppercase', color:ACC, fontWeight:700 },
-    card:{ background:'rgba(255,255,255,0.035)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:18, padding:'18px 20px', backdropFilter:'blur(6px)' },
-    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.42)', fontWeight:700 },
-    dim:{ color:'rgba(255,255,255,0.45)' },
-    inp:{ background:'rgba(0,0,0,0.4)', border:'1px solid rgba(255,255,255,0.14)', borderRadius:11, color:'#eef0f6', padding:'10px 13px', fontSize:14, outline:'none', width:'100%', fontFamily:'inherit' },
+    card:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.10)', boxShadow:'0 1px 3px rgba(16,24,40,0.05)', borderRadius:18, padding:'18px 20px', backdropFilter:'blur(6px)' },
+    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 },
+    dim:{ color:'rgba(17,24,39,0.55)' },
+    inp:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.13)', borderRadius:11, color:'#111827', padding:'10px 13px', fontSize:14, outline:'none', width:'100%', fontFamily:'inherit' },
     btn:(primary, col)=>({ border:'none', borderRadius:12, padding:'12px 22px', fontSize:13.5, fontWeight:800, cursor:'pointer', fontFamily:'inherit',
-      background: primary ? (col || ACC) : 'transparent', color: primary ? '#07070b' : 'rgba(255,255,255,0.7)',
-      outline: primary ? 'none' : '1px solid rgba(255,255,255,0.18)' }),
+      background: primary ? (col || ACC) : 'transparent', color: primary ? '#07070b' : 'rgba(17,24,39,0.8)',
+      outline: primary ? 'none' : '1px solid rgba(17,24,39,0.13)' }),
     next:{ position:'fixed', top:16, right:18, zIndex:20, display:'flex', gap:8, alignItems:'center' },
     navBtn:{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:999, fontSize:12, fontWeight:800, cursor:'pointer',
-      background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.75)', fontFamily:'inherit' },
+      background:'rgba(17,24,39,0.05)', border:'1px solid rgba(17,24,39,0.13)', color:'rgba(17,24,39,0.8)', fontFamily:'inherit' },
   };
   const initials = (n)=> (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
 
   if (!client) return (
     <div style={{ ...S.page, display:'grid', placeItems:'center' }}>
-      <Loader2 style={{ width:28, height:28, color:'#fff', animation:'nmspin 1s linear infinite' }}/>
+      <Loader2 style={{ width:28, height:28, color:'#111827', animation:'nmspin 1s linear infinite' }}/>
       <style>{`@keyframes nmspin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
@@ -789,14 +789,14 @@ const loadRecipes = async () => {
             <span style={{ width:15, height:15, border:`1.4px solid ${P[1]}`, transform:'rotate(45deg)', display:'block' }}/>
           </span>
           <span style={{ textAlign:'left' }}>
-            <b style={{ display:'block', fontSize:13.5, letterSpacing:'.06em', color:'#fff' }}>THE CUBE</b>
-            <small style={{ fontSize:9.5, letterSpacing:'.22em', color:'rgba(255,255,255,0.45)', textTransform:'uppercase' }}>Nutrition Meeting</small>
+            <b style={{ display:'block', fontSize:13.5, letterSpacing:'.06em', color:'#111827' }}>THE CUBE</b>
+            <small style={{ fontSize:9.5, letterSpacing:'.22em', color:'rgba(17,24,39,0.55)', textTransform:'uppercase' }}>Nutrition Meeting</small>
           </span>
         </button>
         {exitPanel && (
           <button onClick={() => { setExitPanel(false); setExitConfirm(true); }}
             style={{ marginTop:10, display:'flex', alignItems:'center', gap:8, padding:'10px 16px', borderRadius:12, cursor:'pointer', fontFamily:'inherit',
-              background:'rgba(10,10,17,0.96)', border:'1px solid rgba(255,255,255,0.16)', color:'#fff', fontSize:13, fontWeight:700,
+              background:'rgba(10,10,17,0.96)', border:'1px solid rgba(17,24,39,0.13)', color:'#fff', fontSize:13, fontWeight:700,
               boxShadow:'0 20px 60px -20px rgba(0,0,0,0.8)', animation:'nmfade .18s ease both' }}>
             <X style={{ width:14, height:14 }}/> Έξοδος
           </button>
@@ -806,12 +806,12 @@ const loadRecipes = async () => {
       {/* βήμα + πλοήγηση — πάνω δεξιά, μικρό & διακριτικό */}
       {screen !== 'greet' && screen !== 'loading' && (
         <div style={S.next}>
-          <span style={{ fontSize:11, color:'rgba(255,255,255,0.4)', letterSpacing:'.08em', textTransform:'uppercase', fontWeight:700 }}>{stepLabel}</span>
+          <span style={{ fontSize:11, color:'rgba(17,24,39,0.55)', letterSpacing:'.08em', textTransform:'uppercase', fontWeight:700 }}>{stepLabel}</span>
           {ORDER.indexOf(screen) > 0 && (
             <button onClick={goPrev} style={S.navBtn}><ArrowLeft style={{ width:13, height:13 }}/></button>
           )}
           {screen !== 'summary' && (
-            <button onClick={goNext} style={{ ...S.navBtn, borderColor:`${ACC}66`, color:'#fff' }}>Next <ArrowRight style={{ width:13, height:13 }}/></button>
+            <button onClick={goNext} style={{ ...S.navBtn, borderColor:`${ACC}66`, color:'#111827' }}>Next <ArrowRight style={{ width:13, height:13 }}/></button>
           )}
         </div>
       )}
@@ -885,7 +885,7 @@ const loadRecipes = async () => {
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:16, position:'relative', flexWrap:'wrap' }}>
                   <div>
                     <BigNum value={current.weight_kg} size={72}/>
-                    <span style={{ fontSize:17, color:'rgba(255,255,255,0.4)', fontWeight:700, marginLeft:6 }}>kg</span>
+                    <span style={{ fontSize:17, color:'rgba(17,24,39,0.55)', fontWeight:700, marginLeft:6 }}>kg</span>
                   </div>
                   <DeltaChip d={dlt(current, prev, 'weight_kg')} dir={goodDir('weight_kg', profile?.goal_type)}/>
                 </div>
@@ -895,12 +895,12 @@ const loadRecipes = async () => {
                   const prog = Math.max(0, Math.min(1, (firstW - curW) / (firstW - tgt)));
                   return (
                     <div style={{ maxWidth:520, margin:'20px auto 0', position:'relative' }}>
-                      <div style={{ height:9, borderRadius:999, background:'rgba(255,255,255,0.08)', overflow:'hidden' }}>
+                      <div style={{ height:9, borderRadius:999, background:'rgba(17,24,39,0.13)', overflow:'hidden' }}>
                         <div style={{ height:'100%', width:`${prog*100}%`, borderRadius:999, background:`linear-gradient(90deg, ${P[0]}, ${P[1]})`, boxShadow:`0 0 14px ${P[1]}66`, transition:'width 1.4s cubic-bezier(.22,1,.36,1)' }}/>
                       </div>
-                      <div style={{ display:'flex', justifyContent:'space-between', marginTop:7, fontSize:10.5, color:'rgba(255,255,255,0.42)' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', marginTop:7, fontSize:10.5, color:'rgba(17,24,39,0.55)' }}>
                         <span>Αφετηρία {firstW}kg</span>
-                        <span style={{ color:'#fff', fontWeight:800 }}>{Math.round(prog*100)}% προς τον στόχο</span>
+                        <span style={{ color:'#111827', fontWeight:800 }}>{Math.round(prog*100)}% προς τον στόχο</span>
                         <span>Στόχος {tgt}kg</span>
                       </div>
                     </div>
@@ -966,7 +966,7 @@ const loadRecipes = async () => {
                       const key = `${sec.section_name}::${opt.name}`;
                       const v = decisions[key] || 'maybe';
                       return (
-                        <div key={key} style={{ display:'flex', alignItems:'center', gap:12, padding:'9px 0', borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                        <div key={key} style={{ display:'flex', alignItems:'center', gap:12, padding:'9px 0', borderTop:'1px solid rgba(17,24,39,0.05)' }}>
                           <div style={{ flex:1, minWidth:0 }}>
                             <p style={{ margin:0, fontSize:14, fontWeight:700, opacity: v==='never'?0.45:1, textDecoration: v==='never'?'line-through':'none' }}>{opt.name}</p>
                             {opt.ingredients && <p style={{ ...S.dim, fontSize:11.5, margin:'2px 0 0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{opt.ingredients}</p>}
@@ -974,9 +974,9 @@ const loadRecipes = async () => {
                           {[['keep',Check,'#22c55e'],['maybe',Minus,'#94a3b8'],['never',X,'#ef4444']].map(([val,Icon,col]) => (
                             <button key={val} onClick={() => setDecision(key, opt, sec.section_name, val)}
                               style={{ width:34, height:34, borderRadius:10, cursor:'pointer', display:'grid', placeItems:'center',
-                                border:`1.6px solid ${v===val?col:'rgba(255,255,255,0.14)'}`,
+                                border:`1.6px solid ${v===val?col:'rgba(17,24,39,0.13)'}`,
                                 background: v===val ? col+'26' : 'transparent' }}>
-                              <Icon style={{ width:16, height:16, color: v===val?col:'rgba(255,255,255,0.4)' }}/>
+                              <Icon style={{ width:16, height:16, color: v===val?col:'rgba(17,24,39,0.55)' }}/>
                             </button>
                           ))}
                         </div>
@@ -998,7 +998,7 @@ const loadRecipes = async () => {
             </p>
             <div style={{ width:340, maxWidth:'80vw' }}>
               {[0,1,2,3].map(i => (
-                <div key={i} style={{ height:12, borderRadius:6, marginBottom:10, background:'rgba(255,255,255,0.06)', overflow:'hidden', position:'relative' }}>
+                <div key={i} style={{ height:12, borderRadius:6, marginBottom:10, background:'rgba(17,24,39,0.05)', overflow:'hidden', position:'relative' }}>
                   <div style={{ position:'absolute', inset:0, background:`linear-gradient(90deg, transparent, ${ACC}33, transparent)`, animation:`nmshimmer 1.4s ${i*0.15}s ease-in-out infinite` }}/>
                 </div>
               ))}
@@ -1021,7 +1021,7 @@ const loadRecipes = async () => {
                     <div key={it.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 8px', borderRadius:10, background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.25)', marginBottom:6 }}>
                       <span style={{ flex:1, fontSize:12.5, fontWeight:600, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{it.name}</span>
                       <button onClick={() => setCart(p => p.filter(x => x.id !== it.id))} style={{ background:'transparent', border:'none', cursor:'pointer', padding:2 }}>
-                        <X style={{ width:13, height:13, color:'rgba(255,255,255,0.5)' }}/>
+                        <X style={{ width:13, height:13, color:'rgba(17,24,39,0.55)' }}/>
                       </button>
                     </div>
                   ))}
@@ -1035,8 +1035,8 @@ const loadRecipes = async () => {
                 {slots.map(s => (
                   <button key={s} onClick={() => setActiveSlot(s)}
                     style={{ padding:'9px 15px', borderRadius:999, fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
-                      border:`1.5px solid ${activeSlot===s?ACC:'rgba(255,255,255,0.14)'}`,
-                      background: activeSlot===s ? ACC+'22' : 'transparent', color: activeSlot===s ? '#fff' : 'rgba(255,255,255,0.6)' }}>
+                      border:`1.5px solid ${activeSlot===s?ACC:'rgba(17,24,39,0.13)'}`,
+                      background: activeSlot===s ? ACC+'22' : 'transparent', color: activeSlot===s ? '#fff' : 'rgba(17,24,39,0.8)' }}>
                     {SLOT_META[s]?.emoji} {SLOT_META[s]?.label || s}
                     <span style={{ marginLeft:6, opacity:.6 }}>{cart.filter(c => c.slot === (SLOT_META[s]?.label || s)).length || ''}</span>
                   </button>
@@ -1052,21 +1052,21 @@ const loadRecipes = async () => {
                   const id = `ai::${activeSlot}::${meal.name}`;
                   const on = !!cart.find(x => x.id === id);
                   return (
-                    <div key={id} style={{ ...S.card, padding:'14px 16px', borderColor: on ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.09)' }}>
+                    <div key={id} style={{ ...S.card, padding:'14px 16px', borderColor: on ? 'rgba(34,197,94,0.5)' : 'rgba(17,24,39,0.13)' }}>
                       <div style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
                         <div style={{ flex:1, minWidth:0 }}>
                           {meal.monthly && (
                             meal.isActive
                               ? <span style={{ display:'inline-block', marginBottom:6, fontSize:9.5, fontWeight:800, letterSpacing:'.08em', textTransform:'uppercase', color:'#fbbf24', background:'rgba(245,158,11,0.14)', border:'1px solid rgba(245,158,11,0.45)', padding:'3px 9px', borderRadius:999 }}>⭐ Recipe of the Month</span>
-                              : <span style={{ display:'inline-block', marginBottom:6, fontSize:9.5, fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'rgba(255,255,255,0.55)', background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.15)', padding:'3px 9px', borderRadius:999 }}>Συνταγή στούντιο</span>
+                              : <span style={{ display:'inline-block', marginBottom:6, fontSize:9.5, fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', background:'rgba(17,24,39,0.05)', border:'1px solid rgba(17,24,39,0.13)', padding:'3px 9px', borderRadius:999 }}>Συνταγή στούντιο</span>
                           )}
                           <p style={{ margin:0, fontSize:14.5, fontWeight:800 }}>{meal.name}</p>
                           <p style={{ ...S.dim, fontSize:12, margin:'5px 0 0', lineHeight:1.5 }}>{(meal.main_ingredients || []).join(' · ')}</p>
                         </div>
                         <button onClick={() => togglePick(activeSlot, meal)}
                           style={{ width:38, height:38, borderRadius:'50%', cursor:'pointer', flexShrink:0, display:'grid', placeItems:'center', transition:'all .15s',
-                            border:`1.8px solid ${on?'#22c55e':'rgba(255,255,255,0.25)'}`, background: on ? '#22c55e' : 'transparent' }}>
-                          {on ? <Check style={{ width:18, height:18, color:'#06060b' }}/> : <Plus style={{ width:17, height:17, color:'rgba(255,255,255,0.6)' }}/>}
+                            border:`1.8px solid ${on?'#22c55e':'rgba(17,24,39,0.13)'}`, background: on ? '#22c55e' : 'transparent' }}>
+                          {on ? <Check style={{ width:18, height:18, color:'#06060b' }}/> : <Plus style={{ width:17, height:17, color:'rgba(17,24,39,0.8)' }}/>}
                         </button>
                       </div>
                     </div>
@@ -1086,8 +1086,8 @@ const loadRecipes = async () => {
             <span style={S.kicker}>Σύνοψη ραντεβού</span>
             <h2 style={{ fontSize:26, fontWeight:800, margin:'8px 0 14px', letterSpacing:'-.02em' }}>Ωραία δουλειά, {client.name?.split(' ')[0]} 💪</h2>
 
-            <div className="nmreveal" style={{ ...S.card, borderColor:`${ACC}44`, textAlign:'center', padding:'20px 26px', marginBottom:16, background:`linear-gradient(180deg, ${ACC}10, rgba(255,255,255,0.03))` }}>
-              <p style={{ fontSize:16.5, fontWeight:700, fontStyle:'italic', margin:0, lineHeight:1.6, color:'#fff' }}>“{quote}”</p>
+            <div className="nmreveal" style={{ ...S.card, borderColor:`${ACC}44`, textAlign:'center', padding:'20px 26px', marginBottom:16, background:`linear-gradient(180deg, ${ACC}10, rgba(17,24,39,0.05))` }}>
+              <p style={{ fontSize:16.5, fontWeight:700, fontStyle:'italic', margin:0, lineHeight:1.6, color:'#111827' }}>“{quote}”</p>
             </div>
 
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, alignItems:'start' }}>
@@ -1096,10 +1096,10 @@ const loadRecipes = async () => {
                   <p style={{ ...S.lbl, margin:'0 0 12px' }}>Σημερινές μετρήσεις</p>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:10 }}>
                     {[['weight_kg','Βάρος','kg'],['muscle_mass_kg','Μυς','kg'],['body_fat_pct','Λίπος','%'],['body_water_pct','Νερό','%']].map(([k,l,u]) => (
-                      <div key={k} style={{ background:'rgba(0,0,0,0.3)', borderRadius:12, padding:'10px 13px', border:'1px solid rgba(255,255,255,0.07)' }}>
+                      <div key={k} style={{ background:'rgba(0,0,0,0.3)', borderRadius:12, padding:'10px 13px', border:'1px solid rgba(17,24,39,0.05)' }}>
                         <p style={{ ...S.lbl, fontSize:9.5, margin:'0 0 4px' }}>{l}</p>
                         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                          <span style={{ fontSize:21, fontWeight:800 }}>{num(current?.[k]) ?? '—'}<span style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}> {u}</span></span>
+                          <span style={{ fontSize:21, fontWeight:800 }}>{num(current?.[k]) ?? '—'}<span style={{ fontSize:11, color:'rgba(17,24,39,0.55)' }}> {u}</span></span>
                           <DeltaChip d={dlt(current, prev, k)} dir={goodDir(k, profile?.goal_type)}/>
                         </div>
                       </div>
@@ -1114,7 +1114,7 @@ const loadRecipes = async () => {
                     <div key={slot} style={{ marginBottom:8 }}>
                       <p style={{ ...S.lbl, fontSize:9.5, color:ACC, margin:'0 0 5px' }}>{slot}</p>
                       <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                        {items.map(it => <span key={it.id} style={{ fontSize:12, padding:'5px 10px', borderRadius:999, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.12)' }}>{it.name}</span>)}
+                        {items.map(it => <span key={it.id} style={{ fontSize:12, padding:'5px 10px', borderRadius:999, background:'rgba(17,24,39,0.05)', border:'1px solid rgba(17,24,39,0.13)' }}>{it.name}</span>)}
                       </div>
                     </div>
                   ))}
@@ -1156,9 +1156,9 @@ const loadRecipes = async () => {
                           cells.push(
                             <button key={ds} disabled={past} onClick={() => pickDay(ds)}
                               style={{ aspectRatio:'1', borderRadius:9, fontSize:12, fontWeight:700, cursor: past?'default':'pointer', fontFamily:'inherit',
-                                border: sel ? `1.6px solid ${ACC}` : isToday ? `1.4px dashed ${ACC}88` : '1px solid rgba(255,255,255,0.07)',
+                                border: sel ? `1.6px solid ${ACC}` : isToday ? `1.4px dashed ${ACC}88` : '1px solid rgba(17,24,39,0.05)',
                                 background: sel ? ACC+'2a' : 'transparent',
-                                color: past ? 'rgba(255,255,255,0.2)' : '#fff' }}>
+                                color: past ? 'rgba(17,24,39,0.13)' : '#fff' }}>
                               {d}
                             </button>
                           );
@@ -1174,7 +1174,7 @@ const loadRecipes = async () => {
                           {freeSlots.length ? freeSlots.map(t => (
                             <button key={t} onClick={() => { setTimeCheck({ time:t, ok:true }); setConfirmTime(t); }}
                               style={{ padding:'8px 14px', borderRadius:999, fontSize:13, fontWeight:800, cursor:'pointer', fontFamily:'inherit',
-                                border:`1.5px solid ${confirmTime===t?ACC:'rgba(255,255,255,0.16)'}`, background: confirmTime===t?ACC+'22':'transparent', color:'#fff' }}>
+                                border:`1.5px solid ${confirmTime===t?ACC:'rgba(17,24,39,0.13)'}`, background: confirmTime===t?ACC+'22':'transparent', color:'#111827' }}>
                               {t}
                             </button>
                           )) : <span style={{ ...S.dim, fontSize:12.5 }}>Δεν βρέθηκαν ελεύθερες ώρες — δοκίμασε άλλη μέρα.</span>}
@@ -1218,7 +1218,7 @@ const loadRecipes = async () => {
           <div style={{ ...S.card, width:640, maxWidth:'94vw', maxHeight:'86vh', overflowY:'auto', background:'rgba(12,12,20,0.98)' }} onClick={e => e.stopPropagation()}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
               <p style={{ fontSize:16, fontWeight:800, margin:0 }}>Διατροφικές προτιμήσεις — core επιλογές</p>
-              <button onClick={() => setPrefsOpen(false)} style={{ background:'transparent', border:'none', cursor:'pointer' }}><X style={{ width:17, height:17, color:'rgba(255,255,255,0.6)' }}/></button>
+              <button onClick={() => setPrefsOpen(false)} style={{ background:'transparent', border:'none', cursor:'pointer' }}><X style={{ width:17, height:17, color:'rgba(17,24,39,0.8)' }}/></button>
             </div>
             <p style={{ ...S.dim, fontSize:12, margin:'0 0 14px' }}>Οι αλλαγές αποθηκεύονται αμέσως στην καρτέλα του πελάτη και θα καθορίσουν τις προτάσεις του επόμενου βήματος.</p>
 
@@ -1229,7 +1229,7 @@ const loadRecipes = async () => {
                 return (
                   <button key={k} onClick={() => updateProfile({ meal_slots: on ? profile.meal_slots.filter(x => x !== k) : [ ...(profile.meal_slots || []), k ] })}
                     style={{ padding:'8px 13px', borderRadius:999, fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
-                      border:`1.5px solid ${on?ACC:'rgba(255,255,255,0.15)'}`, background: on?ACC+'22':'transparent', color: on?'#fff':'rgba(255,255,255,0.55)' }}>
+                      border:`1.5px solid ${on?ACC:'rgba(17,24,39,0.13)'}`, background: on?ACC+'22':'transparent', color: on?'#fff':'rgba(17,24,39,0.55)' }}>
                     {SLOT_META[k].emoji} {SLOT_META[k].label}
                   </button>
                 );

@@ -114,6 +114,8 @@ export default function WorkoutCreator() {
   /* finish */
   const [finishMode, setFinishMode] = useState('');   // '' | schedule | assign
   const [dragI, setDragI] = useState(-1);              // ποια άσκηση σέρνεται
+  const [isNarrow, setIsNarrow] = useState(typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => { const on = () => setIsNarrow(window.innerWidth < 640); window.addEventListener('resize', on); return () => window.removeEventListener('resize', on); }, []);
   const [overI, setOverI] = useState(-1);              // πάνω από ποια θέση
   const moveEx = (from, to) => setExercises(p => { const a = [...p]; const [x] = a.splice(from, 1); a.splice(to, 0, x); return a; });
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
@@ -390,23 +392,23 @@ ${candTxt}
 
   /* ── στυλ ── */
   const S = {
-    page:{ minHeight:'100vh', background:'#07070c', color:'#eef0f6', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)',
+    page:{ minHeight:'100vh', background:'#f5f6fa', color:'#111827', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)',
       backgroundImage:`radial-gradient(900px 460px at 10% -6%, ${ACC}14, transparent 60%), radial-gradient(760px 400px at 100% 0%, ${ACC}0b, transparent 55%)` },
-    wrap:{ maxWidth:1100, margin:'0 auto', padding:'26px 22px 90px' },
+    wrap:{ maxWidth:1100, margin:'0 auto', padding:'clamp(14px,3vw,26px) clamp(12px,3vw,22px) 90px' },
     kicker:{ fontSize:10.5, letterSpacing:'.32em', textTransform:'uppercase', color:ACC, fontWeight:700 },
-    card:{ background:'rgba(255,255,255,0.035)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:18, padding:'18px 20px' },
-    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.42)', fontWeight:700 },
-    dim:{ color:'rgba(255,255,255,0.45)' },
-    inp:{ background:'rgba(0,0,0,0.38)', border:'1px solid rgba(255,255,255,0.13)', borderRadius:11, color:'#eef0f6', padding:'9px 11px', fontSize:13.5, outline:'none', width:'100%', fontFamily:'inherit' },
+    card:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.10)', boxShadow:'0 1px 3px rgba(16,24,40,0.05)', borderRadius:18, padding:'18px 20px' },
+    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 },
+    dim:{ color:'rgba(17,24,39,0.55)' },
+    inp:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.13)', borderRadius:11, color:'#111827', padding:'9px 11px', fontSize:13.5, outline:'none', width:'100%', fontFamily:'inherit' },
     btn:(primary)=>({ border:'none', borderRadius:12, padding:'13px 24px', fontSize:14, fontWeight:800, cursor:'pointer', fontFamily:'inherit',
-      background: primary ? ACC : 'transparent', color: primary ? '#07070b' : 'rgba(255,255,255,0.7)', outline: primary ? 'none' : '1px solid rgba(255,255,255,0.17)' }),
+      background: primary ? ACC : 'transparent', color: primary ? '#07070b' : 'rgba(17,24,39,0.8)', outline: primary ? 'none' : '1px solid rgba(17,24,39,0.13)' }),
     navBtn:{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:999, fontSize:12, fontWeight:800, cursor:'pointer',
-      background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.75)', fontFamily:'inherit' },
+      background:'rgba(17,24,39,0.05)', border:'1px solid rgba(17,24,39,0.13)', color:'rgba(17,24,39,0.8)', fontFamily:'inherit' },
   };
 
   if (!data) return (
     <div style={{ ...S.page, display:'grid', placeItems:'center' }}>
-      <Loader2 style={{ width:28, height:28, color:'#fff', animation:'wcspin 1s linear infinite' }}/>
+      <Loader2 style={{ width:28, height:28, color:'#111827', animation:'wcspin 1s linear infinite' }}/>
       <style>{`@keyframes wcspin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
@@ -444,8 +446,8 @@ ${candTxt}
             <div style={{ textAlign:'left', maxWidth:360, margin:'0 auto' }}>
               {['Πορεία & μετρήσεις','Προπονήσεις εβδομάδας (Live Training)','Σετ κάτω από στόχο / αποτυχίες','Στόχος & πλαίσιο sessions'].map((t, i) => (
                 <div key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', opacity: checkStep > i ? 1 : 0.35, transition:'opacity .4s' }}>
-                  <span style={{ width:20, height:20, borderRadius:'50%', display:'grid', placeItems:'center', background: checkStep > i ? '#22c55e' : 'rgba(255,255,255,0.1)' }}>
-                    {checkStep > i ? <Check style={{ width:12, height:12, color:'#06060b' }}/> : <Loader2 style={{ width:11, height:11, color:'rgba(255,255,255,0.5)', animation:'wcspin 1s linear infinite' }}/>}
+                  <span style={{ width:20, height:20, borderRadius:'50%', display:'grid', placeItems:'center', background: checkStep > i ? '#22c55e' : 'rgba(17,24,39,0.13)' }}>
+                    {checkStep > i ? <Check style={{ width:12, height:12, color:'#06060b' }}/> : <Loader2 style={{ width:11, height:11, color:'rgba(17,24,39,0.55)', animation:'wcspin 1s linear infinite' }}/>}
                   </span>
                   <span style={{ fontSize:13, fontWeight:600 }}>{t}</span>
                 </div>
@@ -488,7 +490,7 @@ ${candTxt}
                   return (
                     <button key={o.key} onClick={() => setChosen(o.key)}
                       style={{ textAlign:'left', padding:'13px 15px', borderRadius:14, cursor:'pointer', fontFamily:'inherit', position:'relative',
-                        border:`1.7px solid ${on ? ACC : 'rgba(255,255,255,0.11)'}`, background: on ? `${ACC}1c` : 'rgba(255,255,255,0.02)', color:'#fff' }}>
+                        border:`1.7px solid ${on ? ACC : 'rgba(17,24,39,0.13)'}`, background: on ? `${ACC}1c` : 'rgba(17,24,39,0.05)', color:'#111827' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:11 }}>
                         <span style={{ fontSize:23 }}>{o.emoji}</span>
                         <div style={{ flex:1 }}>
@@ -530,8 +532,8 @@ ${candTxt}
             </div>
 
             <div style={S.card}>
-              <div style={{ display:'grid', gridTemplateColumns:'2.2fr 64px 84px 84px 84px 30px', gap:8, padding:'0 0 8px', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-                {['','Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map((h, hi) => <span key={hi} style={{ ...S.lbl, fontSize:9 }}>{h}</span>)}
+              <div style={{ display:'grid', gridTemplateColumns:'2.2fr 64px 84px 84px 84px 30px', gap:8, padding:'0 0 8px', borderBottom:'1px solid rgba(17,24,39,0.13)' }}>
+                {!isNarrow && ['','Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map((h, hi) => <span key={hi} style={{ ...S.lbl, fontSize:9 }}>{h}</span>)}
               </div>
               {exercises.map((e, i) => (
                 <div key={i} draggable
@@ -539,20 +541,33 @@ ${candTxt}
                   onDragOver={(ev) => { ev.preventDefault(); if (overI !== i) setOverI(i); }}
                   onDrop={(ev) => { ev.preventDefault(); if (dragI > -1 && dragI !== i) moveEx(dragI, i); setDragI(-1); setOverI(-1); }}
                   onDragEnd={() => { setDragI(-1); setOverI(-1); }}
-                  style={{ display:'grid', gridTemplateColumns:'20px 2.2fr 64px 84px 84px 84px 30px', gap:8, alignItems:'center', padding:'9px 0',
-                    borderBottom:'1px solid rgba(255,255,255,0.05)',
+                  style={{ display:'grid',
+                    gridTemplateColumns: isNarrow ? '20px 1fr 30px' : '20px 2.2fr 64px 84px 84px 84px 30px',
+                    gap: isNarrow ? 6 : 8, alignItems:'center', padding:'9px 0',
+                    borderBottom:'1px solid rgba(17,24,39,0.05)',
                     borderTop: overI === i && dragI !== i ? `2px solid ${ACC}` : '2px solid transparent',
-                    opacity: dragI === i ? 0.35 : 1, background: dragI === i ? 'rgba(255,255,255,0.04)' : 'transparent' }}>
-                  <span title="Σύρε για αλλαγή σειράς" style={{ cursor:'grab', color:'rgba(255,255,255,0.35)', fontSize:14, userSelect:'none', textAlign:'center' }}>⋮⋮</span>
+                    opacity: dragI === i ? 0.35 : 1, background: dragI === i ? 'rgba(17,24,39,0.05)' : 'transparent' }}>
+                  <span title="Σύρε για αλλαγή σειράς" style={{ cursor:'grab', color:'rgba(17,24,39,0.55)', fontSize:14, userSelect:'none', textAlign:'center' }}>⋮⋮</span>
                   <div style={{ minWidth:0 }}>
                     <p style={{ margin:0, fontSize:13.5, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{i + 1}. {e.name}</p>
-                    <span style={{ fontSize:9.5, color: (EQUIPMENT[e.eq]?.color) || 'rgba(255,255,255,0.4)' }}>{EQUIPMENT[e.eq]?.label || e.eq || ''}</span>
+                    <span style={{ fontSize:9.5, color: (EQUIPMENT[e.eq]?.color) || 'rgba(17,24,39,0.55)' }}>{EQUIPMENT[e.eq]?.label || e.eq || ''}</span>
+                    {isNarrow && (
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginTop:7 }}>
+                        {[['Σετ','sets','number',1],['Επαν.','reps','text',null],['Κιλά','weight_kg','number',0.5],['Διάλ.','rest_between_sets','number',1]].map(([lab,key,typ,st])=>(
+                          <div key={key}>
+                            <span style={{ ...S.lbl, fontSize:8 }}>{lab}</span>
+                            <input style={{ ...S.inp, textAlign:'center', padding:'6px 3px', fontSize:12.5, marginTop:2 }} type={typ} step={st||undefined}
+                              value={e[key]} onChange={ev => editEx(i, key, typ==='number' ? (key==='weight_kg' ? (parseFloat(ev.target.value)||0) : (parseInt(ev.target.value)|| (key==='rest_between_sets'?60:1))) : ev.target.value)}/>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.sets} onChange={ev => editEx(i, 'sets', parseInt(ev.target.value) || 1)}/>
-                  <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} value={e.reps} onChange={ev => editEx(i, 'reps', ev.target.value)}/>
-                  <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" step="0.5" value={e.weight_kg} onChange={ev => editEx(i, 'weight_kg', parseFloat(ev.target.value) || 0)}/>
-                  <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.rest_between_sets} onChange={ev => editEx(i, 'rest_between_sets', parseInt(ev.target.value) || 60)}/>
-                  <button onClick={() => delEx(i)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:3 }}><X style={{ width:15, height:15, color:'rgba(255,255,255,0.4)' }}/></button>
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.sets} onChange={ev => editEx(i, 'sets', parseInt(ev.target.value) || 1)}/>}
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} value={e.reps} onChange={ev => editEx(i, 'reps', ev.target.value)}/>}
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" step="0.5" value={e.weight_kg} onChange={ev => editEx(i, 'weight_kg', parseFloat(ev.target.value) || 0)}/>}
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.rest_between_sets} onChange={ev => editEx(i, 'rest_between_sets', parseInt(ev.target.value) || 60)}/>}
+                  <button onClick={() => delEx(i)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:3 }}><X style={{ width:15, height:15, color:'rgba(17,24,39,0.55)' }}/></button>
                 </div>
               ))}
               <div style={{ display:'flex', gap:8, marginTop:12, alignItems:'center' }}>
@@ -590,7 +605,7 @@ ${candTxt}
               {!finishMode && !isLastMember && (
                 <button onClick={advanceMember}
                   style={{ width:'100%', textAlign:'center', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',
-                    border:'1.5px solid rgba(255,255,255,0.11)', background:`${ACC}22`, color:'#fff' }}>
+                    border:'1.5px solid rgba(17,24,39,0.13)', background:`${ACC}22`, color:'#111827' }}>
                   <p style={{ margin:0, fontSize:15, fontWeight:800 }}>Επόμενο μέλος: {firstName(members[memberIndex + 1]?.name || '')} →</p>
                   <p style={{ ...S.dim, margin:'5px 0 0', fontSize:12 }}>Η προπόνηση κρατιέται πρόχειρη — η αποθήκευση/ανάθεση θα γίνει ΜΙΑ φορά, όταν βγουν και των {members.length} μελών.</p>
                 </button>
@@ -604,7 +619,7 @@ ${candTxt}
                   ].map(({ k, icon:Icon, t, d }) => (
                     <button key={k} onClick={() => k === 'save' ? (!saving && doSave()) : k === 'assign' ? openAssign() : setFinishMode('schedule')}
                       style={{ textAlign:'left', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',
-                        border:'1.5px solid rgba(255,255,255,0.11)', background:'rgba(255,255,255,0.03)', color:'#fff' }}>
+                        border:'1.5px solid rgba(17,24,39,0.13)', background:'rgba(17,24,39,0.05)', color:'#111827' }}>
                       <span style={{ width:38, height:38, borderRadius:12, display:'grid', placeItems:'center', background:`${ACC}1c`, marginBottom:10 }}>
                         <Icon style={{ width:18, height:18, color:ACC }}/>
                       </span>
@@ -636,8 +651,8 @@ ${candTxt}
                         cells.push(
                           <button key={ds} disabled={past} onClick={() => pickDay(ds)}
                             style={{ aspectRatio:'1', borderRadius:9, fontSize:12, fontWeight:700, cursor: past ? 'default' : 'pointer', fontFamily:'inherit',
-                              border: sel ? `1.6px solid ${ACC}` : isToday ? `1.4px dashed ${ACC}88` : '1px solid rgba(255,255,255,0.07)',
-                              background: sel ? ACC + '2a' : 'transparent', color: past ? 'rgba(255,255,255,0.2)' : '#fff' }}>
+                              border: sel ? `1.6px solid ${ACC}` : isToday ? `1.4px dashed ${ACC}88` : '1px solid rgba(17,24,39,0.05)',
+                              background: sel ? ACC + '2a' : 'transparent', color: past ? 'rgba(17,24,39,0.13)' : '#fff' }}>
                             {d}
                           </button>
                         );
@@ -652,7 +667,7 @@ ${candTxt}
                         {freeSlots.length ? freeSlots.map(t => (
                           <button key={t} onClick={() => { setTimeCheck({ time:t, ok:true }); setConfirmTime(t); }}
                             style={{ padding:'8px 14px', borderRadius:999, fontSize:13, fontWeight:800, cursor:'pointer', fontFamily:'inherit',
-                              border:`1.5px solid ${confirmTime === t ? ACC : 'rgba(255,255,255,0.16)'}`, background: confirmTime === t ? ACC + '22' : 'transparent', color:'#fff' }}>
+                              border:`1.5px solid ${confirmTime === t ? ACC : 'rgba(17,24,39,0.13)'}`, background: confirmTime === t ? ACC + '22' : 'transparent', color:'#111827' }}>
                             {t}
                           </button>
                         )) : <span style={{ ...S.dim, fontSize:12.5 }}>Καμία ελεύθερη ώρα — δοκίμασε άλλη μέρα.</span>}
@@ -683,7 +698,7 @@ ${candTxt}
                   {openAppts.map(a => (
                     <button key={a.id} onClick={() => !saving && doAssign(a)}
                       style={{ display:'flex', alignItems:'center', gap:12, width:'100%', textAlign:'left', padding:'12px 14px', borderRadius:13, cursor:'pointer', fontFamily:'inherit',
-                        border:'1.4px solid rgba(255,255,255,0.11)', background:'rgba(255,255,255,0.03)', color:'#fff', marginBottom:8 }}>
+                        border:'1.4px solid rgba(17,24,39,0.13)', background:'rgba(17,24,39,0.05)', color:'#111827', marginBottom:8 }}>
                       <CalendarDays style={{ width:16, height:16, color:ACC, flexShrink:0 }}/>
                       <div style={{ flex:1 }}>
                         <p style={{ margin:0, fontSize:13.5, fontWeight:800 }}>{a.date} · {a.start_time}</p>
