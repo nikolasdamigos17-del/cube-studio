@@ -161,6 +161,14 @@ export default function WorkoutCreator() {
     setData({ client, profile: profs[0] || {}, tplans, progress, appts, feedback });
     setScreen('analyzing'); setCheckStep(0); setAnalysis(null); setChosen('');
     setTitle(''); setNotes(''); setExercises([]); setFinishMode(''); setSavedMsg(''); setSaving(false);
+    if (reuseRef.current) {
+      const r = reuseRef.current; reuseRef.current = null;
+      setChosen(r.chosen);
+      setTitle(`${TYPE_META[r.chosen]?.label || 'Προπόνηση'} — ${firstName(client.name)}`);
+      setNotes(r.notes || '');
+      setExercises(r.exercises);
+      setScreen('review'); // κατευθείαν στον καθορισμό ασκήσεων/κιλών
+    }
   })(); }, [effClientId]);
 
   useEffect(() => {
@@ -218,16 +226,22 @@ ${brief}
     const ph = setInterval(() => setBuildPhase(p => (p + 1) % 3), 3000);
     const { client, tplans } = data;
     const groups = TYPE_GROUPS[chosen] || [];
-    const candidates = sortBySessionOrder(getExercisesFor(groups));
+    const warmups = EXERCISE_DB.filter(x => x.cat === 'warmup');
+    const seenC = new Set();
+    const candidates = [...sortBySessionOrder(getExercisesFor(groups)), ...warmups].filter(x => !seenC.has(x.name) && seenC.add(x.name));
     const lifts = knownLiftsFrom(tplans);
     const candTxt = candidates.map(e => `- ${e.name} [${(e.muscles || []).join(',')}]${lifts[e.name] ? ` (τελευταίο βάρος: ${lifts[e.name]}kg)` : ''}`).join('\n');
     const sessLabel = TYPE_META[chosen]?.label || chosen;
 
+    const groupNote = (groupId && draftsRef.current.length)
+      ? `ΤΑΥΤΟΧΡΟΝΗ GROUP ΠΡΟΠΟΝΗΣΗ — γυμνάζονται ΜΑΖΙ, την ίδια ώρα, με: ${draftsRef.current.map(d => `${d.clientName}: ${(d.exercises || []).map((e, i) => `${i + 1}.${e.name}`).join(', ')}`).join(' | ')}. Κάθε μηχάνημα υπάρχει ΕΝΑ: σε κάθε χρονική θέση (ιδίως στην 1η άσκηση) ΜΗΝ βάλεις άσκηση στο ίδιο μηχάνημα/εξοπλισμό με το αντίστοιχο βήμα των παραπάνω — μοίρασε τη σειρά ώστε να μην συγκρούονται ποτέ.\n`
+      : '';
+    const warmNote = 'Στη λίστα υπάρχουν και ασκήσεις ΠΡΟΘΕΡΜΑΝΣΗΣ (warmup) — προαιρετικά ξεκίνα με 1-2 (0 κιλά, reps π.χ. "30s" ή "20").\n';
     const prompt = `Φτιάξε ${sessLabel} προπόνηση για: ${client.name} (${gender === 'female' ? 'γυναίκα' : 'άνδρας'}). Στόχος: ${GOAL_LABELS[goal] || 'γενική φυσική κατάσταση'}.
 Σχήμα στόχου: ~${scheme.sets} σετ, ${scheme.reps} επαναλήψεις, διάλειμμα ~${scheme.rest}s (προσαρμόσέ το λογικά ανά άσκηση — σύνθετες: περισσότερο, απομονώσεις: λιγότερο).
 ΔΙΑΛΕΞΕ 6-7 ασκήσεις ΑΠΟΚΛΕΙΣΤΙΚΑ από την παρακάτω λίστα (γράψε τα ονόματα ΑΚΡΙΒΩΣ όπως δίνονται), σύνθετες πρώτες, κάλυψε ισορροπημένα τις μυϊκές ομάδες${chosen === 'glutes' ? ' με ΚΥΡΙΑ έμφαση στους γλουτούς (hip hinge, thrust patterns, abductions)' : ''}:
 ${candTxt}
-ΚΙΛΑ: όπου δίνεται "τελευταίο βάρος", ξεκίνα από εκεί (ή ελαφρώς πάνω αν ο στόχος είναι μυϊκή ανάπτυξη). Αλλιώς συντηρητικά αρχικά κιλά· για ασκήσεις σωματικού βάρους βάλε 0.
+${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο βάρος", ξεκίνα από εκεί (ή ελαφρώς πάνω αν ο στόχος είναι μυϊκή ανάπτυξη). Αλλιώς συντηρητικά αρχικά κιλά· για ασκήσεις σωματικού βάρους βάλε 0.
 Απάντησε ΜΟΝΟ με JSON:
 {"title":"${sessLabel} — ${client.name.split(' ')[0]}","notes":"1-2 σύντομες οδηγίες","exercises":[{"name":"...","sets":${scheme.sets},"reps":"${scheme.reps}","weight_kg":0,"rest_between_sets":${scheme.rest}}]}`;
     const r = await callAI(prompt, 'You are an expert strength coach. Return ONLY valid JSON. Start with {');
@@ -278,17 +292,34 @@ ${candTxt}
   /* ── GROUP: πρόχειρα ανά μέλος — η ολοκλήρωση γίνεται ΜΙΑ φορά στο τέλος ── */
   const draftsRef = useRef([]);
   const isLastMember = !groupId || memberIndex >= members.length - 1;
+  const reuseRef = useRef(null);
   const advanceMember = () => {
-    draftsRef.current.push({ clientId: effClientId, clientName: data.client.name, title, chosen, notes, exercises });
+    draftsRef.current.push({ clientId: effClientId, clientName: data.client.name, title, chosen, notes, exercises: normEx(exercises) });
     setMemberIndex(i => i + 1); // ο οδηγός ξαναστήνεται αυτόματα για το επόμενο μέλος
   };
+  const advanceSameWorkout = () => {
+    /* Ίδιες ασκήσεις, αλλά με ΜΕΤΑΤΟΠΙΣΜΕΝΗ σειρά: γυμνάζονται ταυτόχρονα και
+       κάθε μηχάνημα είναι ένα — ο επόμενος ξεκινά από τη μέση της λίστας. */
+    const list = normEx(exercises);
+    const n = list.length || 1;
+    const off = Math.ceil(n / 2) % n;
+    const rotated = [...list.slice(off), ...list.slice(0, off)];
+    reuseRef.current = { chosen, notes, exercises: JSON.parse(JSON.stringify(rotated)) };
+    advanceMember();
+  };
+  const normEx = (list) => (list || []).map(e => ({ ...e,
+    sets: Math.min(8, Math.max(1, parseInt(e.sets) || 3)),
+    reps: String(e.reps || '10'),
+    weight_kg: Math.max(0, parseFloat(e.weight_kg) || 0),
+    rest_between_sets: Math.max(10, parseInt(e.rest_between_sets) || 60),
+  }));
   const collectAll = () => [ ...draftsRef.current, { clientId: effClientId, clientName: data.client.name, title, chosen, notes, exercises } ];
   const createPlansAll = async (extra = {}) => {
     const out = [];
     for (const d of collectAll()) {
       out.push(await db.TrainingPlan.create({
         client_id: d.clientId, client_name: d.clientName, date: extra.date || todayStr(),
-        title: d.title, session_type: d.chosen, notes: d.notes, exercises: d.exercises, completed: false, created_via: 'brain',
+        title: d.title, session_type: d.chosen, notes: d.notes, exercises: normEx(d.exercises), completed: false, created_via: 'brain',
         group_id: groupId, group_session_id: groupSessionId,
       }));
     }
@@ -299,7 +330,7 @@ ${candTxt}
   const createPlan = async (extra = {}) => {
     return db.TrainingPlan.create({
       client_id: effClientId, client_name: data.client.name, date: extra.date || todayStr(),
-      title, session_type: chosen, notes, exercises, completed: false, created_via: 'brain',
+      title, session_type: chosen, notes, exercises: normEx(exercises), completed: false, created_via: 'brain',
       ...(groupId ? { group_id: groupId, group_session_id: groupSessionId } : {}),
     });
   };
@@ -557,23 +588,23 @@ ${candTxt}
                           <div key={key}>
                             <span style={{ ...S.lbl, fontSize:8 }}>{lab}</span>
                             <input style={{ ...S.inp, textAlign:'center', padding:'6px 3px', fontSize:12.5, marginTop:2 }} type={typ} step={st||undefined}
-                              value={e[key]} onChange={ev => editEx(i, key, typ==='number' ? (key==='weight_kg' ? (parseFloat(ev.target.value)||0) : (parseInt(ev.target.value)|| (key==='rest_between_sets'?60:1))) : ev.target.value)}/>
+                              value={e[key]} onChange={ev => editEx(i, key, ev.target.value)}/>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.sets} onChange={ev => editEx(i, 'sets', parseInt(ev.target.value) || 1)}/>}
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.sets} onChange={ev => editEx(i, 'sets', ev.target.value)}/>}
                   {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} value={e.reps} onChange={ev => editEx(i, 'reps', ev.target.value)}/>}
-                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" step="0.5" value={e.weight_kg} onChange={ev => editEx(i, 'weight_kg', parseFloat(ev.target.value) || 0)}/>}
-                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.rest_between_sets} onChange={ev => editEx(i, 'rest_between_sets', parseInt(ev.target.value) || 60)}/>}
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" step="0.5" value={e.weight_kg} onChange={ev => editEx(i, 'weight_kg', ev.target.value)}/>}
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.rest_between_sets} onChange={ev => editEx(i, 'rest_between_sets', ev.target.value)}/>}
                   <button onClick={() => delEx(i)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:3 }}><X style={{ width:15, height:15, color:'rgba(17,24,39,0.55)' }}/></button>
                 </div>
               ))}
               <div style={{ display:'flex', gap:8, marginTop:12, alignItems:'center' }}>
                 <select value={addSel} onChange={e => setAddSel(e.target.value)} style={{ ...S.inp, flex:1 }}>
                   <option value="">+ Προσθήκη άσκησης από τη βάση…</option>
-                  {sortBySessionOrder(getExercisesFor(TYPE_GROUPS[chosen] || [])).filter(c => !exercises.find(x => x.name === c.name)).map(c => (
+                  {[...sortBySessionOrder(getExercisesFor(TYPE_GROUPS[chosen] || [])), ...EXERCISE_DB.filter(x => x.cat === 'warmup')].filter((c, ci, arr) => arr.findIndex(y => y.name === c.name) === ci && !exercises.find(x => x.name === c.name)).map(c => (
                     <option key={c.name} value={c.name}>{c.name}</option>
                   ))}
                 </select>
@@ -603,12 +634,20 @@ ${candTxt}
               </div>
 
               {!finishMode && !isLastMember && (
-                <button onClick={advanceMember}
-                  style={{ width:'100%', textAlign:'center', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',
-                    border:'1.5px solid rgba(17,24,39,0.13)', background:`${ACC}22`, color:'#111827' }}>
-                  <p style={{ margin:0, fontSize:15, fontWeight:800 }}>Επόμενο μέλος: {firstName(members[memberIndex + 1]?.name || '')} →</p>
-                  <p style={{ ...S.dim, margin:'5px 0 0', fontSize:12 }}>Η προπόνηση κρατιέται πρόχειρη — η αποθήκευση/ανάθεση θα γίνει ΜΙΑ φορά, όταν βγουν και των {members.length} μελών.</p>
-                </button>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:12 }}>
+                  <button onClick={advanceSameWorkout}
+                    style={{ textAlign:'center', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',
+                      border:`1.5px solid ${ACC}`, background:ACC, color:'#07070b' }}>
+                    <p style={{ margin:0, fontSize:15, fontWeight:800 }}>⚡ Χρήση ίδιας προπόνησης για {firstName(members[memberIndex + 1]?.name || '')}</p>
+                    <p style={{ margin:'5px 0 0', fontSize:12, opacity:.75 }}>Ίδιες ασκήσεις, με μετατοπισμένη σειρά (ένα μηχάνημα ο καθένας) — πας κατευθείαν στα κιλά. Αλλάζεις σειρά με drag.</p>
+                  </button>
+                  <button onClick={advanceMember}
+                    style={{ textAlign:'center', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',
+                      border:'1.5px solid rgba(17,24,39,0.13)', background:`${ACC}22`, color:'#111827' }}>
+                    <p style={{ margin:0, fontSize:15, fontWeight:800 }}>Νέα προπόνηση για {firstName(members[memberIndex + 1]?.name || '')} →</p>
+                    <p style={{ ...S.dim, margin:'5px 0 0', fontSize:12 }}>Ο εγκέφαλος φτιάχνει διαφορετική — γνωρίζοντας τι κάνει ο άλλος για να μην συγκρούονται μηχανήματα.</p>
+                  </button>
+                </div>
               )}
               {!finishMode && isLastMember && (
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:12 }}>

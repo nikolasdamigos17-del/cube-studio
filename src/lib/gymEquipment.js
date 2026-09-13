@@ -105,6 +105,16 @@ export const EXERCISE_DB = [
   { name:'Leg Raise',                    eq:'bodyweight', muscles:['core'],                       cat:'core'     },
   { name:'Superman Hold',                eq:'bodyweight', muscles:['back','glutes'],              cat:'pull'     },
   { name:'High Knees',                   eq:'bodyweight', muscles:['legs','core'],                cat:'cardio'   },
+  /* ── Προθέρμανση ── */
+  { name:'Jumping Jacks',                eq:'bodyweight', muscles:['full_body','cardio'],         cat:'warmup'   },
+  { name:'Mountain Climbers',            eq:'bodyweight', muscles:['core','cardio','full_body'],  cat:'warmup'   },
+  { name:'Butt Kicks',                   eq:'bodyweight', muscles:['hamstrings','cardio'],        cat:'warmup'   },
+  { name:'Arm Circles',                  eq:'bodyweight', muscles:['shoulders'],                  cat:'warmup'   },
+  { name:'Jump Rope',                    eq:'bodyweight', muscles:['full_body','cardio','calves'],cat:'warmup'   },
+  { name:'Skaters',                      eq:'bodyweight', muscles:['legs','glutes','cardio'],     cat:'warmup'   },
+  { name:'Inchworms',                    eq:'bodyweight', muscles:['full_body','core'],           cat:'warmup'   },
+  { name:'Bodyweight Squat (Warm-up)',   eq:'bodyweight', muscles:['legs','glutes'],              cat:'warmup'   },
+  { name:'Dynamic Lunges',               eq:'bodyweight', muscles:['legs','glutes'],              cat:'warmup'   },
 ];
 
 // Get exercises relevant to selected muscle groups
