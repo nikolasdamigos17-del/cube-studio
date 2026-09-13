@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Loader2, Brain, ArrowLeft, Dumbbell, TrendingDown, CalendarDays, Clock, Plus, Sparkles, Save, Link2, Pencil } from 'lucide-react';
 import { db, callAI } from '../lib/db';
@@ -113,6 +113,9 @@ export default function WorkoutCreator() {
 
   /* finish */
   const [finishMode, setFinishMode] = useState('');   // '' | schedule | assign
+  const [dragI, setDragI] = useState(-1);              // ποια άσκηση σέρνεται
+  const [overI, setOverI] = useState(-1);              // πάνω από ποια θέση
+  const moveEx = (from, to) => setExercises(p => { const a = [...p]; const [x] = a.splice(from, 1); a.splice(to, 0, x); return a; });
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [selDay, setSelDay] = useState('');
   const [freeSlots, setFreeSlots] = useState([]);
@@ -270,6 +273,27 @@ ${candTxt}
   };
 
   /* ── αποθήκευση / προγραμματισμός / ανάθεση ── */
+  /* ── GROUP: πρόχειρα ανά μέλος — η ολοκλήρωση γίνεται ΜΙΑ φορά στο τέλος ── */
+  const draftsRef = useRef([]);
+  const isLastMember = !groupId || memberIndex >= members.length - 1;
+  const advanceMember = () => {
+    draftsRef.current.push({ clientId: effClientId, clientName: data.client.name, title, chosen, notes, exercises });
+    setMemberIndex(i => i + 1); // ο οδηγός ξαναστήνεται αυτόματα για το επόμενο μέλος
+  };
+  const collectAll = () => [ ...draftsRef.current, { clientId: effClientId, clientName: data.client.name, title, chosen, notes, exercises } ];
+  const createPlansAll = async (extra = {}) => {
+    const out = [];
+    for (const d of collectAll()) {
+      out.push(await db.TrainingPlan.create({
+        client_id: d.clientId, client_name: d.clientName, date: extra.date || todayStr(),
+        title: d.title, session_type: d.chosen, notes: d.notes, exercises: d.exercises, completed: false, created_via: 'brain',
+        group_id: groupId, group_session_id: groupSessionId,
+      }));
+    }
+    return out;
+  };
+  const groupLabel = () => groupDisplayName(group, members);
+
   const createPlan = async (extra = {}) => {
     return db.TrainingPlan.create({
       client_id: effClientId, client_name: data.client.name, date: extra.date || todayStr(),
@@ -279,12 +303,12 @@ ${candTxt}
   };
   const afterFinish = (msg) => {
     setSaving(false);
-    const nextMem = groupId && memberIndex < members.length - 1 ? members[memberIndex + 1] : null;
-    setSavedMsg(msg + (nextMem ? `  Συνεχίζουμε με ${firstName(nextMem.name)}…` : ''));
-    setTimeout(() => { if (nextMem) setMemberIndex(i => i + 1); else navigate('/TrainingPlans'); }, 1500);
+    setSavedMsg(msg);
+    setTimeout(() => navigate('/TrainingPlans'), 1500);
   };
   const doSave = async () => {
     setSaving(true);
+    if (groupId) { await createPlansAll(); afterFinish(`Αποθηκεύτηκαν οι προπονήσεις και των ${members.length} μελών.`); return; }
     await createPlan();
     afterFinish('Η προπόνηση αποθηκεύτηκε στον φάκελο του πελάτη.');
   };
@@ -314,6 +338,18 @@ ${candTxt}
   };
   const doSchedule = async () => {
     setSaving(true);
+    if (groupId) {
+      const plans = await createPlansAll({ date: selDay });
+      await db.Appointment.create({
+        title: `${groupLabel()} — ${TYPE_META[chosen]?.label || 'Group'}`,
+        group_id: groupId, client_id: '', client_name: groupLabel(), client_color: ACC,
+        type: 'training', date: selDay, start_time: confirmTime,
+        duration_minutes: (data.client.session_duration_hours || 1) * 60, status: 'scheduled',
+        plan_id: plans[0]?.id || '', group_session_id: groupSessionId,
+      });
+      afterFinish(`Προγραμματίστηκε ΕΝΑ κοινό ραντεβού για το group: ${selDay} · ${confirmTime}.`);
+      return;
+    }
     const plan = await createPlan({ date: selDay });
     await db.Appointment.create({
       title: `${data.client.name} — ${TYPE_META[chosen]?.label || 'Προπόνηση'}`,
@@ -327,7 +363,7 @@ ${candTxt}
     setFinishMode('assign');
     let all = data.appts || [];
     try { all = await db.Appointment.list('-date', 400); } catch {}
-    const gid = data.client?.group_id || '';
+    const gid = groupId || data.client?.group_id || '';
     const list = all
       .filter(a => (a.date || '') >= todayStr() && a.status !== 'cancelled' && !a.plan_id && (a.type === 'training' || !a.type))
       .filter(a => a.client_id === effClientId || (!a.client_id && !a.group_id) || (gid && a.group_id === gid))
@@ -337,6 +373,14 @@ ${candTxt}
   };
   const doAssign = async (appt) => {
     setSaving(true);
+    if (groupId) {
+      const plans = await createPlansAll({ date: appt.date });
+      const patch = { plan_id: plans[0]?.id || '', group_session_id: groupSessionId };
+      if (!appt.client_id && !appt.group_id) { patch.group_id = groupId; patch.client_name = groupLabel(); }
+      await db.Appointment.update(appt.id, patch);
+      afterFinish(`Ανατέθηκαν και οι ${members.length} προπονήσεις στο ραντεβού ${appt.date} · ${appt.start_time}.`);
+      return;
+    }
     const plan = await createPlan({ date: appt.date });
     const patch = { plan_id: plan.id };
     if (!appt.client_id && !appt.group_id) { patch.client_id = effClientId; patch.client_name = data.client?.name || ''; }
@@ -487,10 +531,19 @@ ${candTxt}
 
             <div style={S.card}>
               <div style={{ display:'grid', gridTemplateColumns:'2.2fr 64px 84px 84px 84px 30px', gap:8, padding:'0 0 8px', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-                {['Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map(h => <span key={h} style={{ ...S.lbl, fontSize:9 }}>{h}</span>)}
+                {['','Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map((h, hi) => <span key={hi} style={{ ...S.lbl, fontSize:9 }}>{h}</span>)}
               </div>
               {exercises.map((e, i) => (
-                <div key={i} style={{ display:'grid', gridTemplateColumns:'2.2fr 64px 84px 84px 84px 30px', gap:8, alignItems:'center', padding:'9px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+                <div key={i} draggable
+                  onDragStart={(ev) => { setDragI(i); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', String(i)); } catch {} }}
+                  onDragOver={(ev) => { ev.preventDefault(); if (overI !== i) setOverI(i); }}
+                  onDrop={(ev) => { ev.preventDefault(); if (dragI > -1 && dragI !== i) moveEx(dragI, i); setDragI(-1); setOverI(-1); }}
+                  onDragEnd={() => { setDragI(-1); setOverI(-1); }}
+                  style={{ display:'grid', gridTemplateColumns:'20px 2.2fr 64px 84px 84px 84px 30px', gap:8, alignItems:'center', padding:'9px 0',
+                    borderBottom:'1px solid rgba(255,255,255,0.05)',
+                    borderTop: overI === i && dragI !== i ? `2px solid ${ACC}` : '2px solid transparent',
+                    opacity: dragI === i ? 0.35 : 1, background: dragI === i ? 'rgba(255,255,255,0.04)' : 'transparent' }}>
+                  <span title="Σύρε για αλλαγή σειράς" style={{ cursor:'grab', color:'rgba(255,255,255,0.35)', fontSize:14, userSelect:'none', textAlign:'center' }}>⋮⋮</span>
                   <div style={{ minWidth:0 }}>
                     <p style={{ margin:0, fontSize:13.5, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{i + 1}. {e.name}</p>
                     <span style={{ fontSize:9.5, color: (EQUIPMENT[e.eq]?.color) || 'rgba(255,255,255,0.4)' }}>{EQUIPMENT[e.eq]?.label || e.eq || ''}</span>
@@ -534,12 +587,20 @@ ${candTxt}
                 <p style={{ ...S.dim, fontSize:13, margin:0 }}>«{title}» — τι θέλεις να την κάνουμε;</p>
               </div>
 
-              {!finishMode && (
+              {!finishMode && !isLastMember && (
+                <button onClick={advanceMember}
+                  style={{ width:'100%', textAlign:'center', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',
+                    border:'1.5px solid rgba(255,255,255,0.11)', background:`${ACC}22`, color:'#fff' }}>
+                  <p style={{ margin:0, fontSize:15, fontWeight:800 }}>Επόμενο μέλος: {firstName(members[memberIndex + 1]?.name || '')} →</p>
+                  <p style={{ ...S.dim, margin:'5px 0 0', fontSize:12 }}>Η προπόνηση κρατιέται πρόχειρη — η αποθήκευση/ανάθεση θα γίνει ΜΙΑ φορά, όταν βγουν και των {members.length} μελών.</p>
+                </button>
+              )}
+              {!finishMode && isLastMember && (
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:12 }}>
                   {[
-                    { k:'save',    icon:Save,  t:'Απλή αποθήκευση',        d:'Μπαίνει στον φάκελο του πελάτη — την ξεκινάς όποτε θες.' },
+                    { k:'save',    icon:Save,  t:'Απλή αποθήκευση',        d: groupId ? `Αποθηκεύονται οι προπονήσεις και των ${members.length} μελών.` : 'Μπαίνει στον φάκελο του πελάτη — την ξεκινάς όποτε θες.' },
                     { k:'schedule',icon:CalendarDays, t:'Προγραμματισμός', d:'Διάλεξε μέρα & ώρα — δημιουργείται ραντεβού και στα δύο ημερολόγια.' },
-                    { k:'assign',  icon:Link2, t:'Ανάθεση σε ραντεβού',    d:'Σύνδεσέ την με υπάρχον προγραμματισμένο ραντεβού του πελάτη.' },
+                    { k:'assign',  icon:Link2, t:'Ανάθεση σε ραντεβού',    d: groupId ? 'Όλες οι προπονήσεις δένονται στο ΕΝΑ κοινό ραντεβού του group.' : 'Σύνδεσέ την με υπάρχον προγραμματισμένο ραντεβού του πελάτη.' },
                   ].map(({ k, icon:Icon, t, d }) => (
                     <button key={k} onClick={() => k === 'save' ? (!saving && doSave()) : k === 'assign' ? openAssign() : setFinishMode('schedule')}
                       style={{ textAlign:'left', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',

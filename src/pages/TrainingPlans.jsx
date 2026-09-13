@@ -149,6 +149,9 @@ function AITrainingWizard({ clients, onSaved, onClose }) {
   const [err, setErr] = useState('');
   const [answers, setAnswers] = useState({ clientId: '', clientName: '', bodyParts: [], duration: 60, date: format(new Date(), 'yyyy-MM-dd') });
   const [preview, setPreview] = useState([]); // {id, name, eq, cat, rerolling, keep}
+  const [pvDrag, setPvDrag] = useState(-1);
+  const [pvOver, setPvOver] = useState(-1);
+  const movePreview = (from, to) => setPreview(p => { const a = [...p]; const [x] = a.splice(from, 1); a.splice(to, 0, x); return a; });
   const [generatedPlan, setGeneratedPlan] = useState(null);
   const STEPS = ['Client', 'Focus', 'Duration', 'Preview Exercises', 'Edit & Save'];
 
@@ -402,7 +405,14 @@ Rules: use ONLY the exercises listed in the given order. Assign realistic kg bas
 
             <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1 mb-4">
               {preview.map((ex, i) => (
-                <div key={ex.id} className={`flex items-center gap-2 p-2.5 rounded-xl border-2 transition-all ${ex.keep?'border-border bg-muted/20':'border-red-200 bg-red-50 dark:bg-red-950/20 opacity-50'}`}>
+                <div key={ex.id} draggable
+                  onDragStart={(ev)=>{ setPvDrag(i); ev.dataTransfer.effectAllowed='move'; try { ev.dataTransfer.setData('text/plain', String(i)); } catch {} }}
+                  onDragOver={(ev)=>{ ev.preventDefault(); if (pvOver !== i) setPvOver(i); }}
+                  onDrop={(ev)=>{ ev.preventDefault(); if (pvDrag > -1 && pvDrag !== i) movePreview(pvDrag, i); setPvDrag(-1); setPvOver(-1); }}
+                  onDragEnd={()=>{ setPvDrag(-1); setPvOver(-1); }}
+                  style={{ borderTop: pvOver === i && pvDrag !== i ? '2px solid #a855f7' : undefined, opacity: pvDrag === i ? 0.4 : undefined }}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl border-2 transition-all ${ex.keep?'border-border bg-muted/20':'border-red-200 bg-red-50 dark:bg-red-950/20 opacity-50'}`}>
+                  <span title="Σύρε για αλλαγή σειράς" className="cursor-grab select-none text-muted-foreground flex-shrink-0" style={{fontSize:13}}>⋮⋮</span>
                   {/* Order number */}
                   <span className="text-xs font-bold text-muted-foreground w-5 text-center flex-shrink-0">{i+1}</span>
 
