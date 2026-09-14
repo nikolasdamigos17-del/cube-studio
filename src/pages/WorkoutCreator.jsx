@@ -619,13 +619,21 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                   const pool = EXERCISE_DB
                     .filter(c => !exercises.find(x => x.name === c.name))
                     .filter(c => !q || c.name.toLowerCase().includes(q) || (EQUIPMENT[c.eq]?.label || '').toLowerCase().includes(q))
-                    .sort((a, b) => (rel.has(b.name) ? 1 : 0) - (rel.has(a.name) ? 1 : 0) || a.name.localeCompare(b.name))
-                    .slice(0, 8);
+                    .sort((a, b) => (q ? ((rel.has(b.name) ? 1 : 0) - (rel.has(a.name) ? 1 : 0) || a.name.localeCompare(b.name))
+                                       : (a.eq || '').localeCompare(b.eq || '') || a.name.localeCompare(b.name)));
                   const exact = EXERCISE_DB.some(c => c.name.toLowerCase() === q);
+                  let lastEq = null;
                   return (
-                    <div style={{ position:'absolute', left:0, right:0, top:'calc(100% + 4px)', zIndex:40, borderRadius:12, overflow:'hidden',
+                    <div style={{ position:'absolute', left:0, right:0, top:'calc(100% + 4px)', zIndex:40, borderRadius:12,
+                      maxHeight:340, overflowY:'auto', WebkitOverflowScrolling:'touch',
                       background:'#ffffff', border:'1px solid rgba(17,24,39,0.13)', boxShadow:'0 12px 32px rgba(16,24,40,0.14)' }}>
-                      {pool.map(c => (
+                      {!q && <p style={{ margin:0, padding:'8px 12px 4px', fontSize:10.5, color:'rgba(17,24,39,0.55)', fontWeight:700 }}>Όλες οι ασκήσεις ({pool.length}) — σκρόλαρε για ιδέες ή γράψε για αναζήτηση</p>}
+                      {pool.map(c => {
+                        const header = !q && c.eq !== lastEq ? (lastEq = c.eq, (
+                          <p key={'h_' + c.eq} style={{ margin:0, padding:'8px 12px 3px', fontSize:9.5, fontWeight:800, letterSpacing:'.1em', textTransform:'uppercase',
+                            color: EQUIPMENT[c.eq]?.color || '#6b7280', borderTop:'1px solid rgba(17,24,39,0.05)' }}>{EQUIPMENT[c.eq]?.label || c.eq || 'Άλλο'}</p>
+                        )) : null;
+                        return [header,(
                         <button key={c.name} onMouseDown={(ev) => { ev.preventDefault(); addByName(c.name); }}
                           style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, width:'100%', textAlign:'left',
                             padding:'9px 12px', border:'none', cursor:'pointer', background:'transparent', fontFamily:'inherit', fontSize:13, color:'#111827' }}
@@ -635,7 +643,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                           <span style={{ fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:6, flexShrink:0,
                             color: EQUIPMENT[c.eq]?.color || '#6b7280', background: EQUIPMENT[c.eq]?.bg || 'rgba(17,24,39,0.05)' }}>{EQUIPMENT[c.eq]?.short || '—'}</span>
                         </button>
-                      ))}
+                      )]; })}
                       {q && !exact && (
                         <button onMouseDown={(ev) => { ev.preventDefault(); addByName(addQuery, true); }}
                           style={{ display:'block', width:'100%', textAlign:'left', padding:'9px 12px', border:'none', cursor:'pointer',
@@ -643,7 +651,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                           <Plus style={{ width:12, height:12, display:'inline', verticalAlign:'-2px' }}/> Προσθήκη «{addQuery.trim()}» ως δική σου άσκηση
                         </button>
                       )}
-                      {pool.length === 0 && !q && <p style={{ margin:0, padding:'10px 12px', fontSize:12, color:'rgba(17,24,39,0.55)' }}>Γράψε για αναζήτηση σε {EXERCISE_DB.length} ασκήσεις…</p>}
+                      {pool.length === 0 && q && <p style={{ margin:0, padding:'10px 12px', fontSize:12, color:'rgba(17,24,39,0.55)' }}>Κανένα ταίριασμα — μπορείς να την προσθέσεις ως δική σου παραπάνω.</p>}
                     </div>
                   );
                 })()}
