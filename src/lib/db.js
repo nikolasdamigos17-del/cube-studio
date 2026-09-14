@@ -1,4 +1,5 @@
 import { SUPABASE_URL, SUPABASE_ANON, sbAccessToken } from './supabaseConfig';
+import { sbEnsureFresh } from './supabaseAuth';
 const generateId = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 const getStore = (key) => { try { const d = localStorage.getItem(`studio_${key}`); return d ? JSON.parse(d) : []; } catch { return []; } };
 const setStore = (key, data) => { try { localStorage.setItem(`studio_${key}`, JSON.stringify(data)); } catch {} };
@@ -51,18 +52,29 @@ const createEntity = (storeName) => ({
 // Αλλιώς χρησιμοποιείται το τοπικό localStorage — τίποτα δεν σπάει.
 const sbCfg = () => {
   try {
-    const on = localStorage.getItem('studio_use_supabase') !== '0';
     const url = (localStorage.getItem('supabase_url') || SUPABASE_URL).replace(/\/+$/, '');
     const key = localStorage.getItem('supabase_anon_key') || SUPABASE_ANON;
-    return (on && url && key) ? { url, key } : null;
-  } catch { return null; }
+    return { url, key };
+  } catch { return { url: SUPABASE_URL, key: SUPABASE_ANON }; }
 };
-export const USE_SUPABASE = !!sbCfg();
+export const USE_SUPABASE = true; // υποχρεωτικά Supabase — χωρίς τοπική λειτουργία
 const sbHeaders = (extra = {}) => {
   const { key } = sbCfg();
   const token = sbAccessToken() || key; // token συνδεδεμένου χρήστη → περνά το RLS
   return { apikey: key, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...extra };
 };
+const sbReady = () => sbEnsureFresh().catch(() => {});
+/* Νεκρή συνεδρία (401): καθάρισμα + επιστροφή στο login με μήνυμα */
+const sbAuthFail = (r) => {
+  if (r && r.status === 401) {
+    try {
+      localStorage.removeItem('sb_session');
+      localStorage.removeItem('studio_session');
+      sessionStorage.setItem('cube_session_expired', '1');
+    } catch {}
+    try { window.location.assign('/'); } catch {}
+  }
+}; // ανανέωση token αν έληξε, πριν από κάθε αίτημα
 const sbBase = (table) => `${sbCfg().url}/rest/v1/studio_${table}`;
 
 const createSupabaseEntity = (storeName) => {
@@ -71,8 +83,9 @@ const createSupabaseEntity = (storeName) => {
     return [...arr].sort((a, b) => { const av = a[field] || ''; const bv = b[field] || ''; return asc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1); });
   };
   const all = async () => {
+    await sbReady();
     const r = await fetch(sbBase(storeName) + '?select=doc&limit=10000', { headers: sbHeaders() });
-    if (!r.ok) throw new Error('Supabase list ' + storeName + ' ' + r.status);
+    if (!r.ok) { sbAuthFail(r); throw new Error('Supabase list ' + storeName + ' ' + r.status); }
     return (await r.json()).map(x => x.doc);
   };
   return {
@@ -82,29 +95,32 @@ const createSupabaseEntity = (storeName) => {
       return sortDocs(items, sortField).slice(0, limit);
     },
     create: async (data) => {
+      await sbReady();
       const now = new Date().toISOString();
       const rec = { ...data, id: generateId(), created_date: now, updated_date: now };
       const r = await fetch(sbBase(storeName), { method: 'POST', headers: sbHeaders({ Prefer: 'return=minimal' }),
         body: JSON.stringify({ id: rec.id, doc: rec, created_date: now, updated_date: now }) });
-      if (!r.ok) throw new Error('Supabase create ' + storeName + ' ' + r.status);
+      if (!r.ok) { sbAuthFail(r); throw new Error('Supabase create ' + storeName + ' ' + r.status); }
       return rec;
     },
     update: async (id, data) => {
+      await sbReady();
       const cr = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}&select=doc&limit=1`, { headers: sbHeaders() });
       const cur = (await cr.json())[0]?.doc || {};
       const now = new Date().toISOString();
       const merged = { ...cur, ...data, id, updated_date: now };
       const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: sbHeaders({ Prefer: 'return=minimal' }),
         body: JSON.stringify({ doc: merged, updated_date: now }) });
-      if (!r.ok) throw new Error('Supabase update ' + storeName + ' ' + r.status);
+      if (!r.ok) { sbAuthFail(r); throw new Error('Supabase update ' + storeName + ' ' + r.status); }
       return merged;
     },
     delete: async (id) => {
+      await sbReady();
       const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: sbHeaders({ Prefer: 'return=minimal' }) });
-      if (!r.ok) throw new Error('Supabase delete ' + storeName + ' ' + r.status);
+      if (!r.ok) { sbAuthFail(r); throw new Error('Supabase delete ' + storeName + ' ' + r.status); }
       return { success: true };
     },
-    get: async (id) => { const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}&select=doc&limit=1`, { headers: sbHeaders() }); return (await r.json())[0]?.doc || null; },
+    get: async (id) => { await sbReady(); const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}&select=doc&limit=1`, { headers: sbHeaders() }); return (await r.json())[0]?.doc || null; },
     subscribe: () => () => {},
   };
 };
@@ -131,6 +147,7 @@ export const db = {
   NutritionMeeting: pick('nutrition_meetings'),
   WaterLog: pick('water_logs'),
   SupplementLog: pick('supplement_logs'),
+  WithingsTokens: pick('withings_tokens'),
 };
 
 // ── AI CALL ───────────────────────────────────────────────────────────────────
@@ -144,24 +161,33 @@ export async function callAI(prompt, systemPrompt) {
   const lang = localStorage.getItem('cube_lang') || 'en';
   if (lang === 'el') systemPrompt = (systemPrompt || '') + GREEK_DIRECTIVE;
   const savedKey = (typeof localStorage !== 'undefined') ? localStorage.getItem('studio_api_key') : null;
-  const API_KEY = (savedKey && savedKey.trim()) || import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!API_KEY) { console.error('Λείπει το Anthropic API key — όρισέ το στις Ρυθμίσεις → Ενσωματώσεις / API (ή στο VITE_ANTHROPIC_API_KEY)'); return '__ERROR__ Missing API key'; }
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
-        system: systemPrompt || 'You are a helpful fitness and nutrition assistant.',
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
+    let response;
+    if (savedKey && savedKey.trim()) {
+      // Προαιρετικό τοπικό κλειδί (override) — απευθείας κλήση
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': savedKey.trim(),
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-5',
+          max_tokens: 4096,
+          system: systemPrompt || 'You are a helpful fitness and nutrition assistant.',
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+    } else {
+      // Κανονική διαδρομή: το κλειδί ζει στον server (ίδιο για ΟΛΕΣ τις συσκευές)
+      response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, system: systemPrompt || '' }),
+      });
+    }
     if (!response.ok) {
       const errText = await response.text();
       console.error('API error:', response.status, errText);

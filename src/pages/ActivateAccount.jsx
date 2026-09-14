@@ -3,8 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Dumbbell, Eye, EyeOff, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { db } from '../lib/db';
 import { useAppContext } from '../lib/AppContext';
-import { supabaseEnabled } from '../lib/supabaseConfig';
-import { sbSignUp, sbSignIn } from '../lib/supabaseAuth';
+import { sbSignIn } from '../lib/supabaseAuth';
 
 function Shell({ children }) {
   return (
@@ -38,9 +37,12 @@ export default function ActivateAccount() {
   useEffect(() => { (async () => {
     if (!clientId || !token) { setState('invalid'); return; }
     try {
-      const c = await db.Client.get(clientId);
-      if (!c || !c.invite_token || c.invite_token !== token) { setState('invalid'); return; }
-      setClient(c); setEmail(c.email || ''); setState('ok');
+      const r = await fetch('/api/activate', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'lookup', c: clientId, token }) });
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) { setState('invalid'); return; }
+      setClient({ id: clientId, name: j.name || '', email: j.email || '' });
+      setEmail(j.email || ''); setState('ok');
     } catch { setState('invalid'); }
   })(); }, [clientId, token]);
 
@@ -55,15 +57,23 @@ export default function ActivateAccount() {
       account_status: 'active', account_created_at: new Date().toISOString(), invite_token: '',
     };
     try {
-      if (supabaseEnabled()) {
-        // Δημιουργία κανονικού λογαριασμού Supabase για τον πελάτη
-        try { await sbSignUp(email.trim().toLowerCase(), pw); } catch (e) { /* μπορεί να υπάρχει ήδη */ }
-        try { await sbSignIn(email.trim().toLowerCase(), pw); } catch (e) {}
+      const r = await fetch('/api/activate', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'activate', c: clientId, token, email: email.trim(), password: pw }) });
+      const j = await r.json().catch(() => ({}));
+      if (!j.ok) {
+        setErr(j.reason === 'auth' ? ('Αποτυχία δημιουργίας λογαριασμού: ' + (j.detail || '')) : 'Κάτι πήγε στραβά. Δοκίμασε ξανά.');
+        setSaving(false); return;
       }
-      await db.Client.update(client.id, patch);
       setState('done');
       /* Ο πελάτης συνδέεται αυτόματα· αν το ανοίγει ο προπονητής (master) για δοκιμή, ΔΕΝ του αλλάζουμε session. */
-      if (appMode !== 'master') setTimeout(() => loginAsClient({ ...client, ...patch, clientId: client.id }), 1400);
+      if (appMode !== 'master') {
+        try {
+          await sbSignIn(email.trim().toLowerCase(), pw);
+          let full = null; try { full = await db.Client.get(clientId); } catch {}
+          const rec = full || { ...client, ...patch, id: clientId };
+          setTimeout(() => loginAsClient({ ...rec, clientId }), 1200);
+        } catch {}
+      }
     } catch { setErr('Κάτι πήγε στραβά. Δοκίμασε ξανά.'); setSaving(false); }
   };
 

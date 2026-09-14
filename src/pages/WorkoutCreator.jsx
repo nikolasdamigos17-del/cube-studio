@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Loader2, Brain, ArrowLeft, Dumbbell, TrendingDown, CalendarDays, Clock, Plus, Sparkles, Save, Link2, Pencil } from 'lucide-react';
 import { db, callAI } from '../lib/db';
@@ -15,24 +15,22 @@ const GOAL_LABELS = { fat_loss:'Απώλεια λίπους', muscle_gain:'Μυ�
 const TAG_COLORS = { 'ΠΟΡΕΙΑ':'#38bdf8', 'ΕΒΔΟΜΑΔΑ':'#f59e0b', 'ΑΔΥΝΑΜΙΕΣ':'#f87171', 'ΠΡΟΤΑΣΗ':'#22c55e' };
 const TAG_ICONS  = { 'ΠΟΡΕΙΑ':TrendingDown, 'ΕΒΔΟΜΑΔΑ':CalendarDays, 'ΑΔΥΝΑΜΙΕΣ':Dumbbell, 'ΠΡΟΤΑΣΗ':Sparkles };
 
-const SESSIONS = {
-  male: [
-    { key:'upper',     label:'Upper Body',   emoji:'💪', desc:'Στήθος, πλάτη, ώμοι, χέρια' },
-    { key:'lower',     label:'Lower Body',   emoji:'🦵', desc:'Πόδια, γλουτοί, γάμπες' },
-    { key:'full_body', label:'Full Body',    emoji:'🏋️', desc:'Ολόσωμη προπόνηση' },
-  ],
-  female: [
-    { key:'upper',     label:'Upper Body',   emoji:'💪', desc:'Στήθος, πλάτη, ώμοι, χέρια' },
-    { key:'lower',     label:'Lower Body',   emoji:'🦵', desc:'Πόδια, γλουτοί, γάμπες' },
-    { key:'glutes',    label:'Glute Focused', emoji:'🍑', desc:'Γλουτοί & οπίσθια αλυσίδα' },
-  ],
-};
-const TYPE_META = { upper:{label:'Upper Body',emoji:'💪'}, lower:{label:'Lower Body',emoji:'🦵'}, full_body:{label:'Full Body',emoji:'🏋️'}, glutes:{label:'Glutes',emoji:'🍑'} };
+/* Όλες οι μυϊκές ομάδες, ίδιες για άνδρες & γυναίκες */
+const ALL_SESSIONS = [
+  { key:'full_body', label:'Full Body',   emoji:'🏋️', desc:'Ολόσωμη προπόνηση' },
+  { key:'upper',     label:'Upper Body',  emoji:'💪', desc:'Στήθος, πλάτη, ώμοι, χέρια' },
+  { key:'lower',     label:'Lower Body',  emoji:'🦵', desc:'Πόδια, γλουτοί, γάμπες' },
+  { key:'legs',      label:'Legs',        emoji:'🦿', desc:'Τετρακέφαλοι, μηριαίοι, γάμπες' },
+  { key:'glutes',    label:'Glutes',      emoji:'🍑', desc:'Γλουτοί & οπίσθια αλυσίδα' },
+];
+const SESSIONS = { male: ALL_SESSIONS, female: ALL_SESSIONS };
+const TYPE_META = { upper:{label:'Upper Body',emoji:'💪'}, lower:{label:'Lower Body',emoji:'🦵'}, legs:{label:'Legs',emoji:'🦿'}, full_body:{label:'Full Body',emoji:'🏋️'}, glutes:{label:'Glutes',emoji:'🍑'} };
 const TYPE_GROUPS = {
-  upper: ['chest','back','shoulders','biceps','triceps'],
-  lower: ['legs','glutes','calves'],
-  glutes: ['glutes','legs'],
-  full_body: ['chest','back','shoulders','legs','glutes','core'],
+  upper: ['chest','back','shoulders','biceps','triceps','traps','forearms'],
+  lower: ['legs','glutes','calves','quads','hamstrings'],
+  legs:  ['legs','quads','hamstrings','calves'],
+  glutes: ['glutes','legs','hamstrings'],
+  full_body: ['chest','back','shoulders','legs','glutes','core','quads','hamstrings','biceps','triceps'],
 };
 const SCHEMES = {
   fat_loss:    { sets:3, reps:'12-15', rest:50 },
@@ -111,10 +109,16 @@ export default function WorkoutCreator() {
   const [notes, setNotes] = useState('');
   const [exercises, setExercises] = useState([]);
   const [buildPhase, setBuildPhase] = useState(0);
-  const [addSel, setAddSel] = useState('');
+  const [addQuery, setAddQuery] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
 
   /* finish */
   const [finishMode, setFinishMode] = useState('');   // '' | schedule | assign
+  const [dragI, setDragI] = useState(-1);              // ποια άσκηση σέρνεται
+  const [isNarrow, setIsNarrow] = useState(typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => { const on = () => setIsNarrow(window.innerWidth < 640); window.addEventListener('resize', on); return () => window.removeEventListener('resize', on); }, []);
+  const [overI, setOverI] = useState(-1);              // πάνω από ποια θέση
+  const moveEx = (from, to) => setExercises(p => { const a = [...p]; const [x] = a.splice(from, 1); a.splice(to, 0, x); return a; });
   const [calMonth, setCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [selDay, setSelDay] = useState('');
   const [freeSlots, setFreeSlots] = useState([]);
@@ -158,6 +162,14 @@ export default function WorkoutCreator() {
     setData({ client, profile: profs[0] || {}, tplans, progress, appts, feedback });
     setScreen('analyzing'); setCheckStep(0); setAnalysis(null); setChosen('');
     setTitle(''); setNotes(''); setExercises([]); setFinishMode(''); setSavedMsg(''); setSaving(false);
+    if (reuseRef.current) {
+      const r = reuseRef.current; reuseRef.current = null;
+      setChosen(r.chosen);
+      setTitle(`${TYPE_META[r.chosen]?.label || 'Προπόνηση'} — ${firstName(client.name)}`);
+      setNotes(r.notes || '');
+      setExercises(r.exercises);
+      setScreen('review'); // κατευθείαν στον καθορισμό ασκήσεων/κιλών
+    }
   })(); }, [effClientId]);
 
   useEffect(() => {
@@ -215,16 +227,22 @@ ${brief}
     const ph = setInterval(() => setBuildPhase(p => (p + 1) % 3), 3000);
     const { client, tplans } = data;
     const groups = TYPE_GROUPS[chosen] || [];
-    const candidates = sortBySessionOrder(getExercisesFor(groups));
+    const warmups = EXERCISE_DB.filter(x => x.cat === 'warmup');
+    const seenC = new Set();
+    const candidates = [...sortBySessionOrder(getExercisesFor(groups)), ...warmups].filter(x => !seenC.has(x.name) && seenC.add(x.name));
     const lifts = knownLiftsFrom(tplans);
     const candTxt = candidates.map(e => `- ${e.name} [${(e.muscles || []).join(',')}]${lifts[e.name] ? ` (τελευταίο βάρος: ${lifts[e.name]}kg)` : ''}`).join('\n');
     const sessLabel = TYPE_META[chosen]?.label || chosen;
 
+    const groupNote = (groupId && draftsRef.current.length)
+      ? `ΤΑΥΤΟΧΡΟΝΗ GROUP ΠΡΟΠΟΝΗΣΗ — γυμνάζονται ΜΑΖΙ, την ίδια ώρα, με: ${draftsRef.current.map(d => `${d.clientName}: ${(d.exercises || []).map((e, i) => `${i + 1}.${e.name}`).join(', ')}`).join(' | ')}. Κάθε μηχάνημα υπάρχει ΕΝΑ: σε κάθε χρονική θέση (ιδίως στην 1η άσκηση) ΜΗΝ βάλεις άσκηση στο ίδιο μηχάνημα/εξοπλισμό με το αντίστοιχο βήμα των παραπάνω — μοίρασε τη σειρά ώστε να μην συγκρούονται ποτέ.\n`
+      : '';
+    const warmNote = 'Στη λίστα υπάρχουν και ασκήσεις ΠΡΟΘΕΡΜΑΝΣΗΣ (warmup) — προαιρετικά ξεκίνα με 1-2 (0 κιλά, reps π.χ. "30s" ή "20").\n';
     const prompt = `Φτιάξε ${sessLabel} προπόνηση για: ${client.name} (${gender === 'female' ? 'γυναίκα' : 'άνδρας'}). Στόχος: ${GOAL_LABELS[goal] || 'γενική φυσική κατάσταση'}.
 Σχήμα στόχου: ~${scheme.sets} σετ, ${scheme.reps} επαναλήψεις, διάλειμμα ~${scheme.rest}s (προσαρμόσέ το λογικά ανά άσκηση — σύνθετες: περισσότερο, απομονώσεις: λιγότερο).
 ΔΙΑΛΕΞΕ 6-7 ασκήσεις ΑΠΟΚΛΕΙΣΤΙΚΑ από την παρακάτω λίστα (γράψε τα ονόματα ΑΚΡΙΒΩΣ όπως δίνονται), σύνθετες πρώτες, κάλυψε ισορροπημένα τις μυϊκές ομάδες${chosen === 'glutes' ? ' με ΚΥΡΙΑ έμφαση στους γλουτούς (hip hinge, thrust patterns, abductions)' : ''}:
 ${candTxt}
-ΚΙΛΑ: όπου δίνεται "τελευταίο βάρος", ξεκίνα από εκεί (ή ελαφρώς πάνω αν ο στόχος είναι μυϊκή ανάπτυξη). Αλλιώς συντηρητικά αρχικά κιλά· για ασκήσεις σωματικού βάρους βάλε 0.
+${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο βάρος", ξεκίνα από εκεί (ή ελαφρώς πάνω αν ο στόχος είναι μυϊκή ανάπτυξη). Αλλιώς συντηρητικά αρχικά κιλά· για ασκήσεις σωματικού βάρους βάλε 0.
 Απάντησε ΜΟΝΟ με JSON:
 {"title":"${sessLabel} — ${client.name.split(' ')[0]}","notes":"1-2 σύντομες οδηγίες","exercises":[{"name":"...","sets":${scheme.sets},"reps":"${scheme.reps}","weight_kg":0,"rest_between_sets":${scheme.rest}}]}`;
     const r = await callAI(prompt, 'You are an expert strength coach. Return ONLY valid JSON. Start with {');
@@ -263,30 +281,72 @@ ${candTxt}
 
   const editEx = (i, k, v) => setExercises(p => p.map((e, j) => j !== i ? e : { ...e, [k]: v }));
   const delEx = (i) => setExercises(p => p.filter((_, j) => j !== i));
-  const addEx = () => {
-    if (!addSel) return;
-    const dbe = EXERCISE_DB.find(e => e.name === addSel);
-    if (!dbe) return;
-    setExercises(p => [...p, { name:dbe.name, eq:dbe.eq, sets:scheme.sets, reps:scheme.reps, weight_kg: knownLiftsFrom(data.tplans)[dbe.name] || 0, rest_between_sets:scheme.rest, set_details:[] }]);
-    setAddSel('');
+  const addByName = (name, custom = false) => {
+    const dbe = custom ? null : EXERCISE_DB.find(e => e.name === name);
+    if (!dbe && !custom) return;
+    setExercises(p => [...p, {
+      name: dbe ? dbe.name : name.trim(), eq: dbe ? dbe.eq : '',
+      sets: scheme.sets, reps: scheme.reps,
+      weight_kg: dbe ? (knownLiftsFrom(data.tplans)[dbe.name] || 0) : 0,
+      rest_between_sets: scheme.rest, set_details: [],
+    }]);
+    setAddQuery(''); setAddOpen(false);
   };
 
   /* ── αποθήκευση / προγραμματισμός / ανάθεση ── */
+  /* ── GROUP: πρόχειρα ανά μέλος — η ολοκλήρωση γίνεται ΜΙΑ φορά στο τέλος ── */
+  const draftsRef = useRef([]);
+  const isLastMember = !groupId || memberIndex >= members.length - 1;
+  const reuseRef = useRef(null);
+  const advanceMember = () => {
+    draftsRef.current.push({ clientId: effClientId, clientName: data.client.name, title, chosen, notes, exercises: normEx(exercises) });
+    setMemberIndex(i => i + 1); // ο οδηγός ξαναστήνεται αυτόματα για το επόμενο μέλος
+  };
+  const advanceSameWorkout = () => {
+    /* Ίδιες ασκήσεις, αλλά με ΜΕΤΑΤΟΠΙΣΜΕΝΗ σειρά: γυμνάζονται ταυτόχρονα και
+       κάθε μηχάνημα είναι ένα — ο επόμενος ξεκινά από τη μέση της λίστας. */
+    const list = normEx(exercises);
+    const n = list.length || 1;
+    const off = Math.ceil(n / 2) % n;
+    const rotated = [...list.slice(off), ...list.slice(0, off)];
+    reuseRef.current = { chosen, notes, exercises: JSON.parse(JSON.stringify(rotated)) };
+    advanceMember();
+  };
+  const normEx = (list) => (list || []).map(e => ({ ...e,
+    sets: Math.min(8, Math.max(1, parseInt(e.sets) || 3)),
+    reps: String(e.reps || '10'),
+    weight_kg: Math.max(0, parseFloat(e.weight_kg) || 0),
+    rest_between_sets: Math.max(10, parseInt(e.rest_between_sets) || 60),
+  }));
+  const collectAll = () => [ ...draftsRef.current, { clientId: effClientId, clientName: data.client.name, title, chosen, notes, exercises } ];
+  const createPlansAll = async (extra = {}) => {
+    const out = [];
+    for (const d of collectAll()) {
+      out.push(await db.TrainingPlan.create({
+        client_id: d.clientId, client_name: d.clientName, date: extra.date || todayStr(),
+        title: d.title, session_type: d.chosen, notes: d.notes, exercises: normEx(d.exercises), completed: false, created_via: 'brain',
+        group_id: groupId, group_session_id: groupSessionId,
+      }));
+    }
+    return out;
+  };
+  const groupLabel = () => groupDisplayName(group, members);
+
   const createPlan = async (extra = {}) => {
     return db.TrainingPlan.create({
       client_id: effClientId, client_name: data.client.name, date: extra.date || todayStr(),
-      title, session_type: chosen, notes, exercises, completed: false, created_via: 'brain',
+      title, session_type: chosen, notes, exercises: normEx(exercises), completed: false, created_via: 'brain',
       ...(groupId ? { group_id: groupId, group_session_id: groupSessionId } : {}),
     });
   };
   const afterFinish = (msg) => {
     setSaving(false);
-    const nextMem = groupId && memberIndex < members.length - 1 ? members[memberIndex + 1] : null;
-    setSavedMsg(msg + (nextMem ? `  Συνεχίζουμε με ${firstName(nextMem.name)}…` : ''));
-    setTimeout(() => { if (nextMem) setMemberIndex(i => i + 1); else navigate('/TrainingPlans'); }, 1500);
+    setSavedMsg(msg);
+    setTimeout(() => navigate('/TrainingPlans'), 1500);
   };
   const doSave = async () => {
     setSaving(true);
+    if (groupId) { await createPlansAll(); afterFinish(`Αποθηκεύτηκαν οι προπονήσεις και των ${members.length} μελών.`); return; }
     await createPlan();
     afterFinish('Η προπόνηση αποθηκεύτηκε στον φάκελο του πελάτη.');
   };
@@ -316,6 +376,18 @@ ${candTxt}
   };
   const doSchedule = async () => {
     setSaving(true);
+    if (groupId) {
+      const plans = await createPlansAll({ date: selDay });
+      await db.Appointment.create({
+        title: `${groupLabel()} — ${TYPE_META[chosen]?.label || 'Group'}`,
+        group_id: groupId, client_id: '', client_name: groupLabel(), client_color: ACC,
+        type: 'training', date: selDay, start_time: confirmTime,
+        duration_minutes: (data.client.session_duration_hours || 1) * 60, status: 'scheduled',
+        plan_id: plans[0]?.id || '', group_session_id: groupSessionId,
+      });
+      afterFinish(`Προγραμματίστηκε ΕΝΑ κοινό ραντεβού για το group: ${selDay} · ${confirmTime}.`);
+      return;
+    }
     const plan = await createPlan({ date: selDay });
     await db.Appointment.create({
       title: `${data.client.name} — ${TYPE_META[chosen]?.label || 'Προπόνηση'}`,
@@ -327,38 +399,52 @@ ${candTxt}
   };
   const openAssign = async () => {
     setFinishMode('assign');
-    const list = (data.appts || [])
+    let all = data.appts || [];
+    try { all = await db.Appointment.list('-date', 400); } catch {}
+    const gid = groupId || data.client?.group_id || '';
+    const list = all
       .filter(a => (a.date || '') >= todayStr() && a.status !== 'cancelled' && !a.plan_id && (a.type === 'training' || !a.type))
+      .filter(a => a.client_id === effClientId || (!a.client_id && !a.group_id) || (gid && a.group_id === gid))
       .sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time))
-      .slice(0, 10);
+      .slice(0, 12);
     setOpenAppts(list);
   };
   const doAssign = async (appt) => {
     setSaving(true);
+    if (groupId) {
+      const plans = await createPlansAll({ date: appt.date });
+      const patch = { plan_id: plans[0]?.id || '', group_session_id: groupSessionId };
+      if (!appt.client_id && !appt.group_id) { patch.group_id = groupId; patch.client_name = groupLabel(); }
+      await db.Appointment.update(appt.id, patch);
+      afterFinish(`Ανατέθηκαν και οι ${members.length} προπονήσεις στο ραντεβού ${appt.date} · ${appt.start_time}.`);
+      return;
+    }
     const plan = await createPlan({ date: appt.date });
-    await db.Appointment.update(appt.id, { plan_id: plan.id });
+    const patch = { plan_id: plan.id };
+    if (!appt.client_id && !appt.group_id) { patch.client_id = effClientId; patch.client_name = data.client?.name || ''; }
+    await db.Appointment.update(appt.id, patch);
     afterFinish(`Ανατέθηκε στο ραντεβού ${appt.date} · ${appt.start_time}.`);
   };
 
   /* ── στυλ ── */
   const S = {
-    page:{ minHeight:'100vh', background:'#07070c', color:'#eef0f6', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)',
+    page:{ minHeight:'100vh', background:'#f5f6fa', color:'#111827', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)',
       backgroundImage:`radial-gradient(900px 460px at 10% -6%, ${ACC}14, transparent 60%), radial-gradient(760px 400px at 100% 0%, ${ACC}0b, transparent 55%)` },
-    wrap:{ maxWidth:1100, margin:'0 auto', padding:'26px 22px 90px' },
+    wrap:{ maxWidth:1100, margin:'0 auto', padding:'clamp(14px,3vw,26px) clamp(12px,3vw,22px) 90px' },
     kicker:{ fontSize:10.5, letterSpacing:'.32em', textTransform:'uppercase', color:ACC, fontWeight:700 },
-    card:{ background:'rgba(255,255,255,0.035)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:18, padding:'18px 20px' },
-    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.42)', fontWeight:700 },
-    dim:{ color:'rgba(255,255,255,0.45)' },
-    inp:{ background:'rgba(0,0,0,0.38)', border:'1px solid rgba(255,255,255,0.13)', borderRadius:11, color:'#eef0f6', padding:'9px 11px', fontSize:13.5, outline:'none', width:'100%', fontFamily:'inherit' },
+    card:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.10)', boxShadow:'0 1px 3px rgba(16,24,40,0.05)', borderRadius:18, padding:'18px 20px' },
+    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 },
+    dim:{ color:'rgba(17,24,39,0.55)' },
+    inp:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.13)', borderRadius:11, color:'#111827', padding:'9px 11px', fontSize:13.5, outline:'none', width:'100%', fontFamily:'inherit' },
     btn:(primary)=>({ border:'none', borderRadius:12, padding:'13px 24px', fontSize:14, fontWeight:800, cursor:'pointer', fontFamily:'inherit',
-      background: primary ? ACC : 'transparent', color: primary ? '#07070b' : 'rgba(255,255,255,0.7)', outline: primary ? 'none' : '1px solid rgba(255,255,255,0.17)' }),
+      background: primary ? ACC : 'transparent', color: primary ? '#07070b' : 'rgba(17,24,39,0.8)', outline: primary ? 'none' : '1px solid rgba(17,24,39,0.13)' }),
     navBtn:{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:999, fontSize:12, fontWeight:800, cursor:'pointer',
-      background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.15)', color:'rgba(255,255,255,0.75)', fontFamily:'inherit' },
+      background:'rgba(17,24,39,0.05)', border:'1px solid rgba(17,24,39,0.13)', color:'rgba(17,24,39,0.8)', fontFamily:'inherit' },
   };
 
   if (!data) return (
     <div style={{ ...S.page, display:'grid', placeItems:'center' }}>
-      <Loader2 style={{ width:28, height:28, color:'#fff', animation:'wcspin 1s linear infinite' }}/>
+      <Loader2 style={{ width:28, height:28, color:'#111827', animation:'wcspin 1s linear infinite' }}/>
       <style>{`@keyframes wcspin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
@@ -396,8 +482,8 @@ ${candTxt}
             <div style={{ textAlign:'left', maxWidth:360, margin:'0 auto' }}>
               {['Πορεία & μετρήσεις','Προπονήσεις εβδομάδας (Live Training)','Σετ κάτω από στόχο / αποτυχίες','Στόχος & πλαίσιο sessions'].map((t, i) => (
                 <div key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', opacity: checkStep > i ? 1 : 0.35, transition:'opacity .4s' }}>
-                  <span style={{ width:20, height:20, borderRadius:'50%', display:'grid', placeItems:'center', background: checkStep > i ? '#22c55e' : 'rgba(255,255,255,0.1)' }}>
-                    {checkStep > i ? <Check style={{ width:12, height:12, color:'#06060b' }}/> : <Loader2 style={{ width:11, height:11, color:'rgba(255,255,255,0.5)', animation:'wcspin 1s linear infinite' }}/>}
+                  <span style={{ width:20, height:20, borderRadius:'50%', display:'grid', placeItems:'center', background: checkStep > i ? '#22c55e' : 'rgba(17,24,39,0.13)' }}>
+                    {checkStep > i ? <Check style={{ width:12, height:12, color:'#06060b' }}/> : <Loader2 style={{ width:11, height:11, color:'rgba(17,24,39,0.55)', animation:'wcspin 1s linear infinite' }}/>}
                   </span>
                   <span style={{ fontSize:13, fontWeight:600 }}>{t}</span>
                 </div>
@@ -440,7 +526,7 @@ ${candTxt}
                   return (
                     <button key={o.key} onClick={() => setChosen(o.key)}
                       style={{ textAlign:'left', padding:'13px 15px', borderRadius:14, cursor:'pointer', fontFamily:'inherit', position:'relative',
-                        border:`1.7px solid ${on ? ACC : 'rgba(255,255,255,0.11)'}`, background: on ? `${ACC}1c` : 'rgba(255,255,255,0.02)', color:'#fff' }}>
+                        border:`1.7px solid ${on ? ACC : 'rgba(17,24,39,0.13)'}`, background: on ? `${ACC}1c` : 'rgba(17,24,39,0.05)', color:'#111827' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:11 }}>
                         <span style={{ fontSize:23 }}>{o.emoji}</span>
                         <div style={{ flex:1 }}>
@@ -482,30 +568,85 @@ ${candTxt}
             </div>
 
             <div style={S.card}>
-              <div style={{ display:'grid', gridTemplateColumns:'2.2fr 64px 84px 84px 84px 30px', gap:8, padding:'0 0 8px', borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-                {['Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map(h => <span key={h} style={{ ...S.lbl, fontSize:9 }}>{h}</span>)}
+              <div style={{ display:'grid', gridTemplateColumns:'2.2fr 64px 84px 84px 84px 30px', gap:8, padding:'0 0 8px', borderBottom:'1px solid rgba(17,24,39,0.13)' }}>
+                {!isNarrow && ['','Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map((h, hi) => <span key={hi} style={{ ...S.lbl, fontSize:9 }}>{h}</span>)}
               </div>
               {exercises.map((e, i) => (
-                <div key={i} style={{ display:'grid', gridTemplateColumns:'2.2fr 64px 84px 84px 84px 30px', gap:8, alignItems:'center', padding:'9px 0', borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
+                <div key={i} draggable
+                  onDragStart={(ev) => { setDragI(i); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', String(i)); } catch {} }}
+                  onDragOver={(ev) => { ev.preventDefault(); if (overI !== i) setOverI(i); }}
+                  onDrop={(ev) => { ev.preventDefault(); if (dragI > -1 && dragI !== i) moveEx(dragI, i); setDragI(-1); setOverI(-1); }}
+                  onDragEnd={() => { setDragI(-1); setOverI(-1); }}
+                  style={{ display:'grid',
+                    gridTemplateColumns: isNarrow ? '20px 1fr 30px' : '20px 2.2fr 64px 84px 84px 84px 30px',
+                    gap: isNarrow ? 6 : 8, alignItems:'center', padding:'9px 0',
+                    borderBottom:'1px solid rgba(17,24,39,0.05)',
+                    borderTop: overI === i && dragI !== i ? `2px solid ${ACC}` : '2px solid transparent',
+                    opacity: dragI === i ? 0.35 : 1, background: dragI === i ? 'rgba(17,24,39,0.05)' : 'transparent' }}>
+                  <span title="Σύρε για αλλαγή σειράς" style={{ cursor:'grab', color:'rgba(17,24,39,0.55)', fontSize:14, userSelect:'none', textAlign:'center' }}>⋮⋮</span>
                   <div style={{ minWidth:0 }}>
                     <p style={{ margin:0, fontSize:13.5, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{i + 1}. {e.name}</p>
-                    <span style={{ fontSize:9.5, color: (EQUIPMENT[e.eq]?.color) || 'rgba(255,255,255,0.4)' }}>{EQUIPMENT[e.eq]?.label || e.eq || ''}</span>
+                    <span style={{ fontSize:9.5, color: (EQUIPMENT[e.eq]?.color) || 'rgba(17,24,39,0.55)' }}>{EQUIPMENT[e.eq]?.label || e.eq || ''}</span>
+                    {isNarrow && (
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginTop:7 }}>
+                        {[['Σετ','sets','number',1],['Επαν.','reps','text',null],['Κιλά','weight_kg','number',0.5],['Διάλ.','rest_between_sets','number',1]].map(([lab,key,typ,st])=>(
+                          <div key={key}>
+                            <span style={{ ...S.lbl, fontSize:8 }}>{lab}</span>
+                            <input style={{ ...S.inp, textAlign:'center', padding:'6px 3px', fontSize:12.5, marginTop:2 }} type={typ} step={st||undefined}
+                              value={e[key]} onChange={ev => editEx(i, key, ev.target.value)}/>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.sets} onChange={ev => editEx(i, 'sets', parseInt(ev.target.value) || 1)}/>
-                  <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} value={e.reps} onChange={ev => editEx(i, 'reps', ev.target.value)}/>
-                  <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" step="0.5" value={e.weight_kg} onChange={ev => editEx(i, 'weight_kg', parseFloat(ev.target.value) || 0)}/>
-                  <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.rest_between_sets} onChange={ev => editEx(i, 'rest_between_sets', parseInt(ev.target.value) || 60)}/>
-                  <button onClick={() => delEx(i)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:3 }}><X style={{ width:15, height:15, color:'rgba(255,255,255,0.4)' }}/></button>
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.sets} onChange={ev => editEx(i, 'sets', ev.target.value)}/>}
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} value={e.reps} onChange={ev => editEx(i, 'reps', ev.target.value)}/>}
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" step="0.5" value={e.weight_kg} onChange={ev => editEx(i, 'weight_kg', ev.target.value)}/>}
+                  {!isNarrow && <input style={{ ...S.inp, textAlign:'center', padding:'7px 4px' }} type="number" value={e.rest_between_sets} onChange={ev => editEx(i, 'rest_between_sets', ev.target.value)}/>}
+                  <button onClick={() => delEx(i)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:3 }}><X style={{ width:15, height:15, color:'rgba(17,24,39,0.55)' }}/></button>
                 </div>
               ))}
-              <div style={{ display:'flex', gap:8, marginTop:12, alignItems:'center' }}>
-                <select value={addSel} onChange={e => setAddSel(e.target.value)} style={{ ...S.inp, flex:1 }}>
-                  <option value="">+ Προσθήκη άσκησης από τη βάση…</option>
-                  {sortBySessionOrder(getExercisesFor(TYPE_GROUPS[chosen] || [])).filter(c => !exercises.find(x => x.name === c.name)).map(c => (
-                    <option key={c.name} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-                <button onClick={addEx} disabled={!addSel} style={{ ...S.btn(false), opacity: addSel ? 1 : 0.4 }}><Plus style={{ width:14, height:14 }}/></button>
+              <div style={{ position:'relative', marginTop:12 }}>
+                <input value={addQuery}
+                  onChange={e => { setAddQuery(e.target.value); setAddOpen(true); }}
+                  onFocus={() => setAddOpen(true)}
+                  onBlur={() => setTimeout(() => setAddOpen(false), 160)}
+                  placeholder="🔎 Αναζήτηση άσκησης — γράψε π.χ. squat, cable, push…"
+                  style={{ ...S.inp }}/>
+                {addOpen && (() => {
+                  const q = addQuery.trim().toLowerCase();
+                  const rel = new Set(sortBySessionOrder(getExercisesFor(TYPE_GROUPS[chosen] || [])).map(x => x.name));
+                  const pool = EXERCISE_DB
+                    .filter(c => !exercises.find(x => x.name === c.name))
+                    .filter(c => !q || c.name.toLowerCase().includes(q) || (EQUIPMENT[c.eq]?.label || '').toLowerCase().includes(q))
+                    .sort((a, b) => (rel.has(b.name) ? 1 : 0) - (rel.has(a.name) ? 1 : 0) || a.name.localeCompare(b.name))
+                    .slice(0, 8);
+                  const exact = EXERCISE_DB.some(c => c.name.toLowerCase() === q);
+                  return (
+                    <div style={{ position:'absolute', left:0, right:0, top:'calc(100% + 4px)', zIndex:40, borderRadius:12, overflow:'hidden',
+                      background:'#ffffff', border:'1px solid rgba(17,24,39,0.13)', boxShadow:'0 12px 32px rgba(16,24,40,0.14)' }}>
+                      {pool.map(c => (
+                        <button key={c.name} onMouseDown={(ev) => { ev.preventDefault(); addByName(c.name); }}
+                          style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, width:'100%', textAlign:'left',
+                            padding:'9px 12px', border:'none', cursor:'pointer', background:'transparent', fontFamily:'inherit', fontSize:13, color:'#111827' }}
+                          onMouseEnter={(ev)=>{ ev.currentTarget.style.background='rgba(17,24,39,0.05)'; }}
+                          onMouseLeave={(ev)=>{ ev.currentTarget.style.background='transparent'; }}>
+                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
+                          <span style={{ fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:6, flexShrink:0,
+                            color: EQUIPMENT[c.eq]?.color || '#6b7280', background: EQUIPMENT[c.eq]?.bg || 'rgba(17,24,39,0.05)' }}>{EQUIPMENT[c.eq]?.short || '—'}</span>
+                        </button>
+                      ))}
+                      {q && !exact && (
+                        <button onMouseDown={(ev) => { ev.preventDefault(); addByName(addQuery, true); }}
+                          style={{ display:'block', width:'100%', textAlign:'left', padding:'9px 12px', border:'none', cursor:'pointer',
+                            background:'rgba(17,24,39,0.03)', fontFamily:'inherit', fontSize:13, color:ACC, fontWeight:700 }}>
+                          <Plus style={{ width:12, height:12, display:'inline', verticalAlign:'-2px' }}/> Προσθήκη «{addQuery.trim()}» ως δική σου άσκηση
+                        </button>
+                      )}
+                      {pool.length === 0 && !q && <p style={{ margin:0, padding:'10px 12px', fontSize:12, color:'rgba(17,24,39,0.55)' }}>Γράψε για αναζήτηση σε {EXERCISE_DB.length} ασκήσεις…</p>}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -530,16 +671,32 @@ ${candTxt}
                 <p style={{ ...S.dim, fontSize:13, margin:0 }}>«{title}» — τι θέλεις να την κάνουμε;</p>
               </div>
 
-              {!finishMode && (
+              {!finishMode && !isLastMember && (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:12 }}>
+                  <button onClick={advanceSameWorkout}
+                    style={{ textAlign:'center', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',
+                      border:`1.5px solid ${ACC}`, background:ACC, color:'#07070b' }}>
+                    <p style={{ margin:0, fontSize:15, fontWeight:800 }}>⚡ Χρήση ίδιας προπόνησης για {firstName(members[memberIndex + 1]?.name || '')}</p>
+                    <p style={{ margin:'5px 0 0', fontSize:12, opacity:.75 }}>Ίδιες ασκήσεις, με μετατοπισμένη σειρά (ένα μηχάνημα ο καθένας) — πας κατευθείαν στα κιλά. Αλλάζεις σειρά με drag.</p>
+                  </button>
+                  <button onClick={advanceMember}
+                    style={{ textAlign:'center', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',
+                      border:'1.5px solid rgba(17,24,39,0.13)', background:`${ACC}22`, color:'#111827' }}>
+                    <p style={{ margin:0, fontSize:15, fontWeight:800 }}>Νέα προπόνηση για {firstName(members[memberIndex + 1]?.name || '')} →</p>
+                    <p style={{ ...S.dim, margin:'5px 0 0', fontSize:12 }}>Ο εγκέφαλος φτιάχνει διαφορετική — γνωρίζοντας τι κάνει ο άλλος για να μην συγκρούονται μηχανήματα.</p>
+                  </button>
+                </div>
+              )}
+              {!finishMode && isLastMember && (
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:12 }}>
                   {[
-                    { k:'save',    icon:Save,  t:'Απλή αποθήκευση',        d:'Μπαίνει στον φάκελο του πελάτη — την ξεκινάς όποτε θες.' },
+                    { k:'save',    icon:Save,  t:'Απλή αποθήκευση',        d: groupId ? `Αποθηκεύονται οι προπονήσεις και των ${members.length} μελών.` : 'Μπαίνει στον φάκελο του πελάτη — την ξεκινάς όποτε θες.' },
                     { k:'schedule',icon:CalendarDays, t:'Προγραμματισμός', d:'Διάλεξε μέρα & ώρα — δημιουργείται ραντεβού και στα δύο ημερολόγια.' },
-                    { k:'assign',  icon:Link2, t:'Ανάθεση σε ραντεβού',    d:'Σύνδεσέ την με υπάρχον προγραμματισμένο ραντεβού του πελάτη.' },
+                    { k:'assign',  icon:Link2, t:'Ανάθεση σε ραντεβού',    d: groupId ? 'Όλες οι προπονήσεις δένονται στο ΕΝΑ κοινό ραντεβού του group.' : 'Σύνδεσέ την με υπάρχον προγραμματισμένο ραντεβού του πελάτη.' },
                   ].map(({ k, icon:Icon, t, d }) => (
                     <button key={k} onClick={() => k === 'save' ? (!saving && doSave()) : k === 'assign' ? openAssign() : setFinishMode('schedule')}
                       style={{ textAlign:'left', padding:'20px 18px', borderRadius:16, cursor:'pointer', fontFamily:'inherit',
-                        border:'1.5px solid rgba(255,255,255,0.11)', background:'rgba(255,255,255,0.03)', color:'#fff' }}>
+                        border:'1.5px solid rgba(17,24,39,0.13)', background:'rgba(17,24,39,0.05)', color:'#111827' }}>
                       <span style={{ width:38, height:38, borderRadius:12, display:'grid', placeItems:'center', background:`${ACC}1c`, marginBottom:10 }}>
                         <Icon style={{ width:18, height:18, color:ACC }}/>
                       </span>
@@ -571,8 +728,8 @@ ${candTxt}
                         cells.push(
                           <button key={ds} disabled={past} onClick={() => pickDay(ds)}
                             style={{ aspectRatio:'1', borderRadius:9, fontSize:12, fontWeight:700, cursor: past ? 'default' : 'pointer', fontFamily:'inherit',
-                              border: sel ? `1.6px solid ${ACC}` : isToday ? `1.4px dashed ${ACC}88` : '1px solid rgba(255,255,255,0.07)',
-                              background: sel ? ACC + '2a' : 'transparent', color: past ? 'rgba(255,255,255,0.2)' : '#fff' }}>
+                              border: sel ? `1.6px solid ${ACC}` : isToday ? `1.4px dashed ${ACC}88` : '1px solid rgba(17,24,39,0.05)',
+                              background: sel ? ACC + '2a' : 'transparent', color: past ? 'rgba(17,24,39,0.13)' : '#fff' }}>
                             {d}
                           </button>
                         );
@@ -587,7 +744,7 @@ ${candTxt}
                         {freeSlots.length ? freeSlots.map(t => (
                           <button key={t} onClick={() => { setTimeCheck({ time:t, ok:true }); setConfirmTime(t); }}
                             style={{ padding:'8px 14px', borderRadius:999, fontSize:13, fontWeight:800, cursor:'pointer', fontFamily:'inherit',
-                              border:`1.5px solid ${confirmTime === t ? ACC : 'rgba(255,255,255,0.16)'}`, background: confirmTime === t ? ACC + '22' : 'transparent', color:'#fff' }}>
+                              border:`1.5px solid ${confirmTime === t ? ACC : 'rgba(17,24,39,0.13)'}`, background: confirmTime === t ? ACC + '22' : 'transparent', color:'#111827' }}>
                             {t}
                           </button>
                         )) : <span style={{ ...S.dim, fontSize:12.5 }}>Καμία ελεύθερη ώρα — δοκίμασε άλλη μέρα.</span>}
@@ -618,11 +775,11 @@ ${candTxt}
                   {openAppts.map(a => (
                     <button key={a.id} onClick={() => !saving && doAssign(a)}
                       style={{ display:'flex', alignItems:'center', gap:12, width:'100%', textAlign:'left', padding:'12px 14px', borderRadius:13, cursor:'pointer', fontFamily:'inherit',
-                        border:'1.4px solid rgba(255,255,255,0.11)', background:'rgba(255,255,255,0.03)', color:'#fff', marginBottom:8 }}>
+                        border:'1.4px solid rgba(17,24,39,0.13)', background:'rgba(17,24,39,0.05)', color:'#111827', marginBottom:8 }}>
                       <CalendarDays style={{ width:16, height:16, color:ACC, flexShrink:0 }}/>
                       <div style={{ flex:1 }}>
                         <p style={{ margin:0, fontSize:13.5, fontWeight:800 }}>{a.date} · {a.start_time}</p>
-                        <p style={{ ...S.dim, margin:0, fontSize:11.5 }}>{a.title || 'Ραντεβού'} · {a.duration_minutes || 60}′</p>
+                        <p style={{ ...S.dim, margin:0, fontSize:11.5 }}>{a.title || 'Ραντεβού'} · {a.duration_minutes || 60}′{!a.client_id && !a.group_id ? ' · χωρίς πελάτη — θα συνδεθεί' : a.group_id ? ' · 👥 group' : ''}</p>
                       </div>
                       <span style={{ fontSize:11.5, fontWeight:800, color:ACC }}>Ανάθεση →</span>
                     </button>

@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, X, Lock, Loader2, Target, Leaf, Utensils, Scale, Plus, Sparkles, Home, Dumbbell, TrendingUp, Wallet, MessageCircle } from 'lucide-react';
 import { db } from '../lib/db';
-import { isWithingsConnected, saveWithingsMeasureToClient } from '../lib/withings';
-import { calcBodyStats } from '../lib/bodyCalc';
+import { saveWithingsMeasureToClient } from '../lib/withings';
 import WithingsPicker from '../components/WithingsPicker';
 
 /* ═══════════ Στατικά δεδομένα ═══════════ */
@@ -193,23 +192,23 @@ export default function CoursePlanning() {
 
   /* ═══ στυλ ═══ */
   const S = {
-    page:{ minHeight:'100vh', background:'#07070c', color:'#eceaf2', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)',
+    page:{ minHeight:'100vh', background:'#f5f6fa', color:'#111827', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)',
       backgroundImage:`radial-gradient(900px 420px at 12% -6%, ${ACC}14, transparent 60%), radial-gradient(700px 380px at 100% 0%, ${ACC}0c, transparent 55%)` },
-    wrap:{ maxWidth:920, margin:'0 auto', padding:'26px 22px 120px' },
+    wrap:{ maxWidth:920, margin:'0 auto', padding:'clamp(14px,3vw,26px) clamp(12px,3vw,22px) 120px' },
     kicker:{ fontSize:10.5, letterSpacing:'.32em', textTransform:'uppercase', color:ACC, fontWeight:700 },
-    card:{ background:'rgba(255,255,255,0.035)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:18, padding:'20px 22px' },
+    card:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.10)', boxShadow:'0 1px 3px rgba(16,24,40,0.05)', borderRadius:18, padding:'20px 22px' },
     h1:{ fontSize:26, fontWeight:800, letterSpacing:'-.02em', margin:'6px 0 4px' },
-    dim:{ color:'rgba(255,255,255,0.42)' },
-    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.42)', fontWeight:700 },
-    inp:{ background:'rgba(0,0,0,0.35)', border:'1px solid rgba(255,255,255,0.13)', borderRadius:11, color:'#eceaf2',
+    dim:{ color:'rgba(17,24,39,0.55)' },
+    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 },
+    inp:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.13)', borderRadius:11, color:'#111827',
       padding:'11px 13px', fontSize:14, outline:'none', width:'100%', fontFamily:'inherit' },
     chip:(on)=>({ padding:'9px 14px', borderRadius:999, fontSize:13, fontWeight:600, cursor:'pointer',
-      border:`1.6px solid ${on?ACC:'rgba(255,255,255,0.14)'}`, background:on?`${ACC}22`:'transparent', color:on?'#fff':'rgba(255,255,255,0.6)' }),
-    footer:{ position:'fixed', left:0, right:0, bottom:0, background:'rgba(7,7,12,0.92)', backdropFilter:'blur(14px)',
-      borderTop:'1px solid rgba(255,255,255,0.08)', padding:'14px 22px' },
+      border:`1.6px solid ${on?ACC:'rgba(17,24,39,0.13)'}`, background:on?`${ACC}22`:'transparent', color:on?'#0e7490':'rgba(17,24,39,0.55)' }),
+    footer:{ position:'fixed', left:0, right:0, bottom:0, background:'rgba(255,255,255,0.94)', backdropFilter:'blur(14px)',
+      borderTop:'1px solid rgba(17,24,39,0.13)', padding:'14px 22px' },
     btn:(primary)=>({ border:'none', borderRadius:12, padding:'13px 26px', fontSize:14, fontWeight:800, cursor:'pointer',
-      fontFamily:'inherit', background:primary?ACC:'transparent', color:primary?'#0a0a0d':'rgba(255,255,255,0.65)',
-      outline:primary?'none':'1px solid rgba(255,255,255,0.16)' }),
+      fontFamily:'inherit', background:primary?ACC:'transparent', color:primary?'#0a0a0d':'rgba(17,24,39,0.8)',
+      outline:primary?'none':'1px solid rgba(17,24,39,0.13)' }),
   };
   const initials = (n)=> (n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
 
@@ -231,11 +230,11 @@ export default function CoursePlanning() {
             <p style={{ ...S.dim, fontSize:13, margin:0 }}>Γίνεται μία φορά — καθορίζει στόχο, διατροφικό προφίλ και δομή γευμάτων.</p>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:9, padding:'7px 13px 7px 8px', borderRadius:999, border:'1px solid rgba(255,255,255,0.12)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:9, padding:'7px 13px 7px 8px', borderRadius:999, border:'1px solid rgba(17,24,39,0.13)' }}>
               <span style={{ width:30, height:30, borderRadius:'50%', background:ACC, color:'#0a0a0d', fontWeight:800, fontSize:12, display:'grid', placeItems:'center' }}>{initials(client.name)}</span>
               <span style={{ fontSize:13.5, fontWeight:700 }}>{client.name}</span>
             </div>
-            <button onClick={()=>setExitAsk(true)} style={{ width:36, height:36, borderRadius:'50%', border:'1px solid rgba(255,255,255,0.14)', background:'transparent', color:'rgba(255,255,255,0.55)', cursor:'pointer', display:'grid', placeItems:'center' }}><X style={{width:16,height:16}}/></button>
+            <button onClick={()=>setExitAsk(true)} style={{ width:36, height:36, borderRadius:'50%', border:'1px solid rgba(17,24,39,0.13)', background:'transparent', color:'rgba(17,24,39,0.55)', cursor:'pointer', display:'grid', placeItems:'center' }}><X style={{width:16,height:16}}/></button>
           </div>
         </div>
 
@@ -244,8 +243,8 @@ export default function CoursePlanning() {
           {STEPS.map((st,i)=>{ const Icon=st.icon; const on=i===step; const done=i<step;
             return (
               <div key={i} style={{ flex:1, display:'flex', alignItems:'center', gap:8, padding:'9px 12px', borderRadius:12,
-                background:on?`${ACC}1a`:'rgba(255,255,255,0.03)', border:`1px solid ${on?ACC+'66':'rgba(255,255,255,0.07)'}`, opacity:done||on?1:.5 }}>
-                <Icon style={{ width:14, height:14, color:done||on?ACC:'rgba(255,255,255,0.4)' }}/>
+                background:on?`${ACC}1a`:'rgba(17,24,39,0.05)', border:`1px solid ${on?ACC+'66':'rgba(17,24,39,0.05)'}`, opacity:done||on?1:.5 }}>
+                <Icon style={{ width:14, height:14, color:done||on?ACC:'rgba(17,24,39,0.55)' }}/>
                 <span style={{ fontSize:11.5, fontWeight:700, letterSpacing:'.04em' }}>{st.label}</span>
                 {done&&<Check style={{ width:13, height:13, color:ACC, marginLeft:'auto' }}/>}
               </div>
@@ -262,8 +261,8 @@ export default function CoursePlanning() {
                 {GOALS.map(g=>(
                   <button key={g.key} onClick={()=>setGoalType(g.key)}
                     style={{ textAlign:'left', padding:'14px 14px', borderRadius:14, cursor:'pointer', fontFamily:'inherit',
-                      border:`1.6px solid ${goalType===g.key?ACC:'rgba(255,255,255,0.1)'}`,
-                      background:goalType===g.key?`${ACC}1e`:'rgba(255,255,255,0.02)', color:'#fff' }}>
+                      border:`1.6px solid ${goalType===g.key?ACC:'rgba(17,24,39,0.13)'}`,
+                      background:goalType===g.key?`${ACC}1e`:'rgba(17,24,39,0.05)', color:'#111827' }}>
                     <span style={{ fontSize:22 }}>{g.icon}</span>
                     <p style={{ margin:'8px 0 0', fontSize:13.5, fontWeight:700 }}>{g.label}</p>
                   </button>
@@ -297,12 +296,12 @@ export default function CoursePlanning() {
                   return (
                     <button key={fd.key} onClick={()=>setFlags(p=>({...p,[fd.key]:!p[fd.key]}))}
                       style={{ textAlign:'left', padding:'12px 14px', borderRadius:14, cursor:'pointer', fontFamily:'inherit',
-                        border:`1.6px solid ${on?ACC:'rgba(255,255,255,0.1)'}`, background:on?`${ACC}1e`:'rgba(255,255,255,0.02)', color:'#fff' }}>
+                        border:`1.6px solid ${on?ACC:'rgba(17,24,39,0.13)'}`, background:on?`${ACC}1e`:'rgba(17,24,39,0.05)', color:'#111827' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <span style={{ width:17, height:17, borderRadius:5, border:`1.6px solid ${on?ACC:'rgba(255,255,255,0.3)'}`, background:on?ACC:'transparent', display:'grid', placeItems:'center' }}>{on&&<Check style={{width:12,height:12,color:'#0a0a0d'}}/>}</span>
+                        <span style={{ width:17, height:17, borderRadius:5, border:`1.6px solid ${on?ACC:'rgba(17,24,39,0.55)'}`, background:on?ACC:'transparent', display:'grid', placeItems:'center' }}>{on&&<Check style={{width:12,height:12,color:'#0a0a0d'}}/>}</span>
                         <span style={{ fontSize:13.5, fontWeight:800 }}>{fd.label}</span>
                       </div>
-                      <p style={{ margin:'6px 0 0', fontSize:11.5, color:'rgba(255,255,255,0.45)', lineHeight:1.4 }}>{fd.desc}</p>
+                      <p style={{ margin:'6px 0 0', fontSize:11.5, color:'rgba(17,24,39,0.55)', lineHeight:1.4 }}>{fd.desc}</p>
                     </button>
                   );
                 })}
@@ -312,9 +311,9 @@ export default function CoursePlanning() {
             <div style={S.card}>
               <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:4 }}>
                 <p style={{ ...S.lbl, margin:0 }}>Υλικά — κλικ για μόνιμο αποκλεισμό</p>
-                <span style={{ fontSize:11.5, color:'rgba(255,255,255,0.4)' }}>{excluded.length} χειροκίνητα · {autoExcludedNames.length} από φίλτρα</span>
+                <span style={{ fontSize:11.5, color:'rgba(17,24,39,0.55)' }}>{excluded.length} χειροκίνητα · {autoExcludedNames.length} από φίλτρα</span>
               </div>
-              <p style={{ fontSize:11.5, color:'rgba(255,255,255,0.4)', margin:'0 0 14px' }}>Ό,τι αποκλειστεί δεν θα εμφανιστεί ποτέ σε συνταγές ή διατροφές αυτού του πελάτη.</p>
+              <p style={{ fontSize:11.5, color:'rgba(17,24,39,0.55)', margin:'0 0 14px' }}>Ό,τι αποκλειστεί δεν θα εμφανιστεί ποτέ σε συνταγές ή διατροφές αυτού του πελάτη.</p>
               {ING.map(cat=>(
                 <div key={cat.cat} style={{ marginBottom:14 }}>
                   <p style={{ fontSize:11, fontWeight:800, letterSpacing:'.1em', textTransform:'uppercase', color:ACC, margin:'0 0 8px' }}>{cat.cat}</p>
@@ -326,9 +325,9 @@ export default function CoursePlanning() {
                           onClick={()=>setExcluded(p=>off?p.filter(x=>x!==name):[...p,name])}
                           style={{ padding:'7px 12px', borderRadius:999, fontSize:12.5, fontWeight:600, cursor:auto?'default':'pointer', fontFamily:'inherit',
                             display:'inline-flex', alignItems:'center', gap:6,
-                            border:`1.4px solid ${auto?'rgba(255,255,255,0.07)':off?'#ef4444aa':'rgba(255,255,255,0.13)'}`,
-                            background:auto?'rgba(255,255,255,0.02)':off?'rgba(239,68,68,0.12)':'rgba(255,255,255,0.03)',
-                            color:auto?'rgba(255,255,255,0.25)':off?'#fca5a5':'rgba(255,255,255,0.78)',
+                            border:`1.4px solid ${auto?'rgba(17,24,39,0.05)':off?'#ef4444aa':'rgba(17,24,39,0.13)'}`,
+                            background:auto?'rgba(17,24,39,0.05)':off?'rgba(239,68,68,0.12)':'rgba(17,24,39,0.05)',
+                            color:auto?'rgba(17,24,39,0.13)':off?'#fca5a5':'rgba(17,24,39,0.8)',
                             textDecoration:(auto||off)?'line-through':'none' }}>
                           {auto&&<Lock style={{width:10,height:10}}/>}{name}
                         </button>
@@ -366,7 +365,7 @@ export default function CoursePlanning() {
                 </div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginTop:11 }}>
                   {liked.map(t=><span key={t} onClick={()=>setLiked(p=>p.filter(x=>x!==t))} style={{ padding:'6px 11px', borderRadius:999, fontSize:12, cursor:'pointer', background:'rgba(34,197,94,0.13)', border:'1px solid rgba(34,197,94,0.4)', color:'#86efac' }}>{t} ×</span>)}
-                  {!liked.length&&<span style={{ fontSize:12, color:'rgba(255,255,255,0.3)' }}>Καμία καταχώρηση</span>}
+                  {!liked.length&&<span style={{ fontSize:12, color:'rgba(17,24,39,0.55)' }}>Καμία καταχώρηση</span>}
                 </div>
               </div>
               <div style={S.card}>
@@ -377,7 +376,7 @@ export default function CoursePlanning() {
                 </div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginTop:11 }}>
                   {disliked.map(t=><span key={t} onClick={()=>setDisliked(p=>p.filter(x=>x!==t))} style={{ padding:'6px 11px', borderRadius:999, fontSize:12, cursor:'pointer', background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.4)', color:'#fca5a5' }}>{t} ×</span>)}
-                  {!disliked.length&&<span style={{ fontSize:12, color:'rgba(255,255,255,0.3)' }}>Καμία καταχώρηση</span>}
+                  {!disliked.length&&<span style={{ fontSize:12, color:'rgba(17,24,39,0.55)' }}>Καμία καταχώρηση</span>}
                 </div>
               </div>
             </div>
@@ -400,13 +399,11 @@ export default function CoursePlanning() {
                 <p style={{ fontSize:17, fontWeight:800, margin:'0 0 6px' }}>Αναμονή μέτρησης από τη ζυγαριά…</p>
                 <p style={{ ...S.dim, fontSize:13, margin:'0 auto', maxWidth:420 }}>Κάνε τη ζύγιση στη ζυγαριά Withings — μόλις καταχωρηθεί νέα μέτρηση για τον/την {client.name?.split(' ')[0]}, θα εμφανιστεί εδώ αυτόματα.</p>
                 <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:22, flexWrap:'wrap' }}>
-                  {isWithingsConnected() && (
-                    <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
-                  )}
+                  <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
                   {wPick && <WithingsPicker onClose={()=>setWPick(false)}
-                    onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m, calcBodyStats(client, m.weight)); setCaptured(rec); setWPick(false); }}/>}
+                    onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m); setCaptured(rec); setWPick(false); }}/>}
                   <button onClick={()=>setManualOpen(v=>!v)} style={S.btn(false)}>Χειροκίνητη καταχώρηση</button>
-                  <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontSize:12.5, color:'rgba(255,255,255,0.5)', cursor:'pointer' }}>
+                  <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontSize:12.5, color:'rgba(17,24,39,0.55)', cursor:'pointer' }}>
                     <input type="checkbox" checked={skipMeasure} onChange={e=>setSkipMeasure(e.target.checked)}/> Παράλειψη για τώρα
                   </label>
                 </div>
@@ -428,9 +425,9 @@ export default function CoursePlanning() {
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
                   {[['Βάρος', captured.weight_kg, 'kg'],['Λίπος', captured.body_fat_pct, '%'],['Μυς', captured.muscle_mass_kg, 'kg'],['Νερό', captured.body_water_pct, '%']].map(([l,v,u])=>(
-                    <div key={l} style={{ background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:14, padding:'13px 14px' }}>
+                    <div key={l} style={{ background:'rgba(0,0,0,0.3)', border:'1px solid rgba(17,24,39,0.13)', borderRadius:14, padding:'13px 14px' }}>
                       <p style={{ ...S.lbl, margin:'0 0 5px' }}>{l}</p>
-                      <p style={{ fontSize:22, fontWeight:800, margin:0 }}>{v ?? '—'}<span style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}> {v!=null?u:''}</span></p>
+                      <p style={{ fontSize:22, fontWeight:800, margin:0 }}>{v ?? '—'}<span style={{ fontSize:12, color:'rgba(17,24,39,0.55)' }}> {v!=null?u:''}</span></p>
                     </div>
                   ))}
                 </div>
@@ -451,7 +448,7 @@ export default function CoursePlanning() {
               {TOUR.map((f,i)=>{ const Icon=f.icon; return (
                 <div key={i} style={{ ...S.card, padding:16, display:'flex', gap:14 }}>
                   {/* mock phone */}
-                  <div style={{ width:74, flexShrink:0, borderRadius:14, overflow:'hidden', border:'1px solid rgba(255,255,255,0.12)', background:'#0d0d14', boxShadow:'0 8px 20px rgba(0,0,0,0.35)' }}>
+                  <div style={{ width:74, flexShrink:0, borderRadius:14, overflow:'hidden', border:'1px solid rgba(17,24,39,0.13)', background:'#0d0d14', boxShadow:'0 8px 20px rgba(0,0,0,0.35)' }}>
                     <div style={{ height:26, background:f.accent, display:'flex', alignItems:'center', gap:5, padding:'0 8px' }}>
                       <Icon style={{ width:12, height:12, color:'#fff' }}/>
                       <span style={{ fontSize:8, fontWeight:800, color:'#fff', letterSpacing:'.02em' }}>{f.title}</span>
@@ -463,11 +460,11 @@ export default function CoursePlanning() {
                         </div>
                       ) : i===4 ? (
                         <><div style={{ display:'flex', gap:4 }}><span style={{ flex:1, height:16, borderRadius:5, background:`${f.accent}33`, display:'grid', placeItems:'center', fontSize:8 }}>🏋️ 8</span><span style={{ flex:1, height:16, borderRadius:5, background:`${f.accent}33`, display:'grid', placeItems:'center', fontSize:8 }}>🥗 2</span></div>
-                        <div style={{ height:7, borderRadius:3, background:'rgba(255,255,255,0.08)' }}/><div style={{ height:7, width:'70%', borderRadius:3, background:'rgba(255,255,255,0.08)' }}/></>
+                        <div style={{ height:7, borderRadius:3, background:'rgba(17,24,39,0.13)' }}/><div style={{ height:7, width:'70%', borderRadius:3, background:'rgba(17,24,39,0.13)' }}/></>
                       ) : i===5 ? (
-                        <><div style={{ alignSelf:'flex-start', maxWidth:'80%', height:12, borderRadius:'7px 7px 7px 2px', background:'rgba(255,255,255,0.12)', width:'60%' }}/><div style={{ alignSelf:'flex-end', maxWidth:'80%', height:12, borderRadius:'7px 7px 2px 7px', background:f.accent, width:'70%' }}/><div style={{ alignSelf:'flex-start', height:12, borderRadius:'7px 7px 7px 2px', background:'rgba(255,255,255,0.12)', width:'45%' }}/></>
+                        <><div style={{ alignSelf:'flex-start', maxWidth:'80%', height:12, borderRadius:'7px 7px 7px 2px', background:'rgba(17,24,39,0.13)', width:'60%' }}/><div style={{ alignSelf:'flex-end', maxWidth:'80%', height:12, borderRadius:'7px 7px 2px 7px', background:f.accent, width:'70%' }}/><div style={{ alignSelf:'flex-start', height:12, borderRadius:'7px 7px 7px 2px', background:'rgba(17,24,39,0.13)', width:'45%' }}/></>
                       ) : (
-                        <>{[0,1,2].map(k=><div key={k} style={{ height:9, borderRadius:3, width:`${100-k*18}%`, background: k===0?`${f.accent}55`:'rgba(255,255,255,0.08)' }}/>)}
+                        <>{[0,1,2].map(k=><div key={k} style={{ height:9, borderRadius:3, width:`${100-k*18}%`, background: k===0?`${f.accent}55`:'rgba(17,24,39,0.13)' }}/>)}
                         <div style={{ height:16, borderRadius:5, marginTop:2, background:`${f.accent}22`, border:`1px solid ${f.accent}44` }}/></>
                       )}
                     </div>

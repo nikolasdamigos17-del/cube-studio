@@ -228,10 +228,12 @@ ${secTxt}
 ΚΑΝΟΝΕΣ:
 - Τα ΥΠΟΧΡΕΩΤΙΚΑ γεύματα μπαίνουν ΠΡΩΤΑ στην κατηγορία τους, με πλήρεις ΠΟΣΟΤΗΤΕΣ σε γραμμάρια στο ingredients.
 - Γεύματα με σήμανση {ΣΥΝΤΑΓΗ ΣΤΟΥΝΤΙΟ}: ΚΡΑΤΑ ΑΚΡΙΒΩΣ τα υλικά της συνταγής (μην προσθέσεις/αφαιρέσεις υλικά) και ΠΡΟΣΑΡΜΟΣΕ ΜΟΝΟ τις ποσότητες αναλογικά ώστε το γεύμα να ταιριάζει στις θερμίδες που του αναλογούν στη μέρα του πελάτη.
-- Κάθε κατηγορία να έχει 2 επιλογές (options) — συμπλήρωσε εναλλακτική όπου λείπει.
+- Κάθε κατηγορία περιλαμβάνει ΟΛΑ τα ΥΠΟΧΡΕΩΤΙΚΑ γεύματά της ως ΞΕΧΩΡΙΣΤΕΣ επιλογές (options) — ΚΑΝΕΝΑ επιλεγμένο γεύμα δεν παραλείπεται και δεν συγχωνεύεται. Αν έχει 3 υποχρεωτικά → 3 options, αν έχει 5 → 5.
+- Αν μια κατηγορία έχει λιγότερες από 2 επιλογές, συμπλήρωσε εναλλακτική ώστε να έχει τουλάχιστον 2.
 - Το ημερήσιο σύνολο με την 1η επιλογή κάθε κατηγορίας = ${calories} kcal ±5% και πρωτεΐνη ≥ ${proteinG}g.
 - ΑΠΑΓΟΡΕΥΜΕΝΑ υλικά (πουθενά, ούτε παράγωγα): ${banned.join(', ') || 'κανένα'}.
-- Προτιμήσεις: ${(profile.liked || []).join(', ') || '—'}.
+- Προτιμήσεις πελάτη: ${(profile.liked || []).join(', ') || '—'}. ΕΝΣΩΜΑΤΩΣΕ τις ΕΝΕΡΓΑ: χτίσε επιλογές ΓΥΡΩ από αυτές — π.χ. αν αναφέρει «γλυκά», πρόσθεσε γλυκές επιλογές/υγιεινά επιδόρπια που χωράνε στους στόχους. Δεν αρκεί απλώς να μην τις αποφεύγεις.
+- Όλα τα ονόματα και οι περιγραφές σε ΣΩΣΤΑ, φυσικά ελληνικά — καμία πρόχειρη μετάφραση/greeklish. Διεθνή πιάτα κρατούν το όνομά τους (π.χ. «Acai bowl», «Overnight oats»).
 - ingredients: μορφή "υλικό ποσότητα, υλικό ποσότητα" (π.χ. "Κοτόπουλο στήθος 180g, Ρύζι 90g (άβραστο), Ελαιόλαδο 10g").
 - description: έως 8 λέξεις.
 - Ονόματα γευμάτων: ΦΥΣΙΚΑ ελληνικά, όπως σε ελληνικό μενού· καθιερωμένοι διεθνείς όροι μένουν αυτούσιοι (pancakes, smoothie, toast, wrap, bowl)· ΟΧΙ κατά λέξη μεταφράσεις.
@@ -296,21 +298,21 @@ ${secTxt}
 
   /* ── στυλ ── */
   const S = {
-    page:{ minHeight:'100vh', background:'#07070c', color:'#eef0f6', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)',
+    page:{ minHeight:'100vh', background:'#f5f6fa', color:'#111827', fontFamily:'var(--font-display, "Space Grotesk", sans-serif)',
       backgroundImage:`radial-gradient(900px 460px at 10% -6%, ${ACC}14, transparent 60%), radial-gradient(760px 400px at 100% 0%, ${ACC}0b, transparent 55%)` },
-    wrap:{ maxWidth:1120, margin:'0 auto', padding:'26px 22px 90px' },
+    wrap:{ maxWidth:1120, margin:'0 auto', padding:'clamp(14px,3vw,26px) clamp(12px,3vw,22px) 90px' },
     kicker:{ fontSize:10.5, letterSpacing:'.32em', textTransform:'uppercase', color:ACC, fontWeight:700 },
-    card:{ background:'rgba(255,255,255,0.035)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:18, padding:'18px 20px' },
-    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(255,255,255,0.42)', fontWeight:700 },
-    dim:{ color:'rgba(255,255,255,0.45)' },
-    inp:{ background:'rgba(0,0,0,0.38)', border:'1px solid rgba(255,255,255,0.13)', borderRadius:11, color:'#eef0f6', padding:'10px 12px', fontSize:14, outline:'none', width:'100%', fontFamily:'inherit' },
+    card:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.10)', boxShadow:'0 1px 3px rgba(16,24,40,0.05)', borderRadius:18, padding:'18px 20px' },
+    lbl:{ fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 },
+    dim:{ color:'rgba(17,24,39,0.55)' },
+    inp:{ background:'#ffffff', border:'1px solid rgba(17,24,39,0.13)', borderRadius:11, color:'#111827', padding:'10px 12px', fontSize:14, outline:'none', width:'100%', fontFamily:'inherit' },
     btn:(primary)=>({ border:'none', borderRadius:12, padding:'13px 24px', fontSize:14, fontWeight:800, cursor:'pointer', fontFamily:'inherit',
-      background: primary ? ACC : 'transparent', color: primary ? '#07070b' : 'rgba(255,255,255,0.7)', outline: primary ? 'none' : '1px solid rgba(255,255,255,0.17)' }),
+      background: primary ? ACC : 'transparent', color: primary ? '#07070b' : 'rgba(17,24,39,0.8)', outline: primary ? 'none' : '1px solid rgba(17,24,39,0.13)' }),
   };
 
   if (!data) return (
     <div style={{ ...S.page, display:'grid', placeItems:'center' }}>
-      <Loader2 style={{ width:28, height:28, color:'#fff', animation:'pcspin 1s linear infinite' }}/>
+      <Loader2 style={{ width:28, height:28, color:'#111827', animation:'pcspin 1s linear infinite' }}/>
       <style>{`@keyframes pcspin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
@@ -345,8 +347,8 @@ ${secTxt}
             <div style={{ textAlign:'left', maxWidth:340, margin:'0 auto' }}>
               {['Μετρήσεις & πορεία βάρους','Ιστορικό διατροφών & θερμίδων','Προπονητικά δεδομένα (Live Training)','Στόχος & διατροφικό προφίλ'].map((t, i) => (
                 <div key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', opacity: checkStep > i ? 1 : 0.35, transition:'opacity .4s' }}>
-                  <span style={{ width:20, height:20, borderRadius:'50%', display:'grid', placeItems:'center', background: checkStep > i ? '#22c55e' : 'rgba(255,255,255,0.1)' }}>
-                    {checkStep > i ? <Check style={{ width:12, height:12, color:'#06060b' }}/> : <Loader2 style={{ width:11, height:11, color:'rgba(255,255,255,0.5)', animation:'pcspin 1s linear infinite' }}/>}
+                  <span style={{ width:20, height:20, borderRadius:'50%', display:'grid', placeItems:'center', background: checkStep > i ? '#22c55e' : 'rgba(17,24,39,0.13)' }}>
+                    {checkStep > i ? <Check style={{ width:12, height:12, color:'#06060b' }}/> : <Loader2 style={{ width:11, height:11, color:'rgba(17,24,39,0.55)', animation:'pcspin 1s linear infinite' }}/>}
                   </span>
                   <span style={{ fontSize:13, fontWeight:600 }}>{t}</span>
                 </div>
@@ -401,11 +403,11 @@ ${secTxt}
                 </div>
               ))}
 
-              <div style={{ display:'flex', alignItems:'center', gap:10, margin:'14px 0', padding:'10px 12px', borderRadius:12, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, margin:'14px 0', padding:'10px 12px', borderRadius:12, background:'rgba(17,24,39,0.05)', border:'1px solid rgba(17,24,39,0.13)' }}>
                 <Pill style={{ width:15, height:15, color:'#a78bfa', flexShrink:0 }}/>
                 <span style={{ fontSize:12.5, fontWeight:700, flex:1 }}>Μετα-προπονητικό γεύμα</span>
                 <button onClick={() => setAddPost(v => !v)}
-                  style={{ width:42, height:24, borderRadius:999, border:'none', cursor:'pointer', position:'relative', background: addPost ? '#22c55e' : 'rgba(255,255,255,0.15)', transition:'background .2s' }}>
+                  style={{ width:42, height:24, borderRadius:999, border:'none', cursor:'pointer', position:'relative', background: addPost ? '#22c55e' : 'rgba(17,24,39,0.13)', transition:'background .2s' }}>
                   <span style={{ position:'absolute', top:3, left: addPost ? 21 : 3, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left .2s' }}/>
                 </button>
               </div>
@@ -424,7 +426,7 @@ ${secTxt}
                       <p style={{ margin:0, fontSize:12.5, fontWeight:800 }}>{s.name}</p>
                       {s.reason && <p style={{ ...S.dim, fontSize:11, margin:'2px 0 0' }}>{s.reason}</p>}
                     </div>
-                    <button onClick={() => setSups(p => p.filter((_, j) => j !== i))} style={{ background:'transparent', border:'none', cursor:'pointer', padding:2 }}><X style={{ width:13, height:13, color:'rgba(255,255,255,0.5)' }}/></button>
+                    <button onClick={() => setSups(p => p.filter((_, j) => j !== i))} style={{ background:'transparent', border:'none', cursor:'pointer', padding:2 }}><X style={{ width:13, height:13, color:'rgba(17,24,39,0.55)' }}/></button>
                   </div>
                 ))}
                 {!sups.length && <span style={{ ...S.dim, fontSize:12 }}>Κανένα.</span>}
@@ -475,12 +477,12 @@ ${secTxt}
               <div key={sec._id} style={{ ...S.card, marginBottom:12 }}>
                 <p style={{ ...S.lbl, color:ACC, margin:'0 0 6px' }}>{sec.section_name}{sec.time ? ` · ${sec.time}` : ''}</p>
                 {sec.options.map((o, oi) => (
-                  <div key={o._id} style={{ padding:'12px 0', borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                  <div key={o._id} style={{ padding:'12px 0', borderTop:'1px solid rgba(17,24,39,0.05)' }}>
                     {o._edit ? (
                       <div>
                         <div style={{ display:'flex', gap:9, alignItems:'center', marginBottom:7 }}>
                           <input style={{ ...S.inp, padding:'7px 10px', fontWeight:800 }} value={o.name || ''} onChange={e => editOpt(sec._id, o._id, 'name', e.target.value)} placeholder="Όνομα γεύματος"/>
-                          <button onClick={() => delOpt(sec._id, o._id)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, flexShrink:0 }}><X style={{ width:15, height:15, color:'rgba(255,255,255,0.4)' }}/></button>
+                          <button onClick={() => delOpt(sec._id, o._id)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, flexShrink:0 }}><X style={{ width:15, height:15, color:'rgba(17,24,39,0.55)' }}/></button>
                         </div>
                         <input style={{ ...S.inp, padding:'7px 10px', fontSize:12.5, marginBottom:7 }} value={o.ingredients || ''} onChange={e => editOpt(sec._id, o._id, 'ingredients', e.target.value)} placeholder="Υλικά με ποσότητες (π.χ. Κοτόπουλο 180g, Ρύζι 90g)"/>
                         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:7, marginBottom:9 }}>
@@ -500,13 +502,13 @@ ${secTxt}
                             <span style={{ ...S.lbl, fontSize:9, flexShrink:0 }}>{oi === 0 ? '★ Επιλογή 1' : `Επιλογή ${oi + 1}`}</span>
                             <p style={{ margin:0, fontSize:14.5, fontWeight:800, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{o.name || '—'}</p>
                             <div style={{ marginLeft:'auto', display:'flex', gap:2, flexShrink:0 }}>
-                              <button onClick={() => editOpt(sec._id, o._id, '_edit', true)} title="Επεξεργασία γεύματος" style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, opacity:.45 }}><Pencil style={{ width:13, height:13, color:'#fff' }}/></button>
-                              <button onClick={() => delOpt(sec._id, o._id)} title="Αφαίρεση" style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, opacity:.45 }}><X style={{ width:14, height:14, color:'#fff' }}/></button>
+                              <button onClick={() => editOpt(sec._id, o._id, '_edit', true)} title="Επεξεργασία γεύματος" style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, opacity:.45 }}><Pencil style={{ width:13, height:13, color:'#111827' }}/></button>
+                              <button onClick={() => delOpt(sec._id, o._id)} title="Αφαίρεση" style={{ background:'transparent', border:'none', cursor:'pointer', padding:4, opacity:.45 }}><X style={{ width:14, height:14, color:'#111827' }}/></button>
                             </div>
                           </div>
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {(o.ingredients || '').split(',').map(x => x.trim()).filter(Boolean).map((ing, ii) => (
-                              <span key={ii} style={{ fontSize:12.5, color:'rgba(255,255,255,0.75)' }}>•&nbsp; {ing}</span>
+                              <span key={ii} style={{ fontSize:12.5, color:'rgba(17,24,39,0.8)' }}>•&nbsp; {ing}</span>
                             ))}
                             {!o.ingredients && <span style={{ ...S.dim, fontSize:12 }}>Χωρίς υλικά — πάτα το μολύβι για επεξεργασία.</span>}
                           </div>

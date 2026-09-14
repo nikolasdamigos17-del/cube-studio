@@ -435,7 +435,10 @@ export default function CubeBackground() {
 
   if (hidden) return null;
 
+  /* Στις φωτεινές οθόνες δημιουργίας ο κύβος δεν εμφανίζεται */
+  const NO_CUBE_ROUTES = ['/workoutcreator', '/plancreator', '/courseplanning', '/nutritionmeeting'];
+  const routeHidden = NO_CUBE_ROUTES.includes((loc.pathname || '').toLowerCase());
   return (
-    <canvas ref={canvasRef} style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none', maxWidth:'100vw', maxHeight:'100vh' }}/>
+    <canvas ref={canvasRef} style={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none', maxWidth:'100vw', maxHeight:'100vh', display: routeHidden ? 'none' : undefined }}/>
   );
 }

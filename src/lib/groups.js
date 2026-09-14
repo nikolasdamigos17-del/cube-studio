@@ -13,7 +13,8 @@ export const groupDisplayName = (group, clients) => {
 };
 
 export const isGroupService = (svc) => svc === 'group_training' || svc === 'group_training_nutrition';
-export const isIndividual   = (c)   => !c.group_id && !isGroupService(c.services);
+/* Individual = ΔΕΝ είναι σε group. Η υπηρεσία δεν κρύβει ποτέ πελάτη από τη ρίζα (Clients). */
+export const isIndividual   = (c)   => !c.group_id;
 const hasNutritionSvc = (svc) => svc === 'personal_training_nutrition' || svc === 'nutrition_only' || svc === 'group_training_nutrition';
 
 const toGroupService = (svc) => hasNutritionSvc(svc) ? 'group_training_nutrition' : 'group_training';
@@ -75,4 +76,18 @@ export async function deleteGroup(group, clients) {
     if (client) await db.Client.update(id, { group_id: '', services: toIndivService(client.services) });
   }
   await db.Group.delete(group.id);
+}
+
+
+/* Πελάτες με group_id που δείχνει σε ΣΒΗΣΜΕΝΟ group: αόρατοι στη σελίδα Clients
+   αλλά μετρούσαν σε Calendar/Οικονομικά. Εδώ «ξε-ορφανεύουν». */
+export function unorphanClients(clients, groups) {
+  const gids = new Set((groups || []).map(g => g.id));
+  return (clients || []).map(c => (c.group_id && !gids.has(c.group_id)) ? { ...c, group_id: '' } : c);
+}
+export async function repairOrphanGroupIds(db, clients, groups) {
+  const gids = new Set((groups || []).map(g => g.id));
+  for (const c of (clients || [])) {
+    if (c.group_id && !gids.has(c.group_id)) { try { await db.Client.update(c.id, { group_id: '' }); } catch {} }
+  }
 }
