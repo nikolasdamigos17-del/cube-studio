@@ -568,9 +568,11 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
             </div>
 
             <div style={S.card}>
-              <div style={{ display:'grid', gridTemplateColumns:'2.2fr 64px 84px 84px 84px 30px', gap:8, padding:'0 0 8px', borderBottom:'1px solid rgba(17,24,39,0.13)' }}>
-                {!isNarrow && ['','Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map((h, hi) => <span key={hi} style={{ ...S.lbl, fontSize:9 }}>{h}</span>)}
-              </div>
+              {!isNarrow && (
+                <div style={{ display:'grid', gridTemplateColumns:'20px 2.2fr 64px 84px 84px 84px 30px', gap:8, padding:'0 0 8px', borderBottom:'1px solid rgba(17,24,39,0.13)' }}>
+                  {['','Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map((h, hi) => <span key={hi} style={{ ...S.lbl, fontSize:9, textAlign: hi >= 2 && hi <= 5 ? 'center' : 'left' }}>{h}</span>)}
+                </div>
+              )}
               {exercises.map((e, i) => (
                 <div key={i} draggable
                   onDragStart={(ev) => { setDragI(i); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', String(i)); } catch {} }}
@@ -737,7 +739,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                           <button key={ds} disabled={past} onClick={() => pickDay(ds)}
                             style={{ aspectRatio:'1', borderRadius:9, fontSize:12, fontWeight:700, cursor: past ? 'default' : 'pointer', fontFamily:'inherit',
                               border: sel ? `1.6px solid ${ACC}` : isToday ? `1.4px dashed ${ACC}88` : '1px solid rgba(17,24,39,0.05)',
-                              background: sel ? ACC + '2a' : 'transparent', color: past ? 'rgba(17,24,39,0.13)' : '#fff' }}>
+                              background: sel ? ACC + '2a' : 'transparent', color: past ? 'rgba(17,24,39,0.30)' : '#111827' }}>
                             {d}
                           </button>
                         );
