@@ -109,7 +109,8 @@ export default function WorkoutCreator() {
   const [notes, setNotes] = useState('');
   const [exercises, setExercises] = useState([]);
   const [buildPhase, setBuildPhase] = useState(0);
-  const [addSel, setAddSel] = useState('');
+  const [addQuery, setAddQuery] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
 
   /* finish */
   const [finishMode, setFinishMode] = useState('');   // '' | schedule | assign
@@ -280,12 +281,16 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
 
   const editEx = (i, k, v) => setExercises(p => p.map((e, j) => j !== i ? e : { ...e, [k]: v }));
   const delEx = (i) => setExercises(p => p.filter((_, j) => j !== i));
-  const addEx = () => {
-    if (!addSel) return;
-    const dbe = EXERCISE_DB.find(e => e.name === addSel);
-    if (!dbe) return;
-    setExercises(p => [...p, { name:dbe.name, eq:dbe.eq, sets:scheme.sets, reps:scheme.reps, weight_kg: knownLiftsFrom(data.tplans)[dbe.name] || 0, rest_between_sets:scheme.rest, set_details:[] }]);
-    setAddSel('');
+  const addByName = (name, custom = false) => {
+    const dbe = custom ? null : EXERCISE_DB.find(e => e.name === name);
+    if (!dbe && !custom) return;
+    setExercises(p => [...p, {
+      name: dbe ? dbe.name : name.trim(), eq: dbe ? dbe.eq : '',
+      sets: scheme.sets, reps: scheme.reps,
+      weight_kg: dbe ? (knownLiftsFrom(data.tplans)[dbe.name] || 0) : 0,
+      rest_between_sets: scheme.rest, set_details: [],
+    }]);
+    setAddQuery(''); setAddOpen(false);
   };
 
   /* ── αποθήκευση / προγραμματισμός / ανάθεση ── */
@@ -563,9 +568,11 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
             </div>
 
             <div style={S.card}>
-              <div style={{ display:'grid', gridTemplateColumns:'2.2fr 64px 84px 84px 84px 30px', gap:8, padding:'0 0 8px', borderBottom:'1px solid rgba(17,24,39,0.13)' }}>
-                {!isNarrow && ['','Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map((h, hi) => <span key={hi} style={{ ...S.lbl, fontSize:9 }}>{h}</span>)}
-              </div>
+              {!isNarrow && (
+                <div style={{ display:'grid', gridTemplateColumns:'20px 2.2fr 64px 84px 84px 84px 30px', gap:8, padding:'0 0 8px', borderBottom:'1px solid rgba(17,24,39,0.13)' }}>
+                  {['','Άσκηση','Σετ','Επαν.','Κιλά','Διάλ. (s)',''].map((h, hi) => <span key={hi} style={{ ...S.lbl, fontSize:9, textAlign: hi >= 2 && hi <= 5 ? 'center' : 'left' }}>{h}</span>)}
+                </div>
+              )}
               {exercises.map((e, i) => (
                 <div key={i} draggable
                   onDragStart={(ev) => { setDragI(i); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', String(i)); } catch {} }}
@@ -601,14 +608,55 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                   <button onClick={() => delEx(i)} style={{ background:'transparent', border:'none', cursor:'pointer', padding:3 }}><X style={{ width:15, height:15, color:'rgba(17,24,39,0.55)' }}/></button>
                 </div>
               ))}
-              <div style={{ display:'flex', gap:8, marginTop:12, alignItems:'center' }}>
-                <select value={addSel} onChange={e => setAddSel(e.target.value)} style={{ ...S.inp, flex:1 }}>
-                  <option value="">+ Προσθήκη άσκησης από τη βάση…</option>
-                  {[...sortBySessionOrder(getExercisesFor(TYPE_GROUPS[chosen] || [])), ...EXERCISE_DB.filter(x => x.cat === 'warmup')].filter((c, ci, arr) => arr.findIndex(y => y.name === c.name) === ci && !exercises.find(x => x.name === c.name)).map(c => (
-                    <option key={c.name} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-                <button onClick={addEx} disabled={!addSel} style={{ ...S.btn(false), opacity: addSel ? 1 : 0.4 }}><Plus style={{ width:14, height:14 }}/></button>
+              <div style={{ position:'relative', marginTop:12 }}>
+                <input value={addQuery}
+                  onChange={e => { setAddQuery(e.target.value); setAddOpen(true); }}
+                  onFocus={() => setAddOpen(true)}
+                  onBlur={() => setTimeout(() => setAddOpen(false), 160)}
+                  placeholder="🔎 Αναζήτηση άσκησης — γράψε π.χ. squat, cable, push…"
+                  style={{ ...S.inp }}/>
+                {addOpen && (() => {
+                  const q = addQuery.trim().toLowerCase();
+                  const rel = new Set(sortBySessionOrder(getExercisesFor(TYPE_GROUPS[chosen] || [])).map(x => x.name));
+                  const pool = EXERCISE_DB
+                    .filter(c => !exercises.find(x => x.name === c.name))
+                    .filter(c => !q || c.name.toLowerCase().includes(q) || (EQUIPMENT[c.eq]?.label || '').toLowerCase().includes(q))
+                    .sort((a, b) => (q ? ((rel.has(b.name) ? 1 : 0) - (rel.has(a.name) ? 1 : 0) || a.name.localeCompare(b.name))
+                                       : (a.eq || '').localeCompare(b.eq || '') || a.name.localeCompare(b.name)));
+                  const exact = EXERCISE_DB.some(c => c.name.toLowerCase() === q);
+                  let lastEq = null;
+                  return (
+                    <div style={{ position:'absolute', left:0, right:0, top:'calc(100% + 4px)', zIndex:40, borderRadius:12,
+                      maxHeight:340, overflowY:'auto', WebkitOverflowScrolling:'touch',
+                      background:'#ffffff', border:'1px solid rgba(17,24,39,0.13)', boxShadow:'0 12px 32px rgba(16,24,40,0.14)' }}>
+                      {!q && <p style={{ margin:0, padding:'8px 12px 4px', fontSize:10.5, color:'rgba(17,24,39,0.55)', fontWeight:700 }}>Όλες οι ασκήσεις ({pool.length}) — σκρόλαρε για ιδέες ή γράψε για αναζήτηση</p>}
+                      {pool.map(c => {
+                        const header = !q && c.eq !== lastEq ? (lastEq = c.eq, (
+                          <p key={'h_' + c.eq} style={{ margin:0, padding:'8px 12px 3px', fontSize:9.5, fontWeight:800, letterSpacing:'.1em', textTransform:'uppercase',
+                            color: EQUIPMENT[c.eq]?.color || '#6b7280', borderTop:'1px solid rgba(17,24,39,0.05)' }}>{EQUIPMENT[c.eq]?.label || c.eq || 'Άλλο'}</p>
+                        )) : null;
+                        return [header,(
+                        <button key={c.name} onMouseDown={(ev) => { ev.preventDefault(); addByName(c.name); }}
+                          style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, width:'100%', textAlign:'left',
+                            padding:'9px 12px', border:'none', cursor:'pointer', background:'transparent', fontFamily:'inherit', fontSize:13, color:'#111827' }}
+                          onMouseEnter={(ev)=>{ ev.currentTarget.style.background='rgba(17,24,39,0.05)'; }}
+                          onMouseLeave={(ev)=>{ ev.currentTarget.style.background='transparent'; }}>
+                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
+                          <span style={{ fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:6, flexShrink:0,
+                            color: EQUIPMENT[c.eq]?.color || '#6b7280', background: EQUIPMENT[c.eq]?.bg || 'rgba(17,24,39,0.05)' }}>{EQUIPMENT[c.eq]?.short || '—'}</span>
+                        </button>
+                      )]; })}
+                      {q && !exact && (
+                        <button onMouseDown={(ev) => { ev.preventDefault(); addByName(addQuery, true); }}
+                          style={{ display:'block', width:'100%', textAlign:'left', padding:'9px 12px', border:'none', cursor:'pointer',
+                            background:'rgba(17,24,39,0.03)', fontFamily:'inherit', fontSize:13, color:ACC, fontWeight:700 }}>
+                          <Plus style={{ width:12, height:12, display:'inline', verticalAlign:'-2px' }}/> Προσθήκη «{addQuery.trim()}» ως δική σου άσκηση
+                        </button>
+                      )}
+                      {pool.length === 0 && q && <p style={{ margin:0, padding:'10px 12px', fontSize:12, color:'rgba(17,24,39,0.55)' }}>Κανένα ταίριασμα — μπορείς να την προσθέσεις ως δική σου παραπάνω.</p>}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -691,7 +739,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                           <button key={ds} disabled={past} onClick={() => pickDay(ds)}
                             style={{ aspectRatio:'1', borderRadius:9, fontSize:12, fontWeight:700, cursor: past ? 'default' : 'pointer', fontFamily:'inherit',
                               border: sel ? `1.6px solid ${ACC}` : isToday ? `1.4px dashed ${ACC}88` : '1px solid rgba(17,24,39,0.05)',
-                              background: sel ? ACC + '2a' : 'transparent', color: past ? 'rgba(17,24,39,0.13)' : '#fff' }}>
+                              background: sel ? ACC + '2a' : 'transparent', color: past ? 'rgba(17,24,39,0.30)' : '#111827' }}>
                             {d}
                           </button>
                         );
