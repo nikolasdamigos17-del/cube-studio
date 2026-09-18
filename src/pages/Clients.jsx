@@ -209,7 +209,7 @@ export default function Clients() {
 
   const load = async () => {
     const [c,g] = await Promise.all([db.Client.list('name'), db.Group.list('name')]);
-    const cFixed = unorphanClients(c, g);
+    const cFixed = unorphanClients(c, g).filter(x => !x.is_trial); // ο «Trials» είναι εργαλείο του Training Center — δεν εμφανίζεται εδώ
     repairOrphanGroupIds(db, c, g); // μόνιμη επιδιόρθωση στη βάση, στο παρασκήνιο
     setClients(cFixed); setGroups(g);
   };

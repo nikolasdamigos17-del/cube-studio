@@ -901,8 +901,15 @@ export default function TrainingPlans() {
                             <p className="text-sm font-semibold truncate">🧪 {pp.title || pp.client_name}</p>
                             <p className="text-[11px] text-muted-foreground">{pp.date} · {(pp.exercises || []).length} ασκήσεις{pp.group_session_id ? ' · group' : ''} · {pp.client_name}</p>
                           </div>
-                          <button onClick={async () => { if (confirm('Διαγραφή δοκιμαστικής προπόνησης;')) { await db.TrainingPlan.delete(pp.id); load(); } }}
-                            className="p-1.5 rounded-lg hover:bg-red-50 flex-shrink-0" title="Διαγραφή"><Trash2 className="w-4 h-4 text-red-400"/></button>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {!pp.completed && (pp.group_session_id
+                              ? <button onClick={() => { const sessPlans = plans.filter(x => x.group_session_id === pp.group_session_id); navigate('/group-training', { state: { plans: sessPlans, members: [], groupName: 'Δοκιμαστικό group' } }); }}
+                                  className="p-1.5 rounded-lg hover:bg-secondary" title="Έναρξη group προπόνησης"><Play className="w-4 h-4 text-emerald-500"/></button>
+                              : <button onClick={() => navigate('/live-training', { state: { plan: pp, clientName: pp.client_name } })}
+                                  className="p-1.5 rounded-lg hover:bg-secondary" title="Έναρξη Live"><Play className="w-4 h-4 text-emerald-500"/></button>)}
+                            <button onClick={async () => { if (confirm('Διαγραφή δοκιμαστικής προπόνησης;')) { await db.TrainingPlan.delete(pp.id); load(); } }}
+                              className="p-1.5 rounded-lg hover:bg-red-50" title="Διαγραφή"><Trash2 className="w-4 h-4 text-red-400"/></button>
+                          </div>
                         </div>
                       ))}
                     </div>

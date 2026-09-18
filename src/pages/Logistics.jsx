@@ -646,7 +646,7 @@ export default function Logistics() {
       db.CreditEntry.list('-date', 2000),
       db.Group.list('name'),
     ]);
-    setClients(unorphanClients(c, g)); setPayments(p); setEntries(e); setGroups(g);
+    setClients(unorphanClients(c, g).filter(x => !x.is_trial)); setPayments(p); setEntries(e); setGroups(g.filter(x => !x.is_trial));
   };
   useEffect(()=>{ load(); },[]);
   useEffect(()=>{ if (location.state?.openLogPay) { setShowWizard(true); window.history.replaceState({},''); } },[location.state]);
