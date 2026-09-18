@@ -4,7 +4,7 @@ import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, Che
 import { useNavigate, useLocation } from 'react-router-dom';
 import { db, callAI } from '../lib/db';
 import { EQUIPMENT, EXERCISE_DB, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
-import { isIndividual, groupDisplayName, firstName, GROUP_CAP } from '../lib/groups';
+import { isIndividual, groupDisplayName, firstName, GROUP_CAP, ensureTrials } from '../lib/groups';
 import GroupsPanel from '../components/GroupsPanel';
 
 // ── Equipment Label Badge ─────────────────────────────────────────────────────
@@ -555,6 +555,7 @@ export default function TrainingPlans() {
   const [openId, setOpenId] = useState(null);
   const [groups, setGroups] = useState([]);
   const [groupsEdit, setGroupsEdit] = useState(false);
+  const [trials, setTrials] = useState(null);
   const [selGroup, setSelGroup] = useState(null);
   const location = useLocation();
   /* deep-link από widgets */
@@ -576,7 +577,11 @@ export default function TrainingPlans() {
       db.Appointment.list('-date', 400),
       db.Group.list('name'),
     ]);
-    setPlans(p); setClients(cAll.filter(hasTrainingSvc)); setAppts(ap); setGroups(g);
+    let tri = null;
+    try { tri = await ensureTrials(cAll, g); } catch {}
+    setTrials(tri);
+    setPlans(p); setClients(cAll.filter(c => hasTrainingSvc(c) && !c.is_trial)); setAppts(ap);
+    setGroups(g.filter(x => !x.is_trial));
   };
   useEffect(()=>{ load(); },[]);
 
@@ -841,7 +846,7 @@ export default function TrainingPlans() {
         <div className="space-y-8">
           {shownIndiv.length>0 && (
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> Individuals</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> Personal</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {shownIndiv.map(c=>{
                   const week = weekOf(c.id);
@@ -869,6 +874,23 @@ export default function TrainingPlans() {
             </div>
           )}
 
+          {trials && (
+            <div className="mb-6">
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-3">🧪 Δοκιμαστικά — μη εγγεγραμμένοι</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button onClick={() => navigate(`/WorkoutCreator?client=${trials.tc.id}&trial=1`)}
+                  className="card p-4 text-left hover:border-amber-300 transition-colors">
+                  <p className="font-bold">🧪 Trial — Personal</p>
+                  <p className="text-xs text-muted-foreground mt-1">Ένα άτομο: όνομα → μυϊκή ομάδα → προπόνηση → προγραμματισμός ή ανάθεση σε ραντεβού.</p>
+                </button>
+                <button onClick={() => navigate(`/WorkoutCreator?client=${trials.tc.id}&group=${trials.tg.id}&trial=group`)}
+                  className="card p-4 text-left hover:border-amber-300 transition-colors">
+                  <p className="font-bold">🧪 Trial — Group</p>
+                  <p className="text-xs text-muted-foreground mt-1">2-3 άτομα, ένα-ένα (ίδια ή διαφορετική προπόνηση) — μία ολοκλήρωση για όλους.</p>
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-2 mt-2">
             <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2"><Users2 className="w-4 h-4"/> Groups ({groups.length})</p>
             <button onClick={()=>setGroupsEdit(v=>!v)} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted">{groupsEdit ? '✓ Τέλος επεξεργασίας' : '✏️ Επεξεργασία'}</button>

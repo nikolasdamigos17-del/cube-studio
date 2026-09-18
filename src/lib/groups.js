@@ -91,3 +91,13 @@ export async function repairOrphanGroupIds(db, clients, groups) {
     if (c.group_id && !gids.has(c.group_id)) { try { await db.Client.update(c.id, { group_id: '' }); } catch {} }
   }
 }
+
+
+/* ── Δοκιμαστικά (Trials): μόνιμος «πελάτης» + «group» για μη εγγεγραμμένους ── */
+export async function ensureTrials(clients, groups) {
+  let tc = (clients || []).find(c => c.is_trial) || (clients || []).find(c => (c.name || '').trim().toLowerCase() === 'trials');
+  if (!tc) tc = await db.Client.create({ name: 'Trials', services: 'personal_training', frozen: true, is_trial: true, theme_color: '#f59e0b', sessions_per_week: 0, monthly_price: 0 });
+  let tg = (groups || []).find(g => g.is_trial) || (groups || []).find(g => (g.name || '').trim().toLowerCase() === 'trials');
+  if (!tg) tg = await db.Group.create({ name: 'Trials', member_ids: [], is_trial: true });
+  return { tc, tg };
+}

@@ -96,7 +96,9 @@ export default function WorkoutCreator() {
   const [members, setMembers] = useState([]);
   const [memberIndex, setMemberIndex] = useState(0);
   const [groupSessionId] = useState(() => 'gs_' + Date.now());
-  const effClientId = groupId ? (members[memberIndex]?.id || '') : clientId;
+  const trial = params.get('trial') || '';           // '1' = personal δοκιμαστικό, 'group' = group δοκιμαστικό
+  const trialGroup = trial === 'group';
+  const effClientId = groupId ? (trial ? clientId : (members[memberIndex]?.id || '')) : clientId;
 
   const [data, setData] = useState(null);
   const [screen, setScreen] = useState('analyzing'); // analyzing | brief | building | review | finish
@@ -115,6 +117,8 @@ export default function WorkoutCreator() {
   /* finish */
   const [finishMode, setFinishMode] = useState('');   // '' | schedule | assign
   const [dragI, setDragI] = useState(-1);              // ποια άσκηση σέρνεται
+  const [trialName, setTrialName] = useState('');      // όνομα ατόμου δοκιμαστικού
+  const [trialFinish, setTrialFinish] = useState(false); // trial group: πάτησε «Ολοκλήρωση»
   const [isNarrow, setIsNarrow] = useState(typeof window !== 'undefined' && window.innerWidth < 640);
   useEffect(() => { const on = () => setIsNarrow(window.innerWidth < 640); window.addEventListener('resize', on); return () => window.removeEventListener('resize', on); }, []);
   const [overI, setOverI] = useState(-1);              // πάνω από ποια θέση
@@ -162,7 +166,7 @@ export default function WorkoutCreator() {
     setData({ client, profile: profs[0] || {}, tplans, progress, appts, feedback });
     setScreen('analyzing'); setCheckStep(0); setAnalysis(null); setChosen('');
     setTitle(''); setNotes(''); setExercises([]); setFinishMode(''); setSavedMsg(''); setSaving(false);
-    if (reuseRef.current) {
+    if (reuseRef.current && !trial) {
       const r = reuseRef.current; reuseRef.current = null;
       setChosen(r.chosen);
       setTitle(`${TYPE_META[r.chosen]?.label || 'Προπόνηση'} — ${firstName(client.name)}`);
@@ -170,6 +174,7 @@ export default function WorkoutCreator() {
       setExercises(r.exercises);
       setScreen('review'); // κατευθείαν στον καθορισμό ασκήσεων/κιλών
     }
+    if (trial) setScreen('trialname'); // δοκιμαστικό: καμία ανάλυση — όνομα & μυϊκή ομάδα
   })(); }, [effClientId]);
 
   useEffect(() => {
@@ -222,25 +227,30 @@ ${brief}
   })(); }, [data, screen]); // eslint-disable-line
 
   /* ── δημιουργία προπόνησης από τη βάση ασκήσεων ── */
-  const buildWorkout = async () => {
+  const buildWorkout = async (key) => {
+    const sel = key || chosen;
+    if (key) setChosen(key);
     setScreen('building'); setBuildPhase(0);
     const ph = setInterval(() => setBuildPhase(p => (p + 1) % 3), 3000);
     const { client, tplans } = data;
-    const groups = TYPE_GROUPS[chosen] || [];
+    const groups = TYPE_GROUPS[sel] || [];
     const warmups = EXERCISE_DB.filter(x => x.cat === 'warmup');
     const seenC = new Set();
     const candidates = [...sortBySessionOrder(getExercisesFor(groups)), ...warmups].filter(x => !seenC.has(x.name) && seenC.add(x.name));
     const lifts = knownLiftsFrom(tplans);
     const candTxt = candidates.map(e => `- ${e.name} [${(e.muscles || []).join(',')}]${lifts[e.name] ? ` (τελευταίο βάρος: ${lifts[e.name]}kg)` : ''}`).join('\n');
-    const sessLabel = TYPE_META[chosen]?.label || chosen;
+    const sessLabel = TYPE_META[sel]?.label || sel;
 
     const groupNote = (groupId && draftsRef.current.length)
       ? `ΤΑΥΤΟΧΡΟΝΗ GROUP ΠΡΟΠΟΝΗΣΗ — γυμνάζονται ΜΑΖΙ, την ίδια ώρα, με: ${draftsRef.current.map(d => `${d.clientName}: ${(d.exercises || []).map((e, i) => `${i + 1}.${e.name}`).join(', ')}`).join(' | ')}. Κάθε μηχάνημα υπάρχει ΕΝΑ: σε κάθε χρονική θέση (ιδίως στην 1η άσκηση) ΜΗΝ βάλεις άσκηση στο ίδιο μηχάνημα/εξοπλισμό με το αντίστοιχο βήμα των παραπάνω — μοίρασε τη σειρά ώστε να μην συγκρούονται ποτέ.\n`
       : '';
     const warmNote = 'Στη λίστα υπάρχουν και ασκήσεις ΠΡΟΘΕΡΜΑΝΣΗΣ (warmup) — προαιρετικά ξεκίνα με 1-2 (0 κιλά, reps π.χ. "30s" ή "20").\n';
-    const prompt = `Φτιάξε ${sessLabel} προπόνηση για: ${client.name} (${gender === 'female' ? 'γυναίκα' : 'άνδρας'}). Στόχος: ${GOAL_LABELS[goal] || 'γενική φυσική κατάσταση'}.
+    const who = trial
+      ? `νέο ενδιαφερόμενο σε ΔΟΚΙΜΑΣΤΙΚΟ μάθημα (όνομα: ${trialName.trim() || 'επισκέπτης'}). ΔΕΝ υπάρχει ιστορικό/προφίλ — μέτριο, ασφαλές επίπεδο πρώτης γνωριμίας, τεχνικά απλές ασκήσεις, συντηρητικά κιλά (0/σωματικό βάρος όπου υπάρχει αμφιβολία).`
+      : `${client.name} (${gender === 'female' ? 'γυναίκα' : 'άνδρας'}). Στόχος: ${GOAL_LABELS[goal] || 'γενική φυσική κατάσταση'}.`;
+    const prompt = `Φτιάξε ${sessLabel} προπόνηση για: ${who}
 Σχήμα στόχου: ~${scheme.sets} σετ, ${scheme.reps} επαναλήψεις, διάλειμμα ~${scheme.rest}s (προσαρμόσέ το λογικά ανά άσκηση — σύνθετες: περισσότερο, απομονώσεις: λιγότερο).
-ΔΙΑΛΕΞΕ 6-7 ασκήσεις ΑΠΟΚΛΕΙΣΤΙΚΑ από την παρακάτω λίστα (γράψε τα ονόματα ΑΚΡΙΒΩΣ όπως δίνονται), σύνθετες πρώτες, κάλυψε ισορροπημένα τις μυϊκές ομάδες${chosen === 'glutes' ? ' με ΚΥΡΙΑ έμφαση στους γλουτούς (hip hinge, thrust patterns, abductions)' : ''}:
+ΔΙΑΛΕΞΕ 6-7 ασκήσεις ΑΠΟΚΛΕΙΣΤΙΚΑ από την παρακάτω λίστα (γράψε τα ονόματα ΑΚΡΙΒΩΣ όπως δίνονται), σύνθετες πρώτες, κάλυψε ισορροπημένα τις μυϊκές ομάδες${sel === 'glutes' ? ' με ΚΥΡΙΑ έμφαση στους γλουτούς (hip hinge, thrust patterns, abductions)' : ''}:
 ${candTxt}
 ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο βάρος", ξεκίνα από εκεί (ή ελαφρώς πάνω αν ο στόχος είναι μυϊκή ανάπτυξη). Αλλιώς συντηρητικά αρχικά κιλά· για ασκήσεις σωματικού βάρους βάλε 0.
 Απάντησε ΜΟΝΟ με JSON:
@@ -273,7 +283,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
       }
       if (!p) setAiUsed(false);
     }
-    setTitle(p?.title || `${sessLabel} — ${client.name.split(' ')[0]}`);
+    setTitle(trial ? `Δοκιμαστικό ${sessLabel} — ${trialName.trim() || 'Επισκέπτης'}` : (p?.title || `${sessLabel} — ${client.name.split(' ')[0]}`));
     setNotes(p?.notes || '');
     setExercises(exs);
     setScreen('review');
@@ -312,13 +322,24 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
     reuseRef.current = { chosen, notes, exercises: JSON.parse(JSON.stringify(rotated)) };
     advanceMember();
   };
+  /* Δοκιμαστικό group: απεριόριστα άτομα, ένα-ένα, χωρίς εγγραφή */
+  const advanceTrialNext = (same) => {
+    const list = normEx(exercises);
+    draftsRef.current.push({ clientId: effClientId, clientName: trialLabel(), title, chosen, notes, exercises: list });
+    if (same) {
+      const n = list.length || 1; const off = Math.ceil(n / 2) % n;
+      reuseRef.current = { chosen, notes, exercises: JSON.parse(JSON.stringify([...list.slice(off), ...list.slice(0, off)])) };
+    }
+    setTrialName(''); setChosen(''); setTitle(''); setNotes(''); setExercises([]); setFinishMode('');
+    setScreen('trialname');
+  };
   const normEx = (list) => (list || []).map(e => ({ ...e,
     sets: Math.min(8, Math.max(1, parseInt(e.sets) || 3)),
     reps: String(e.reps || '10'),
     weight_kg: Math.max(0, parseFloat(e.weight_kg) || 0),
     rest_between_sets: Math.max(10, parseInt(e.rest_between_sets) || 60),
   }));
-  const collectAll = () => [ ...draftsRef.current, { clientId: effClientId, clientName: data.client.name, title, chosen, notes, exercises } ];
+  const collectAll = () => [ ...draftsRef.current, { clientId: effClientId, clientName: trial ? trialLabel() : data.client.name, title, chosen, notes, exercises } ];
   const createPlansAll = async (extra = {}) => {
     const out = [];
     for (const d of collectAll()) {
@@ -330,11 +351,12 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
     }
     return out;
   };
-  const groupLabel = () => groupDisplayName(group, members);
+  const groupLabel = () => trial ? `Δοκιμαστικό — ${collectAll().map(d => firstName(d.clientName)).join(' & ')}` : groupDisplayName(group, members);
 
+  const trialLabel = () => `${(trialName || '').trim() || 'Επισκέπτης'} (Δοκιμαστικό)`;
   const createPlan = async (extra = {}) => {
     return db.TrainingPlan.create({
-      client_id: effClientId, client_name: data.client.name, date: extra.date || todayStr(),
+      client_id: effClientId, client_name: trial ? trialLabel() : data.client.name, date: extra.date || todayStr(),
       title, session_type: chosen, notes, exercises: normEx(exercises), completed: false, created_via: 'brain',
       ...(groupId ? { group_id: groupId, group_session_id: groupSessionId } : {}),
     });
@@ -346,7 +368,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
   };
   const doSave = async () => {
     setSaving(true);
-    if (groupId) { await createPlansAll(); afterFinish(`Αποθηκεύτηκαν οι προπονήσεις και των ${members.length} μελών.`); return; }
+    if (groupId) { const plans = await createPlansAll(); afterFinish(`Αποθηκεύτηκαν οι προπονήσεις (${plans.length} ${trial ? 'άτομα' : 'μέλη'}).`); return; }
     await createPlan();
     afterFinish('Η προπόνηση αποθηκεύτηκε στον φάκελο του πελάτη.');
   };
@@ -385,13 +407,13 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
         duration_minutes: (data.client.session_duration_hours || 1) * 60, status: 'scheduled',
         plan_id: plans[0]?.id || '', group_session_id: groupSessionId,
       });
-      afterFinish(`Προγραμματίστηκε ΕΝΑ κοινό ραντεβού για το group: ${selDay} · ${confirmTime}.`);
+      afterFinish(trial ? `Προγραμματίστηκε το δοκιμαστικό: ${selDay} · ${confirmTime}.` : `Προγραμματίστηκε ΕΝΑ κοινό ραντεβού για το group: ${selDay} · ${confirmTime}.`);
       return;
     }
     const plan = await createPlan({ date: selDay });
     await db.Appointment.create({
-      title: `${data.client.name} — ${TYPE_META[chosen]?.label || 'Προπόνηση'}`,
-      client_id: effClientId, client_name: data.client.name, client_color: data.client.theme_color || ACC,
+      title: `${trial ? trialLabel() : data.client.name} — ${TYPE_META[chosen]?.label || 'Προπόνηση'}`,
+      client_id: effClientId, client_name: trial ? trialLabel() : data.client.name, client_color: data.client.theme_color || ACC,
       type: 'training', date: selDay, start_time: confirmTime,
       duration_minutes: (data.client.session_duration_hours || 1) * 60, status: 'scheduled', plan_id: plan.id,
     });
@@ -416,7 +438,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
       const patch = { plan_id: plans[0]?.id || '', group_session_id: groupSessionId };
       if (!appt.client_id && !appt.group_id) { patch.group_id = groupId; patch.client_name = groupLabel(); }
       await db.Appointment.update(appt.id, patch);
-      afterFinish(`Ανατέθηκαν και οι ${members.length} προπονήσεις στο ραντεβού ${appt.date} · ${appt.start_time}.`);
+      afterFinish(`Ανατέθηκαν και οι ${plans.length} προπονήσεις στο ραντεβού ${appt.date} · ${appt.start_time}.`);
       return;
     }
     const plan = await createPlan({ date: appt.date });
@@ -473,6 +495,40 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
         </div>
 
         {/* ═══ ΑΝΑΛΥΣΗ ═══ */}
+        {screen === 'trialname' && (
+          <div style={{ ...S.card, maxWidth:680 }}>
+            <span style={S.kicker}>🧪 Δοκιμαστικό {trialGroup ? 'group' : 'personal'}{draftsRef.current.length ? ` · άτομο ${draftsRef.current.length + 1}` : ''}</span>
+            <h2 style={{ margin:'8px 0 2px', fontSize:20, fontWeight:900 }}>Ποιος έρχεται για δοκιμαστικό;</h2>
+            <p style={{ ...S.dim, margin:'0 0 12px', fontSize:12.5 }}>Δεν χρειάζεται εγγραφή ούτε ανάλυση — μόνο όνομα και τι προπόνηση θα κάνει.</p>
+            <input value={trialName} onChange={e => setTrialName(e.target.value)} placeholder="Όνομα (π.χ. Γιώργος)" autoFocus
+              style={{ ...S.inp, fontSize:15, fontWeight:700, maxWidth:340 }}/>
+            {reuseRef.current && (
+              <button disabled={!trialName.trim()} onClick={() => {
+                  const r = reuseRef.current; reuseRef.current = null;
+                  setChosen(r.chosen); setNotes(r.notes || ''); setExercises(r.exercises);
+                  setTitle(`Δοκιμαστικό ${TYPE_META[r.chosen]?.label || ''} — ${trialName.trim()}`);
+                  setScreen('review');
+                }}
+                style={{ display:'block', width:'100%', maxWidth:340, marginTop:12, textAlign:'left', padding:'13px 15px', borderRadius:13, cursor:'pointer', fontFamily:'inherit',
+                  border:`1.5px solid ${ACC}`, background:ACC, color:'#07070b', opacity: trialName.trim() ? 1 : 0.4 }}>
+                <p style={{ margin:0, fontSize:13.5, fontWeight:800 }}>⚡ Ίδια προπόνηση με το προηγούμενο άτομο</p>
+                <p style={{ margin:'3px 0 0', fontSize:11, opacity:.75 }}>Με μετατοπισμένη σειρά — ένα μηχάνημα ο καθένας.</p>
+              </button>
+            )}
+            <p style={{ ...S.lbl, margin:'18px 0 8px' }}>{reuseRef.current ? 'ή διάλεξε διαφορετική μυϊκή ομάδα' : 'Τι προπόνηση θα κάνει;'}</p>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10 }}>
+              {SESSIONS.male.map(sx => (
+                <button key={sx.key} disabled={!trialName.trim()} onClick={() => { setTitle(`Δοκιμαστικό ${sx.label} — ${trialName.trim()}`); buildWorkout(sx.key); }}
+                  style={{ textAlign:'left', padding:'13px 13px', borderRadius:13, cursor: trialName.trim() ? 'pointer' : 'default', fontFamily:'inherit',
+                    border:'1.5px solid rgba(17,24,39,0.13)', background:'rgba(17,24,39,0.05)', color:'#111827', opacity: trialName.trim() ? 1 : 0.45 }}>
+                  <p style={{ margin:0, fontSize:15 }}>{sx.emoji}</p>
+                  <p style={{ margin:'4px 0 0', fontSize:13, fontWeight:800 }}>{sx.label}</p>
+                  <p style={{ ...S.dim, margin:'2px 0 0', fontSize:10.5 }}>{sx.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {screen === 'analyzing' && (
           <div style={{ ...S.card, maxWidth:560, margin:'8vh auto 0', textAlign:'center', padding:'42px 28px' }}>
             <div style={{ width:66, height:66, margin:'0 auto 18px', borderRadius:'50%', border:`2px solid ${ACC}55`, display:'grid', placeItems:'center', animation:'wcpulse 1.7s ease-in-out infinite' }}>
@@ -681,6 +737,25 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                 <p style={{ ...S.dim, fontSize:13, margin:0 }}>«{title}» — τι θέλεις να την κάνουμε;</p>
               </div>
 
+              {trialGroup && !finishMode && !trialFinish && (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))', gap:12 }}>
+                  <button onClick={() => advanceTrialNext(true)}
+                    style={{ textAlign:'center', padding:'18px 14px', borderRadius:16, cursor:'pointer', fontFamily:'inherit', border:`1.5px solid ${ACC}`, background:ACC, color:'#07070b' }}>
+                    <p style={{ margin:0, fontSize:14, fontWeight:800 }}>⚡ Ίδια προπόνηση — επόμενο άτομο</p>
+                    <p style={{ margin:'4px 0 0', fontSize:11.5, opacity:.75 }}>Με μετατοπισμένη σειρά μηχανημάτων.</p>
+                  </button>
+                  <button onClick={() => advanceTrialNext(false)}
+                    style={{ textAlign:'center', padding:'18px 14px', borderRadius:16, cursor:'pointer', fontFamily:'inherit', border:'1.5px solid rgba(17,24,39,0.13)', background:`${ACC}22`, color:'#111827' }}>
+                    <p style={{ margin:0, fontSize:14, fontWeight:800 }}>Νέα προπόνηση — επόμενο άτομο</p>
+                    <p style={{ ...S.dim, margin:'4px 0 0', fontSize:11.5 }}>Όνομα → μυϊκή ομάδα → προπόνηση.</p>
+                  </button>
+                  <button onClick={() => setTrialFinish(true)}
+                    style={{ textAlign:'center', padding:'18px 14px', borderRadius:16, cursor:'pointer', fontFamily:'inherit', border:'1.5px solid rgba(17,24,39,0.13)', background:'rgba(17,24,39,0.05)', color:'#111827' }}>
+                    <p style={{ margin:0, fontSize:14, fontWeight:800 }}>✓ Ολοκλήρωση ({draftsRef.current.length + 1} {draftsRef.current.length ? 'άτομα' : 'άτομο'})</p>
+                    <p style={{ ...S.dim, margin:'4px 0 0', fontSize:11.5 }}>Αποθήκευση / προγραμματισμός / ανάθεση για όλους.</p>
+                  </button>
+                </div>
+              )}
               {!finishMode && !isLastMember && (
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:12 }}>
                   <button onClick={advanceSameWorkout}
@@ -697,7 +772,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                   </button>
                 </div>
               )}
-              {!finishMode && isLastMember && (
+              {!finishMode && isLastMember && (!trialGroup || trialFinish) && (
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:12 }}>
                   {[
                     { k:'save',    icon:Save,  t:'Απλή αποθήκευση',        d: groupId ? `Αποθηκεύονται οι προπονήσεις και των ${members.length} μελών.` : 'Μπαίνει στον φάκελο του πελάτη — την ξεκινάς όποτε θες.' },
