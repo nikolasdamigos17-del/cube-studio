@@ -878,17 +878,37 @@ export default function TrainingPlans() {
             <div className="mb-6">
               <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-3">🧪 Δοκιμαστικά — μη εγγεγραμμένοι</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button onClick={() => navigate(`/WorkoutCreator?client=${trials.tc.id}&trial=1`)}
+                <button onClick={() => navigate(`/workout-creator?client=${trials.tc.id}&trial=1`)}
                   className="card p-4 text-left hover:border-amber-300 transition-colors">
                   <p className="font-bold">🧪 Trial — Personal</p>
                   <p className="text-xs text-muted-foreground mt-1">Ένα άτομο: όνομα → μυϊκή ομάδα → προπόνηση → προγραμματισμός ή ανάθεση σε ραντεβού.</p>
                 </button>
-                <button onClick={() => navigate(`/WorkoutCreator?client=${trials.tc.id}&group=${trials.tg.id}&trial=group`)}
+                <button onClick={() => navigate(`/workout-creator?client=${trials.tc.id}&group=${trials.tg.id}&trial=group`)}
                   className="card p-4 text-left hover:border-amber-300 transition-colors">
                   <p className="font-bold">🧪 Trial — Group</p>
                   <p className="text-xs text-muted-foreground mt-1">2-3 άτομα, ένα-ένα (ίδια ή διαφορετική προπόνηση) — μία ολοκλήρωση για όλους.</p>
                 </button>
               </div>
+              {(() => {
+                const tPlans = plans.filter(pp => pp.client_id === trials.tc.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                return tPlans.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Αποθηκευμένες δοκιμαστικές ({tPlans.length})</p>
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                      {tPlans.map(pp => (
+                        <div key={pp.id} className="card flex items-center justify-between gap-3 px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate">🧪 {pp.title || pp.client_name}</p>
+                            <p className="text-[11px] text-muted-foreground">{pp.date} · {(pp.exercises || []).length} ασκήσεις{pp.group_session_id ? ' · group' : ''} · {pp.client_name}</p>
+                          </div>
+                          <button onClick={async () => { if (confirm('Διαγραφή δοκιμαστικής προπόνησης;')) { await db.TrainingPlan.delete(pp.id); load(); } }}
+                            className="p-1.5 rounded-lg hover:bg-red-50 flex-shrink-0" title="Διαγραφή"><Trash2 className="w-4 h-4 text-red-400"/></button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
           <div className="flex items-center justify-between mb-2 mt-2">
