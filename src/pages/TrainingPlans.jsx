@@ -890,25 +890,45 @@ export default function TrainingPlans() {
                 </button>
               </div>
               {(() => {
-                const tPlans = plans.filter(pp => pp.client_id === trials.tc.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-                return tPlans.length > 0 && (
+                const tAll = plans.filter(pp => pp.client_id === trials.tc.id).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                /* Group δοκιμαστικές: ΜΙΑ κάρτα ανά συνεδρία (όλα τα άτομα μαζί) */
+                const seen = new Set(); const items = [];
+                for (const pp of tAll) {
+                  if (pp.group_session_id) {
+                    if (seen.has(pp.group_session_id)) continue;
+                    seen.add(pp.group_session_id);
+                    items.push({ kind: 'group', key: pp.group_session_id, sess: tAll.filter(x => x.group_session_id === pp.group_session_id) });
+                  } else items.push({ kind: 'solo', key: pp.id, plan: pp });
+                }
+                const shortName = (n) => firstName(String(n || '').replace(' (Δοκιμαστικό)', ''));
+                return items.length > 0 && (
                   <div className="mt-3">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Αποθηκευμένες δοκιμαστικές ({tPlans.length})</p>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Αποθηκευμένες δοκιμαστικές ({items.length})</p>
                     <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-                      {tPlans.map(pp => (
-                        <div key={pp.id} className="card flex items-center justify-between gap-3 px-3 py-2.5">
+                      {items.map(it => it.kind === 'solo' ? (
+                        <div key={it.key} className="card flex items-center justify-between gap-3 px-3 py-2.5">
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold truncate">🧪 {pp.title || pp.client_name}</p>
-                            <p className="text-[11px] text-muted-foreground">{pp.date} · {(pp.exercises || []).length} ασκήσεις{pp.group_session_id ? ' · group' : ''} · {pp.client_name}</p>
+                            <p className="text-sm font-semibold truncate">🧪 {it.plan.title || it.plan.client_name}</p>
+                            <p className="text-[11px] text-muted-foreground">{it.plan.date} · {(it.plan.exercises || []).length} ασκήσεις · {shortName(it.plan.client_name)}</p>
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            {!pp.completed && (pp.group_session_id
-                              ? <button onClick={() => { const sessPlans = plans.filter(x => x.group_session_id === pp.group_session_id); navigate('/group-training', { state: { plans: sessPlans, members: [], groupName: 'Δοκιμαστικό group' } }); }}
-                                  className="p-1.5 rounded-lg hover:bg-secondary" title="Έναρξη group προπόνησης"><Play className="w-4 h-4 text-emerald-500"/></button>
-                              : <button onClick={() => navigate('/live-training', { state: { plan: pp, clientName: pp.client_name } })}
-                                  className="p-1.5 rounded-lg hover:bg-secondary" title="Έναρξη Live"><Play className="w-4 h-4 text-emerald-500"/></button>)}
-                            <button onClick={async () => { if (confirm('Διαγραφή δοκιμαστικής προπόνησης;')) { await db.TrainingPlan.delete(pp.id); load(); } }}
+                            {!it.plan.completed && <button onClick={() => navigate('/live-training', { state: { plan: it.plan, clientName: it.plan.client_name } })}
+                              className="p-1.5 rounded-lg hover:bg-secondary" title="Έναρξη Live"><Play className="w-4 h-4 text-emerald-500"/></button>}
+                            <button onClick={async () => { if (confirm('Διαγραφή δοκιμαστικής προπόνησης;')) { await db.TrainingPlan.delete(it.plan.id); load(); } }}
                               className="p-1.5 rounded-lg hover:bg-red-50" title="Διαγραφή"><Trash2 className="w-4 h-4 text-red-400"/></button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={it.key} className="card flex items-center justify-between gap-3 px-3 py-2.5 border-indigo-200">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate">🧪👥 Δοκιμαστικό group — {it.sess.map(x => shortName(x.client_name)).join(' & ')}</p>
+                            <p className="text-[11px] text-muted-foreground">{it.sess[0].date} · {it.sess.length} άτομα · {it.sess.map(x => `${shortName(x.client_name)}: ${(x.exercises || []).length}`).join(' · ')} ασκήσεις</p>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button onClick={() => navigate('/group-training', { state: { plans: it.sess, members: [], groupName: 'Δοκιμαστικό group' } })}
+                              className="p-1.5 rounded-lg hover:bg-secondary" title="Έναρξη group προπόνησης"><Play className="w-4 h-4 text-emerald-500"/></button>
+                            <button onClick={async () => { if (confirm(`Διαγραφή του δοκιμαστικού group (${it.sess.length} προπονήσεις);`)) { for (const x of it.sess) { try { await db.TrainingPlan.delete(x.id); } catch {} } load(); } }}
+                              className="p-1.5 rounded-lg hover:bg-red-50" title="Διαγραφή όλων"><Trash2 className="w-4 h-4 text-red-400"/></button>
                           </div>
                         </div>
                       ))}
