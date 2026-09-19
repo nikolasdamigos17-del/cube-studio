@@ -157,6 +157,18 @@ const GREEK_DIRECTIVE = `
 ΓΛΩΣΣΑ: Απάντησε στα ΕΛΛΗΝΙΚΑ. Όλο το αναγνώσιμο κείμενο (τίτλοι, περιγραφές, σημειώσεις, συμβουλές, αναλύσεις) πρέπει να είναι στα ελληνικά.
 ΕΞΑΙΡΕΣΕΙΣ: 1) Τα JSON keys μένουν ΠΑΝΤΑ στα αγγλικά. 2) Αν σου ζητείται να διαλέξεις στοιχεία από δοσμένη λίστα (π.χ. ονόματα ασκήσεων), επέστρεψέ τα ΑΚΡΙΒΩΣ όπως γράφονται στη λίστα, χωρίς μετάφραση.`;
 
+/* Μετάφραση σφαλμάτων AI σε καθαρά ελληνικά — για να ξέρουμε ΤΙ φταίει */
+export const explainAiError = (status, bodyText) => {
+  const t = String(bodyText || '');
+  if (/credit balance is too low|insufficient credit/i.test(t)) return 'Τελείωσαν τα credits στον λογαριασμό Anthropic — φόρτισε στο console.anthropic.com → Billing.';
+  if (status === 401 || /invalid x-api-key|authentication_error/i.test(t)) return 'Μη έγκυρο Anthropic κλειδί (401) — λάθος κλειδί ή έχει διαγραφεί/ανακληθεί στο console.anthropic.com.';
+  if (status === 429 || /rate_limit/i.test(t)) return 'Όριο χρήσης Anthropic (429) — δοκίμασε ξανά σε λίγα λεπτά.';
+  if (status === 404 || /not_found_error|model:/i.test(t)) return 'Το μοντέλο δεν βρέθηκε (404) — έλεγξε ότι το api/ai.js στο GitHub έχει το claude-sonnet-5.';
+  if (/ANTHROPIC_API_KEY/.test(t)) return 'Λείπει το ANTHROPIC_API_KEY στο Vercel (Settings → Environments → Production) — ή δεν έγινε Redeploy μετά την προσθήκη.';
+  if (status >= 500) return `Σφάλμα διακομιστή AI (${status}) — αν επιμένει, έλεγξε api/ai.js στο GitHub και το κλειδί στο Vercel.`;
+  return `Σφάλμα AI (${status || '—'}): ${t.slice(0, 160)}`;
+};
+
 export async function callAI(prompt, systemPrompt) {
   const lang = localStorage.getItem('cube_lang') || 'en';
   if (lang === 'el') systemPrompt = (systemPrompt || '') + GREEK_DIRECTIVE;
@@ -191,10 +203,10 @@ export async function callAI(prompt, systemPrompt) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('API error:', response.status, errText);
-      return '__ERROR__:' + response.status;
+      return '__ERROR__: ' + explainAiError(response.status, errText);
     }
     const data = await response.json();
-    if (data.error) return '__ERROR__:' + data.error.message;
+    if (data.error) return '__ERROR__: ' + explainAiError(response.status, data.error.message);
     return data.content?.[0]?.text || '';
   } catch (e) {
     console.error('callAI error:', e);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { callAI } from '../lib/db';
 import { portalTarget } from '../lib/tvMode';
 import { createPortal } from 'react-dom';
 import { Key, Sparkles, Database, Scale, X, Check, Eye, EyeOff, ExternalLink, ChevronDown, Save, ShieldAlert, Copy, Link2, Unplug } from 'lucide-react';
@@ -115,6 +116,17 @@ export default function ApiSettingsModal({ onClose }) {
   };
 
   const connect = () => { save(); window.location.href = withingsAuthorizeUrl(); };
+
+  /* Δοκιμή AI: δείχνει ΑΚΡΙΒΩΣ τι συμβαίνει (server ή τοπικό κλειδί) */
+  const [aiTest, setAiTest] = useState('');
+  const testAi = async () => {
+    save(); // ώστε η δοκιμή να τρέξει με ό,τι μόλις έγραψες
+    setAiTest('busy');
+    const out = await callAI('Reply with exactly: OK', 'Reply with exactly: OK');
+    const viaLocal = !!(v.anthropic || '').trim();
+    if (typeof out === 'string' && out.startsWith('__ERROR__')) setAiTest('✗ ' + out.replace('__ERROR__:', '').replace('__ERROR__', '').trim() + (viaLocal ? ' (δοκιμάστηκε το ΤΟΠΙΚΟ κλειδί αυτής της συσκευής)' : ' (δοκιμάστηκε ο server /api/ai)'));
+    else setAiTest('✓ Το AI λειτουργεί κανονικά — μέσω ' + (viaLocal ? 'τοπικού κλειδιού συσκευής' : 'server (χωρίς ρύθμιση ανά συσκευή)') + '.');
+  };
   const disconnect = () => { disconnectWithings(); setConnected(false); };
   const copyCb = () => { try { navigator.clipboard.writeText(cb); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch {} };
 
@@ -164,6 +176,13 @@ export default function ApiSettingsModal({ onClose }) {
             subtitle="Το κλειδί για όλες τις AI λειτουργίες. Ισχύει άμεσα — χωρίς νέο deploy."
             badge={<StatusDot ok={!!v.anthropic.trim()} okLabel="Ορίστηκε" offLabel="Κενό"/>}>
             <Field label="API Key" secret mono value={v.anthropic} onChange={val => set('anthropic', val)} placeholder="sk-ant-api03-..." />
+            <button onClick={testAi} disabled={aiTest==='busy'}
+              style={{ display:'block', width:'100%', margin:'10px 0 6px', padding:'10px 14px', borderRadius:10, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:700, background:'#6366f1', color:'#fff', opacity: aiTest==='busy'?0.6:1 }}>
+              {aiTest==='busy' ? 'Δοκιμή…' : '🧪 Δοκιμή σύνδεσης AI'}
+            </button>
+            {aiTest && aiTest!=='busy' && (
+              <p style={{ margin:'0 0 8px', fontSize:12, lineHeight:1.5, fontWeight:600, color: aiTest.startsWith('✓') ? '#10b981' : '#f87171' }}>{aiTest}</p>
+            )}
             <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" style={linkBtn()}>
               Console Anthropic <ExternalLink size={13}/>
             </a>
