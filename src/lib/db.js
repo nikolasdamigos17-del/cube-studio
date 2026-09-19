@@ -187,7 +187,7 @@ export async function callAI(prompt, systemPrompt) {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-5',
-          max_tokens: 4096,
+          max_tokens: 8192,
           system: systemPrompt || 'You are a helpful fitness and nutrition assistant.',
           messages: [{ role: 'user', content: prompt }],
         }),

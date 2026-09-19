@@ -258,18 +258,28 @@ function GreetCube({ colors }) {
 
 /* ═══════════════ AI συνταγές ═══════════════ */
 
+let lastGenErr = ''; // τελευταία πραγματική αιτία αποτυχίας δεκάδας (για το μήνυμα)
 function parseJsonArr(txt) {
-  if (!txt || txt.startsWith('__ERROR__')) return null;
-  try {
-    const s = txt.indexOf('['), e = txt.lastIndexOf(']');
-    if (s === -1 || e === -1) return null;
-    const arr = JSON.parse(txt.slice(s, e + 1));
-    if (!Array.isArray(arr)) return null;
-    return arr.filter(x => x && x.name).map(x => ({
-      name: String(x.name),
-      main_ingredients: Array.isArray(x.main_ingredients) ? x.main_ingredients.map(String).slice(0,5) : [],
-    }));
-  } catch { return null; }
+  if (!txt) { lastGenErr = 'Κενή απάντηση AI.'; return null; }
+  if (txt.startsWith('__ERROR__')) { lastGenErr = txt.replace('__ERROR__', '').replace(/^[:\s]+/, ''); return null; }
+  const raw = String(txt);
+  const st = raw.indexOf('[');
+  if (st === -1) { lastGenErr = 'Η απάντηση δεν περιείχε λίστα.'; return null; }
+  const tryParse = (t) => { try { const a = JSON.parse(t); return Array.isArray(a) ? a : null; } catch { return null; } };
+  const en = raw.lastIndexOf(']');
+  let arr = en > st ? tryParse(raw.slice(st, en + 1)) : null;
+  if (!arr) {
+    /* Κομμένη απάντηση (όριο tokens): κράτα όσα γεύματα ολοκληρώθηκαν */
+    let cut = raw.lastIndexOf('}');
+    while (!arr && cut > st) { arr = tryParse(raw.slice(st, cut + 1) + ']'); if (!arr) cut = raw.lastIndexOf('}', cut - 1); }
+    if (arr) lastGenErr = '';
+  }
+  if (!arr) { lastGenErr = 'Μη αναγνώσιμη απάντηση AI.'; return null; }
+  lastGenErr = '';
+  return arr.filter(x => x && x.name).map(x => ({
+    name: String(x.name),
+    main_ingredients: Array.isArray(x.main_ingredients) ? x.main_ingredients.map(String).slice(0,5) : [],
+  }));
 }
 
 const SLOT_STYLE = {
@@ -307,7 +317,8 @@ async function genForSlot(slotKey, ctxData, avoid) {
   const parsed = parseJsonArr(r);
   if (parsed && parsed.length) {
     const fresh = parsed.filter(m => m?.name && !avoid.includes(m.name));
-    if (fresh.length >= 3) return fresh.slice(0, 10);
+    if (fresh.length >= 1) return fresh.slice(0, 10);
+    lastGenErr = 'Το AI επέστρεψε μόνο γεύματα που έχουν ήδη εμφανιστεί.';
   }
   const ban = banned.map(b => b.toLowerCase());
   const ok = slotFallback(slotKey).filter(m =>
@@ -671,7 +682,7 @@ const loadRecipes = async () => {
     if (!list.length) {
       /* Το AI δεν έφερε νέες — ΚΡΑΤΑΜΕ τη δεκάδα που φαίνεται, δεν τη σβήνουμε */
       setRerolling(p => ({ ...p, [slotKey]: false }));
-      alert('Δεν ήρθαν νέες προτάσεις (πιθανό πρόσκαιρο σφάλμα AI). Η τρέχουσα δεκάδα παραμένει — δοκίμασε ξανά σε λίγο.');
+      alert('Δεν ήρθαν νέες προτάσεις — η τρέχουσα δεκάδα παραμένει.' + (lastGenErr ? '\n\nΑιτία: ' + lastGenErr : ''));
       return;
     }
     const full = injectStudioRecipes(slotKey, list);
