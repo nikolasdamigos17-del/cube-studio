@@ -207,7 +207,13 @@ export async function callAI(prompt, systemPrompt) {
     }
     const data = await response.json();
     if (data.error) return '__ERROR__: ' + explainAiError(response.status, data.error.message);
-    return data.content?.[0]?.text || '';
+    /* Sonnet 5: η απάντηση μπορεί να έχει πολλά μπλοκ (π.χ. thinking + text) —
+       μαζεύουμε ΟΛΑ τα text μπλοκ, όχι μόνο το πρώτο. */
+    const text = Array.isArray(data.content)
+      ? data.content.filter(b => b && b.type === 'text').map(b => b.text || '').join('')
+      : (data.content?.[0]?.text || '');
+    if (!text.trim()) return '__ERROR__: Το μοντέλο απάντησε χωρίς κείμενο — δοκίμασε ξανά.';
+    return text;
   } catch (e) {
     console.error('callAI error:', e);
     return '__ERROR__:' + e.message;
