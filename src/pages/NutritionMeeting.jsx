@@ -4,8 +4,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Minus, ArrowLeft, ArrowRight, Loader2, Scale, RotateCcw, Pencil, Plus, CalendarDays, Clock } from 'lucide-react';
 import { db, callAI } from '../lib/db';
-import { saveWithingsMeasureToClient } from '../lib/withings';
-import WithingsPicker from '../components/WithingsPicker';
+import { calcBodyStats } from '../lib/bodyCalc';
 
 /* ═══════════════ Σταθερά ═══════════════ */
 
@@ -258,18 +257,28 @@ function GreetCube({ colors }) {
 
 /* ═══════════════ AI συνταγές ═══════════════ */
 
+let lastGenErr = ''; // τελευταία πραγματική αιτία αποτυχίας δεκάδας (για το μήνυμα)
 function parseJsonArr(txt) {
-  if (!txt || txt.startsWith('__ERROR__')) return null;
-  try {
-    const s = txt.indexOf('['), e = txt.lastIndexOf(']');
-    if (s === -1 || e === -1) return null;
-    const arr = JSON.parse(txt.slice(s, e + 1));
-    if (!Array.isArray(arr)) return null;
-    return arr.filter(x => x && x.name).map(x => ({
-      name: String(x.name),
-      main_ingredients: Array.isArray(x.main_ingredients) ? x.main_ingredients.map(String).slice(0,5) : [],
-    }));
-  } catch { return null; }
+  if (!txt) { lastGenErr = 'Κενή απάντηση AI.'; return null; }
+  if (txt.startsWith('__ERROR__')) { lastGenErr = txt.replace('__ERROR__', '').replace(/^[:\s]+/, ''); return null; }
+  const raw = String(txt);
+  const st = raw.indexOf('[');
+  if (st === -1) { lastGenErr = 'Η απάντηση δεν περιείχε λίστα.'; return null; }
+  const tryParse = (t) => { try { const a = JSON.parse(t); return Array.isArray(a) ? a : null; } catch { return null; } };
+  const en = raw.lastIndexOf(']');
+  let arr = en > st ? tryParse(raw.slice(st, en + 1)) : null;
+  if (!arr) {
+    /* Κομμένη απάντηση (όριο tokens): κράτα όσα γεύματα ολοκληρώθηκαν */
+    let cut = raw.lastIndexOf('}');
+    while (!arr && cut > st) { arr = tryParse(raw.slice(st, cut + 1) + ']'); if (!arr) cut = raw.lastIndexOf('}', cut - 1); }
+    if (arr) lastGenErr = '';
+  }
+  if (!arr) { lastGenErr = 'Μη αναγνώσιμη απάντηση AI.'; return null; }
+  lastGenErr = '';
+  return arr.filter(x => x && x.name).map(x => ({
+    name: String(x.name),
+    main_ingredients: Array.isArray(x.main_ingredients) ? x.main_ingredients.map(String).slice(0,5) : [],
+  }));
 }
 
 const SLOT_STYLE = {
@@ -307,7 +316,8 @@ async function genForSlot(slotKey, ctxData, avoid) {
   const parsed = parseJsonArr(r);
   if (parsed && parsed.length) {
     const fresh = parsed.filter(m => m?.name && !avoid.includes(m.name));
-    if (fresh.length >= 3) return fresh.slice(0, 10);
+    if (fresh.length >= 1) return fresh.slice(0, 10);
+    lastGenErr = 'Το AI επέστρεψε μόνο γεύματα που έχουν ήδη εμφανιστεί.';
   }
   const ban = banned.map(b => b.toLowerCase());
   const ok = slotFallback(slotKey).filter(m =>
@@ -469,6 +479,82 @@ function WeightJourney({ data, color, color2 }) {
   );
 }
 
+/* ── Widget: προπονήσεις από την προηγούμενη ζύγιση (διαδραστικό strip) ── */
+function WorkoutStrip({ tplans, fromDate, toDate, acc }) {
+  const [sel, setSel] = useState(null);
+  const days = [];
+  const start = fromDate ? new Date(fromDate) : new Date(Date.now() - 13 * 864e5);
+  const end = new Date(toDate || Date.now());
+  for (let d = new Date(start); d <= end && days.length < 42; d.setDate(d.getDate() + 1)) days.push(d.toISOString().split('T')[0]);
+  const byDay = {};
+  for (const t of (tplans || [])) { if (days.includes(t.date)) (byDay[t.date] = byDay[t.date] || []).push(t); }
+  const doneCount = (tplans || []).filter(t => days.includes(t.date) && t.completed).length;
+  const anyCount = Object.values(byDay).reduce((a, b) => a + b.length, 0);
+  return (
+    <div>
+      <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
+        <p style={{ margin:0, fontSize:13, fontWeight:800 }}>🏋️ Προπονήσεις από την προηγούμενη ζύγιση</p>
+        <p style={{ margin:0, fontSize:12, color:'rgba(17,24,39,0.55)' }}><b style={{ color:'#111827' }}>{doneCount}</b> ολοκληρωμένες{anyCount > doneCount ? ` · ${anyCount - doneCount} προγραμματισμένες` : ''} · {days.length} ημέρες</p>
+      </div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginTop:12 }}>
+        {days.map(d => {
+          const list = byDay[d] || [];
+          const done = list.some(t => t.completed);
+          const has = list.length > 0;
+          return (
+            <button key={d} onClick={() => setSel(sel === d ? null : d)} title={d}
+              style={{ width:26, height:26, borderRadius:7, cursor: has ? 'pointer' : 'default', border: sel === d ? `2px solid ${acc}` : '1px solid rgba(17,24,39,0.10)',
+                background: done ? acc : has ? `${acc}33` : 'rgba(17,24,39,0.04)', transition:'transform .15s', transform: sel === d ? 'scale(1.15)' : 'none' }}/>
+          );
+        })}
+      </div>
+      {sel && (byDay[sel] || []).length > 0 && (
+        <p style={{ margin:'10px 0 0', fontSize:12.5, color:'rgba(17,24,39,0.8)' }}>
+          <b>{sel}:</b> {(byDay[sel] || []).map(t => `${t.title || t.session_type || 'Προπόνηση'}${t.completed ? ' ✓' : ' (προγραμματισμένη)'}`).join(' · ')}
+        </p>
+      )}
+      {doneCount === 0 && anyCount === 0 && <p style={{ margin:'10px 0 0', fontSize:12, color:'rgba(17,24,39,0.55)' }}>Καμία προπόνηση στο διάστημα — καλή αφορμή για κουβέντα. 😉</p>}
+    </div>
+  );
+}
+
+/* ── Widget: θερμιδική εικόνα βάσει της τελευταίας διατροφής ── */
+function CalorieTrajectory({ plan, client, weight, days, acc }) {
+  if (!plan || !num(plan.calories)) {
+    return (<div><p style={{ margin:0, fontSize:13, fontWeight:800 }}>🔥 Θερμιδική εικόνα</p>
+      <p style={{ margin:'10px 0 0', fontSize:12.5, color:'rgba(17,24,39,0.55)' }}>Δεν έχει ανατεθεί διατροφή ακόμα — μόλις βγει το πρώτο πλάνο, εδώ θα φαίνεται η θερμιδική πορεία.</p></div>);
+  }
+  const kcal = num(plan.calories);
+  const bmr = calcBodyStats(client, weight)?.bmr || null;
+  const tdee = bmr ? Math.round(bmr * 1.55) : null;
+  const diff = tdee != null ? kcal - tdee : null;
+  const estKg = diff != null && days > 0 ? (diff * days) / 7700 : null;
+  const clamp = diff != null ? Math.max(-800, Math.min(800, diff)) : 0;
+  const col = diff == null ? acc : diff <= 0 ? '#10b981' : '#f97316';
+  return (
+    <div>
+      <p style={{ margin:0, fontSize:13, fontWeight:800 }}>🔥 Θερμιδική εικόνα <span style={{ fontWeight:600, color:'rgba(17,24,39,0.55)' }}>· «{plan.title || 'τελευταία διατροφή'}»</span></p>
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', margin:'12px 0 0' }}>
+        <span style={{ fontSize:11.5, fontWeight:800, border:'1.4px solid rgba(17,24,39,0.15)', borderRadius:999, padding:'4px 11px' }}>Πλάνο: {kcal} kcal/ημέρα</span>
+        {tdee != null && <span style={{ fontSize:11.5, fontWeight:800, border:'1.4px solid rgba(17,24,39,0.15)', borderRadius:999, padding:'4px 11px' }}>Συντήρηση ≈ {tdee} kcal</span>}
+      </div>
+      {diff != null ? (
+        <>
+          <div style={{ position:'relative', height:14, borderRadius:999, background:'rgba(17,24,39,0.06)', margin:'16px 0 6px', overflow:'hidden' }}>
+            <div style={{ position:'absolute', left:'50%', top:0, bottom:0, width:1.5, background:'rgba(17,24,39,0.25)' }}/>
+            <div style={{ position:'absolute', top:2, bottom:2, borderRadius:999, background:col, opacity:.9,
+              left: clamp < 0 ? `${50 + clamp / 16}%` : '50%', width:`${Math.abs(clamp) / 16}%`, transition:'all .8s cubic-bezier(.22,1,.36,1)' }}/>
+          </div>
+          <p style={{ margin:0, fontSize:14, fontWeight:900, color:col }}>{diff <= 0 ? '▼ Έλλειμμα' : '▲ Πλεόνασμα'} {Math.abs(diff)} kcal/ημέρα</p>
+          {estKg != null && <p style={{ margin:'5px 0 0', fontSize:12, color:'rgba(17,24,39,0.55)' }}>Σε {days} ημέρες ≈ <b style={{ color:'#111827' }}>{estKg > 0 ? '+' : ''}{estKg.toFixed(1)} kg</b> θεωρητικά — σύγκρινέ το με τη ζυγαριά.</p>}
+        </>
+      ) : (
+        <p style={{ margin:'12px 0 0', fontSize:12, color:'rgba(17,24,39,0.55)' }}>Για εκτίμηση ελλείμματος/πλεονάσματος χρειάζονται ύψος & ημ. γέννησης στην καρτέλα.</p>
+      )}
+    </div>
+  );
+}
+
 function CompositionDonut({ weight, fatPct, muscleKg, delay = 0 }) {
   const w = num(weight);
   const fat = (w != null && num(fatPct) != null) ? w * num(fatPct) / 100 : null;
@@ -529,9 +615,8 @@ export default function NutritionMeeting() {
   /* μέτρηση */
   const startRef = useRef(new Date().toISOString());
   const [current, setCurrent] = useState(null);
-  const [manualOpen, setManualOpen] = useState(false);
-  const [manual, setManual] = useState({ weight_kg:'', body_fat_pct:'', muscle_mass_kg:'', body_water_pct:'' });
-  const [wPick, setWPick] = useState(false);
+  const [tplans, setTplans] = useState([]);
+  const [manual, setManual] = useState({ weight_kg:'' });
 
   /* αποφάσεις τελευταίας διατροφής + cart */
   const [decisions, setDecisions] = useState({});
@@ -568,14 +653,15 @@ export default function NutritionMeeting() {
   /* φόρτωση δεδομένων */
   useEffect(() => { (async () => {
     if (!clientId) return;
-    const [c, profs, plans, prog, recs] = await Promise.all([
+    const [c, profs, plans, prog, recs, tps] = await Promise.all([
       db.Client.get(clientId),
       db.NutritionProfile.filter({ client_id: clientId }),
       db.NutritionPlan.filter({ client_id: clientId }, '-date', 3),
       db.ClientProgress.filter({ client_id: clientId }, '-date', 30),
       db.MonthlyRecipe.list('-created_date', 50),
+      db.TrainingPlan.filter({ client_id: clientId }, '-date', 60),
     ]);
-    setClient(c); setProfile(profs[0] || null); setLastPlan(plans[0] || null);
+    setClient(c); setProfile(profs[0] || null); setLastPlan(plans[0] || null); setTplans(tps || []);
     setMonthlyRecipes(recs || []);
     setHistory([...prog].reverse());
   })(); }, [clientId]);
@@ -612,10 +698,9 @@ export default function NutritionMeeting() {
     const w = num(manual.weight_kg); if (!w) return;
     const rec = await db.ClientProgress.create({
       client_id: clientId, date: todayStr(), weight_kg: w,
-      body_fat_pct: num(manual.body_fat_pct), muscle_mass_kg: num(manual.muscle_mass_kg), body_water_pct: num(manual.body_water_pct),
       source: 'nutrition_meeting_manual',
     });
-    setCurrent(rec); setHistory(h => [...h, rec]); setManualOpen(false);
+    setCurrent(rec); setHistory(h => [...h, rec]); setManual({ weight_kg:'' });
   };
 
   const useLatest = () => { if (history.length) setCurrent(history[history.length - 1]); };
@@ -671,7 +756,7 @@ const loadRecipes = async () => {
     if (!list.length) {
       /* Το AI δεν έφερε νέες — ΚΡΑΤΑΜΕ τη δεκάδα που φαίνεται, δεν τη σβήνουμε */
       setRerolling(p => ({ ...p, [slotKey]: false }));
-      alert('Δεν ήρθαν νέες προτάσεις (πιθανό πρόσκαιρο σφάλμα AI). Η τρέχουσα δεκάδα παραμένει — δοκίμασε ξανά σε λίγο.');
+      alert('Δεν ήρθαν νέες προτάσεις — η τρέχουσα δεκάδα παραμένει.' + (lastGenErr ? '\n\nΑιτία: ' + lastGenErr : ''));
       return;
     }
     const full = injectStudioRecipes(slotKey, list);
@@ -796,7 +881,7 @@ const loadRecipes = async () => {
         {exitPanel && (
           <button onClick={() => { setExitPanel(false); setExitConfirm(true); }}
             style={{ marginTop:10, display:'flex', alignItems:'center', gap:8, padding:'10px 16px', borderRadius:12, cursor:'pointer', fontFamily:'inherit',
-              background:'rgba(10,10,17,0.96)', border:'1px solid rgba(17,24,39,0.13)', color:'#fff', fontSize:13, fontWeight:700,
+              background:'#ffffff', border:'1px solid rgba(17,24,39,0.13)', boxShadow:'0 12px 32px rgba(16,24,40,0.14)', color:'#111827', fontSize:13, fontWeight:700,
               boxShadow:'0 20px 60px -20px rgba(0,0,0,0.8)', animation:'nmfade .18s ease both' }}>
             <X style={{ width:14, height:14 }}/> Έξοδος
           </button>
@@ -844,28 +929,26 @@ const loadRecipes = async () => {
         {/* ═══ ΜΕΤΡΗΣΕΙΣ ═══ */}
         {screen === 'measure' && (
           !current ? (
-            <div style={{ ...S.card, textAlign:'center', padding:'52px 24px', maxWidth:620, margin:'6vh auto 0' }}>
-              <div style={{ width:70, height:70, margin:'0 auto 18px', borderRadius:'50%', border:`2px solid ${ACC}55`, display:'grid', placeItems:'center', animation:'nmpulse 1.8s ease-in-out infinite' }}>
+            <div style={{ ...S.card, textAlign:'center', padding:'46px 24px', maxWidth:560, margin:'6vh auto 0' }}>
+              <div style={{ width:70, height:70, margin:'0 auto 18px', borderRadius:'50%', border:`2px solid ${ACC}55`, display:'grid', placeItems:'center' }}>
                 <Scale style={{ width:28, height:28, color:ACC }}/>
               </div>
-              <p style={{ fontSize:18, fontWeight:800, margin:'0 0 6px' }}>Αναμονή μέτρησης από τη ζυγαριά…</p>
-              <p style={{ ...S.dim, fontSize:13.5, maxWidth:420, margin:'0 auto' }}>Κάνε τη ζύγιση στη ζυγαριά Withings — μόλις καταχωρηθεί, τα αποτελέσματα θα εμφανιστούν εδώ αυτόματα.</p>
-              <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:24, flexWrap:'wrap' }}>
-                <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
-                {wPick && <WithingsPicker onClose={()=>setWPick(false)}
-                  onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m); setCurrent(rec); setHistory(h=>[...h, rec]); setWPick(false); }}/>}
-                {history.length > 0 && (
-                  <button onClick={useLatest} style={S.btn(false)}>Χρήση τελευταίας μέτρησης ({history[history.length-1].date})</button>
-                )}
-                <button onClick={() => setManualOpen(v => !v)} style={S.btn(false)}>Χειροκίνητη καταχώρηση</button>
+              <p style={{ fontSize:18, fontWeight:800, margin:'0 0 6px' }}>Ζύγιση</p>
+              <p style={{ ...S.dim, fontSize:13, maxWidth:380, margin:'0 auto 20px' }}>Γράψε το σημερινό βάρος — μόνο τα κιλά χρειάζονται.</p>
+              <div style={{ display:'flex', gap:10, justifyContent:'center', alignItems:'center' }}>
+                <input autoFocus type="number" step="0.1" placeholder="0.0" value={manual.weight_kg}
+                  onChange={e => setManual({ weight_kg: e.target.value })}
+                  onKeyDown={e => { if (e.key === 'Enter') saveManual(); }}
+                  style={{ ...S.inp, width:170, textAlign:'center', fontSize:30, fontWeight:900, padding:'12px 10px' }}/>
+                <span style={{ fontSize:17, fontWeight:800, color:'rgba(17,24,39,0.55)' }}>kg</span>
               </div>
-              {manualOpen && (
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginTop:20, textAlign:'left' }}>
-                  {[['weight_kg','Βάρος (kg)'],['body_fat_pct','Λίπος %'],['muscle_mass_kg','Μυς (kg)'],['body_water_pct','Νερό %']].map(([k,l]) => (
-                    <div key={k}><p style={{ ...S.lbl, marginBottom:6 }}>{l}</p><input style={S.inp} type="number" step="0.1" value={manual[k]} onChange={e => setManual(p => ({ ...p, [k]: e.target.value }))}/></div>
-                  ))}
-                  <button onClick={saveManual} disabled={!num(manual.weight_kg)} style={{ ...S.btn(true), gridColumn:'1/5', opacity:num(manual.weight_kg)?1:.4 }}>Καταχώρηση</button>
-                </div>
+              <button onClick={saveManual} disabled={!num(manual.weight_kg)} style={{ ...S.btn(true), marginTop:18, opacity:num(manual.weight_kg)?1:.4 }}>Καταχώρηση</button>
+              {history.length > 0 && (
+                <p style={{ margin:'16px 0 0' }}>
+                  <button onClick={useLatest} style={{ background:'none', border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:12.5, color:'rgba(17,24,39,0.55)', textDecoration:'underline' }}>
+                    ή χρήση τελευταίας μέτρησης ({history[history.length-1].date} · {history[history.length-1].weight_kg}kg)
+                  </button>
+                </p>
               )}
             </div>
           ) : (
@@ -908,25 +991,16 @@ const loadRecipes = async () => {
                 })()}
               </div>
 
-              {/* gauges + σύνθεση */}
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(215px,1fr))', gap:14, marginBottom:14 }}>
-                <div className="nmreveal" style={{ ...S.card, animationDelay:'.1s' }}>
-                  <RadialGauge label="Λίπος" value={current.body_fat_pct} max={45} unit="%" color="#f87171" delta={dlt(current, prev, 'body_fat_pct')} dir={-1} delay={0.15}/>
-                </div>
-                <div className="nmreveal" style={{ ...S.card, animationDelay:'.2s' }}>
-                  <CompositionDonut weight={current.weight_kg} fatPct={current.body_fat_pct} muscleKg={current.muscle_mass_kg} delay={0.25}/>
-                </div>
-                <div className="nmreveal" style={{ ...S.card, animationDelay:'.3s' }}>
-                  <RadialGauge label="Νερό" value={current.body_water_pct} max={70} unit="%" color="#38bdf8" delta={dlt(current, prev, 'body_water_pct')} dir={1} delay={0.35}/>
-                </div>
+              {/* τι έγινε από την προηγούμενη ζύγιση */}
+              <div className="nmreveal" style={{ ...S.card, animationDelay:'.12s', marginBottom:14 }}>
+                <WorkoutStrip tplans={tplans} fromDate={prev?.date} toDate={current.date} acc={ACC}/>
               </div>
-
-              {/* μυς + πορεία */}
-              <div style={{ display:'grid', gridTemplateColumns:'minmax(230px,1fr) 2fr', gap:14, marginBottom:14 }}>
-                <div className="nmreveal" style={{ ...S.card, animationDelay:'.38s' }}>
-                  <BarsCompare label="Μυϊκή μάζα" unit="kg" prev={prev?.muscle_mass_kg} now={current.muscle_mass_kg} color="#34d399" delta={dlt(current, prev, 'muscle_mass_kg')} dir={1} delay={0.4}/>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:14, marginBottom:14 }}>
+                <div className="nmreveal" style={{ ...S.card, animationDelay:'.24s' }}>
+                  <CalorieTrajectory plan={lastPlan} client={client} weight={current.weight_kg} acc={ACC}
+                    days={prev ? Math.max(1, Math.round((new Date(current.date) - new Date(prev.date)) / 864e5)) : 0}/>
                 </div>
-                <div className="nmreveal" style={{ ...S.card, animationDelay:'.46s' }}>
+                <div className="nmreveal" style={{ ...S.card, animationDelay:'.34s' }}>
                   <p style={{ ...S.lbl, margin:'0 0 10px' }}>Πορεία βάρους</p>
                   <WeightJourney data={[...history.filter(h => h.id !== current.id), current].slice(-12)} color={P[0]} color2={P[1]}/>
                 </div>

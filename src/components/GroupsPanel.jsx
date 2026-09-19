@@ -40,19 +40,20 @@ export default function GroupsPanel({ clients, groups, onChanged }) {
         )}
         {groups.map(g => {
           const members = (g.member_ids || []).map(id => clients.find(c => c.id === id)).filter(Boolean);
-          const full = members.length >= GROUP_CAP;
+          const complete = members.length >= 2;          // 2 μέλη = πλήρες group
+          const atCap = members.length >= GROUP_CAP;     // 3 μέλη = δεν χωράει άλλος
           return (
-            <div key={g.id} className={`card p-5 ${full ? 'border-emerald-200' : 'border-dashed'}`}>
+            <div key={g.id} className={`card p-5 ${complete ? 'border-emerald-200' : 'border-dashed'}`}>
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: full ? 'linear-gradient(135deg,#e0457b,#8b5cf6)' : 'hsl(var(--muted))' }}>{full ? '👥' : '➕'}</div>
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-lg flex-shrink-0" style={{ background: complete ? 'linear-gradient(135deg,#e0457b,#8b5cf6)' : 'hsl(var(--muted))' }}>{complete ? '👥' : '➕'}</div>
                   <div className="min-w-0">
                     <p className="font-semibold truncate">{groupDisplayName(g, clients)}</p>
                     <p className="text-xs text-muted-foreground">{members.length}/{GROUP_CAP} μέλη</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  {full
+                  {complete
                     ? <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><Lock className="w-3 h-3"/> Πλήρες</span>
                     : <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Ανοιχτό</span>}
                   <button onClick={async () => { if (confirm(`Διαγραφή του group «${groupDisplayName(g, clients)}»; Τα μέλη επιστρέφουν σε personal.`)) { await deleteGroup(g, clients); onChanged(); } }} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4 text-red-400"/></button>
@@ -72,9 +73,9 @@ export default function GroupsPanel({ clients, groups, onChanged }) {
                 {members.length === 0 && <p className="text-sm text-muted-foreground py-2 text-center">Άδειο group — πρόσθεσε μέλη.</p>}
               </div>
 
-              {!full && (
+              {!atCap && (
                 <button onClick={() => setChoiceGroup(g)} className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-border text-sm font-semibold text-muted-foreground hover:border-foreground hover:text-foreground transition-colors">
-                  <UserPlus className="w-4 h-4"/> Προσθήκη στο group
+                  <UserPlus className="w-4 h-4"/> {members.length === 2 ? 'Προσθήκη 3ου μέλους' : 'Προσθήκη στο group'}
                 </button>
               )}
             </div>

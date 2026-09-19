@@ -15,6 +15,62 @@ const restSet = (ex) => ex.rest_between_sets || 60;
 const restEx = (ex) => ex.rest_after_exercise || 90;
 const fmt = (s) => `${Math.floor(s/60)}:${String(Math.max(0,s)%60).padStart(2,'0')}`;
 
+/* ── Χρονόμετρο σε σχήμα χρονομέτρου — το 4ο τεταρτημόριο στα 3μελή groups ── */
+function StopwatchWidget({ acc = '#e0457b', acc2 = '#8b5cf6' }) {
+  const [ms, setMs] = useState(0);
+  const [run, setRun] = useState(false);
+  const t0 = useRef(0);
+  useEffect(() => {
+    if (!run) return;
+    t0.current = Date.now() - ms;
+    const iv = setInterval(() => setMs(Date.now() - t0.current), 50);
+    return () => clearInterval(iv);
+  }, [run]);
+  const sec = ms / 1000;
+  const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+  const ss = String(Math.floor(sec % 60)).padStart(2, '0');
+  const cs = String(Math.floor((ms % 1000) / 10)).padStart(2, '0');
+  const angle = (sec % 60) * 6;
+  const ticks = Array.from({ length: 60 }, (_, i) => i);
+  return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', width:'100%', height:'100%', minHeight:0 }}>
+      <div style={{ position:'relative', width:'min(46vh, 78%, 300px)', aspectRatio:'1' }}>
+        <div style={{ position:'absolute', top:'-5%', left:'50%', transform:'translateX(-50%)', width:'11%', height:'6%', borderRadius:'6px 6px 3px 3px', background:'rgba(255,255,255,0.18)', border:'1px solid rgba(255,255,255,0.25)' }}/>
+        <svg viewBox="0 0 200 200" style={{ width:'100%', height:'100%', filter:`drop-shadow(0 0 18px ${acc}33)` }}>
+          <circle cx="100" cy="100" r="96" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.22)" strokeWidth="3"/>
+          <circle cx="100" cy="100" r="86" fill="rgba(0,0,0,0.35)" stroke="rgba(255,255,255,0.10)" strokeWidth="1"/>
+          {ticks.map(i => {
+            const a = (i * 6 - 90) * Math.PI / 180;
+            const big = i % 5 === 0;
+            const r1 = big ? 74 : 79, r2 = 84;
+            return <line key={i} x1={100 + r1 * Math.cos(a)} y1={100 + r1 * Math.sin(a)} x2={100 + r2 * Math.cos(a)} y2={100 + r2 * Math.sin(a)}
+              stroke={big ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.28)'} strokeWidth={big ? 2.4 : 1.2} strokeLinecap="round"/>;
+          })}
+          <g style={{ transform:`rotate(${angle}deg)`, transformOrigin:'100px 100px', transition: run ? 'none' : 'transform .3s' }}>
+            <line x1="100" y1="112" x2="100" y2="26" stroke={acc} strokeWidth="3" strokeLinecap="round"/>
+            <circle cx="100" cy="100" r="5.5" fill={acc}/>
+          </g>
+          <circle cx="100" cy="100" r="2.4" fill="#fff"/>
+        </svg>
+        <div style={{ position:'absolute', left:0, right:0, top:'62%', textAlign:'center', pointerEvents:'none' }}>
+          <span style={{ fontSize:'clamp(16px,3.4vh,24px)', fontWeight:900, letterSpacing:'.04em', color:'#fff', fontVariantNumeric:'tabular-nums' }}>{mm}:{ss}<span style={{ fontSize:'.55em', color:'rgba(255,255,255,0.55)' }}>.{cs}</span></span>
+        </div>
+      </div>
+      <div style={{ display:'flex', gap:10, marginTop:'2vh' }}>
+        <button onClick={() => setRun(r => !r)}
+          style={{ padding:'10px 22px', borderRadius:12, border:'none', cursor:'pointer', fontFamily:'inherit', fontSize:14, fontWeight:800,
+            background: run ? 'rgba(255,255,255,0.14)' : `linear-gradient(135deg, ${acc}, ${acc2})`, color:'#fff' }}>
+          {run ? '⏸ Παύση' : ms ? '▶ Συνέχεια' : '▶ Έναρξη'}
+        </button>
+        <button onClick={() => { setRun(false); setMs(0); }} disabled={!ms}
+          style={{ padding:'10px 18px', borderRadius:12, border:'1px solid rgba(255,255,255,0.22)', cursor:'pointer', fontFamily:'inherit', fontSize:14, fontWeight:800, background:'transparent', color:'rgba(255,255,255,0.8)', opacity: ms ? 1 : 0.4 }}>
+          ⟲ Μηδενισμός
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function GroupTraining() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -200,11 +256,25 @@ export default function GroupTraining() {
       {/* ── RUN (δύο προπονήσεις δίπλα-δίπλα + χρονόμετρα) ── */}
       {screen === 'run' && (
         <div style={{ position:'relative', zIndex:1, minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', userSelect:'none' }}>
-          <div style={{ display:'flex', flex:1, alignItems:'stretch' }}>
-            <Column i={0}/>
-            <div style={{ width:1, background:'linear-gradient(180deg, transparent, rgba(224,69,123,.5), rgba(139,92,246,.5), transparent)', flexShrink:0 }}/>
-            {plans[1] ? <Column i={1}/> : <div style={{ flex:1, display:'grid', placeItems:'center', color:'rgba(255,255,255,.4)', fontSize:13 }}>Μόνο ένα μέλος</div>}
-          </div>
+          {plans.length === 3 ? (
+            /* 3 άτομα: 4 τεταρτημόρια — 3 προπονήσεις + χρονόμετρο */
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr', flex:1, gap:1, background:'rgba(255,255,255,0.10)', minHeight:0 }}>
+              {[0, 1, 2].map(qi => (
+                <div key={qi} style={{ display:'flex', minHeight:0, minWidth:0, overflow:'hidden', background:'#07070c' }}>
+                  <Column i={qi}/>
+                </div>
+              ))}
+              <div style={{ display:'flex', minHeight:0, minWidth:0, background:'#07070c' }}>
+                <StopwatchWidget acc={ACCENT} acc2={ACCENT2}/>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display:'flex', flex:1, alignItems:'stretch' }}>
+              <Column i={0}/>
+              <div style={{ width:1, background:'linear-gradient(180deg, transparent, rgba(224,69,123,.5), rgba(139,92,246,.5), transparent)', flexShrink:0 }}/>
+              {plans[1] ? <Column i={1}/> : <div style={{ flex:1, display:'grid', placeItems:'center', color:'rgba(255,255,255,.4)', fontSize:13 }}>Μόνο ένα μέλος</div>}
+            </div>
+          )}
           <div style={{ position:'sticky', bottom:0, padding:'12px 16px calc(14px + env(safe-area-inset-bottom))', background:'linear-gradient(0deg, rgba(11,7,20,.96), rgba(11,7,20,.4))', display:'flex', justifyContent:'center', gap:10 }}>
             <button onClick={()=>setScreen('finish')} style={S.cta()}>Ολοκλήρωση προπόνησης</button>
           </div>

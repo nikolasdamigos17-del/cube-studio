@@ -70,7 +70,7 @@ export default function GroupProfile() {
         </div>
         <div className="mt-4 flex items-center gap-4 flex-wrap text-sm">
           <span className="px-3 py-1.5 rounded-full bg-violet-50 text-violet-700 font-semibold">🏋️ {weekNow*4} προπονήσεις / μήνα</span>
-          <span className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">Κάθε μέλος: €{(priceNow/2).toFixed(0)} (τιμή ÷ 2)</span>
+          <span className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">Κάθε μέλος: €{(priceNow/Math.max(1,members.length)).toFixed(0)} (τιμή ÷ {members.length||1})</span>
         </div>
         <button onClick={save} className="w-full mt-5 bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-gray-800">
           <Save className="w-4 h-4"/> {saved ? 'Αποθηκεύτηκε ✓' : 'Αποθήκευση πλάνου'}
@@ -87,7 +87,7 @@ export default function GroupProfile() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate">{m.name}</p>
                 <p className="text-xs text-gray-400">
-                  🏋️ €{(priceNow/2).toFixed(0)}/μήνα · {weekNow}×/εβδ.
+                  🏋️ €{(priceNow/Math.max(1,members.length)).toFixed(0)}/μήνα · {weekNow}×/εβδ.
                   {hasNutrition(m) ? ` · 🥗 €${nutritionPrice(m).toFixed(0)} για ${m.nutrition_meetings_per_month||0} διατροφές` : ''}
                 </p>
               </div>

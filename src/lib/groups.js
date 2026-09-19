@@ -2,7 +2,7 @@ import { db } from './db';
 
 /* ── Groups: πελάτες = αυτόνομες καταχωρήσεις που "φαίνονται" και στο group τους ── */
 
-export const GROUP_CAP = 2;                 // κλειδώνει στα 2 άτομα
+export const GROUP_CAP = 3;                 // έως 3 άτομα · «Πλήρες» θεωρείται ήδη από τα 2
 export const firstName = (name) => (name || '').trim().split(/\s+/)[0] || 'Πελάτης';
 
 /* Το group ονομάζεται από τα μικρά ονόματα των μελών: π.χ. "Χριστίνα-Σοφία" */
@@ -32,7 +32,7 @@ export const groupPrice = (g, members) => {
   if (g?.monthly_price != null && g.monthly_price !== '') return parseFloat(g.monthly_price) || 0;
   return (members || []).reduce((s,m)=>s+(parseFloat(m.monthly_price)||0),0);   // fallback: άθροισμα μελών
 };
-export const memberTrainingPrice = (g, members) => groupPrice(g, members) / 2;   // κάθε μέλος: τιμή group ÷ 2
+export const memberTrainingPrice = (g, members) => groupPrice(g, members) / Math.max(1, (members || []).length);   // κάθε μέλος: τιμή group ÷ πλήθος μελών
 export const nutritionPrice = (c) => {
   const v = (c?.nutrition_price != null && c.nutrition_price !== '') ? c.nutrition_price : c?.monthly_price;
   return parseFloat(v) || 0;
@@ -90,4 +90,14 @@ export async function repairOrphanGroupIds(db, clients, groups) {
   for (const c of (clients || [])) {
     if (c.group_id && !gids.has(c.group_id)) { try { await db.Client.update(c.id, { group_id: '' }); } catch {} }
   }
+}
+
+
+/* ── Δοκιμαστικά (Trials): μόνιμος «πελάτης» + «group» για μη εγγεγραμμένους ── */
+export async function ensureTrials(clients, groups) {
+  let tc = (clients || []).find(c => c.is_trial) || (clients || []).find(c => (c.name || '').trim().toLowerCase() === 'trials');
+  if (!tc) tc = await db.Client.create({ name: 'Trials', services: 'personal_training', frozen: true, is_trial: true, theme_color: '#f59e0b', sessions_per_week: 0, monthly_price: 0 });
+  let tg = (groups || []).find(g => g.is_trial) || (groups || []).find(g => (g.name || '').trim().toLowerCase() === 'trials');
+  if (!tg) tg = await db.Group.create({ name: 'Trials', member_ids: [], is_trial: true });
+  return { tc, tg };
 }

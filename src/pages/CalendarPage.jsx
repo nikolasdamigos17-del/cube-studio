@@ -272,7 +272,7 @@ export default function CalendarPage() {
       db.Group.list('name'),
     ]);
     const countered = await db.AppointmentRequest.filter({ status: 'client_countered' });
-    setAppointments(a); setClients(unorphanClients(c, g)); setGroups(g);
+    setAppointments(a); setClients(unorphanClients(c, g).filter(x => !x.is_trial)); setGroups(g.filter(x => !x.is_trial));
     setPendingCount(req.length + countered.length);
   };
   useEffect(() => { load(); const iv = setInterval(load, 10000); return () => clearInterval(iv); }, []);

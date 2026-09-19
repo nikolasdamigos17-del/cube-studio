@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, ChevronRight, X, Users, Users2, Check, Trash2, UserPlus, Lock, Mail, Copy, Send } from 'lucide-react';
 import { db } from '../lib/db';
-import { GROUP_CAP, firstName, groupDisplayName, isIndividual, createEmptyGroup, addMemberToGroup, removeMemberFromGroup, deleteGroup, unorphanClients, repairOrphanGroupIds } from '../lib/groups';
+import { GROUP_CAP, firstName, groupDisplayName, isIndividual, isGroupService, createEmptyGroup, addMemberToGroup, removeMemberFromGroup, deleteGroup, unorphanClients, repairOrphanGroupIds } from '../lib/groups';
 import { genToken, inviteMailto, activationLink } from '../lib/invites';
 
 const COLORS = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#8b5cf6','#06b6d4','#84cc16','#f97316'];
@@ -43,7 +43,20 @@ export function AddClientModal({ onClose, onSaved, client, clients, forGroup, on
       payload.sessions_per_month = Math.max(1, Math.round(payload.sessions_per_week * 4));
     if (!hasNutrition) payload.nutrition_meetings_per_month = 0;
 
-    if (client?.id) { await db.Client.update(client.id, payload); setSaving(false); onSaved(); onClose(); return; }
+    if (client?.id) {
+      /* Personal↔Group από την Επεξεργασία: αν έφυγε από group υπηρεσία ενώ
+         ανήκει σε group, βγαίνει ΚΑΙ από το group ώστε να εμφανίζεται πλέον
+         εκεί που τον βάλαμε (personal) — όχι στο προηγούμενο σημείο. */
+      if (client.group_id && !isGroupService(payload.services)) {
+        try {
+          const g = await db.Group.get(client.group_id);
+          if (g) await removeMemberFromGroup(g, client.id, clients || []);
+          else await db.Client.update(client.id, { group_id: '' });
+        } catch { try { await db.Client.update(client.id, { group_id: '' }); } catch {} }
+      }
+      await db.Client.update(client.id, payload); // οι επιλογές της φόρμας κερδίζουν
+      setSaving(false); onSaved(); onClose(); return;
+    }
     if (savedId) { await db.Client.update(savedId, payload); setSaving(false); onSaved(); onClose(); return; }
     const created = await db.Client.create(payload);
     setSaving(false);
@@ -196,7 +209,7 @@ export default function Clients() {
 
   const load = async () => {
     const [c,g] = await Promise.all([db.Client.list('name'), db.Group.list('name')]);
-    const cFixed = unorphanClients(c, g);
+    const cFixed = unorphanClients(c, g).filter(x => !x.is_trial); // ο «Trials» είναι εργαλείο του Training Center — δεν εμφανίζεται εδώ
     repairOrphanGroupIds(db, c, g); // μόνιμη επιδιόρθωση στη βάση, στο παρασκήνιο
     setClients(cFixed); setGroups(g);
   };
