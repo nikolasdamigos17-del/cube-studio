@@ -333,11 +333,15 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
     setTrialName(''); setChosen(''); setTitle(''); setNotes(''); setExercises([]); setFinishMode('');
     setScreen('trialname');
   };
-  const normEx = (list) => (list || []).map(e => ({ ...e,
-    sets: Math.min(8, Math.max(1, parseInt(e.sets) || 3)),
-    reps: String(e.reps || '10'),
-    weight_kg: Math.max(0, parseFloat(e.weight_kg) || 0),
-    rest_between_sets: Math.max(10, parseInt(e.rest_between_sets) || 60),
+  /* Μόνο τα γνωστά πεδία άσκησης — τίποτα ξένο δεν περνά στη βάση */
+  const normEx = (list) => (list || []).map(e => ({
+    name: String(e?.name || ''),
+    eq: String(e?.eq || ''),
+    sets: Math.min(8, Math.max(1, parseInt(e?.sets) || 3)),
+    reps: String(e?.reps || '10'),
+    weight_kg: Math.max(0, parseFloat(e?.weight_kg) || 0),
+    rest_between_sets: Math.max(10, parseInt(e?.rest_between_sets) || 60),
+    set_details: Array.isArray(e?.set_details) ? e.set_details.filter(x => x == null || typeof x !== 'object' || !x.nodeType).slice(0, 12) : [],
   }));
   const collectAll = () => [ ...draftsRef.current, { clientId: effClientId, clientName: trial ? trialLabel() : data.client.name, title, chosen, notes, exercises } ];
   const createPlansAll = async (extra = {}) => {
