@@ -4,7 +4,7 @@ import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, Che
 import { useNavigate, useLocation } from 'react-router-dom';
 import { db, callAI } from '../lib/db';
 import { EQUIPMENT, EXERCISE_DB, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
-import { isIndividual, isGroupService, groupDisplayName, firstName, GROUP_CAP, ensureTrials } from '../lib/groups';
+import { isIndividual, isGroupService, groupDisplayName, firstName, GROUP_CAP, ensureTrials, unorphanClients, repairOrphanGroupIds } from '../lib/groups';
 import GroupsPanel from '../components/GroupsPanel';
 
 // ── Equipment Label Badge ─────────────────────────────────────────────────────
@@ -673,7 +673,11 @@ export default function TrainingPlans() {
     let tri = null;
     try { tri = await ensureTrials(cAll, g); } catch {}
     setTrials(tri);
-    setPlans(p); setClients(cAll.filter(c => hasTrainingSvc(c) && !c.is_trial)); setAppts(ap);
+    /* Ορφανά group_id (group που διαγράφηκε) καθαρίζονται — αλλιώς ο πελάτης
+       δεν φαίνεται ΟΥΤΕ στα groups ΟΥΤΕ στους «χωρίς group». */
+    const cFix = unorphanClients(cAll, g);
+    try { await repairOrphanGroupIds(db, cAll, g); } catch {}
+    setPlans(p); setClients(cFix.filter(c => hasTrainingSvc(c) && !c.is_trial)); setAppts(ap);
     setGroups(g.filter(x => !x.is_trial));
   };
   useEffect(()=>{ load(); },[]);
@@ -987,8 +991,53 @@ export default function TrainingPlans() {
             </div>
           )}
 
+          {unassigned.length > 0 && (
+            <div className="card p-4 mb-4 border-dashed border-amber-300">
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-2">⏳ Group πελάτες χωρίς group ({unassigned.length})</p>
+              <div className="flex flex-wrap gap-2">
+                {unassigned.map(c => (
+                  <span key={c.id} className="inline-flex items-center gap-2 text-sm font-semibold bg-amber-50 text-amber-800 rounded-full px-3 py-1.5">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{backgroundColor:c.theme_color||'#f59e0b'}}>{(c.name||'?').charAt(0)}</span>
+                    {c.name}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">Τοποθέτησέ τους σε group από το «✏️ Επεξεργασία» → Προσθήκη στο group → Υπάρχων πελάτης.</p>
+            </div>
+          )}
+          <div className="flex items-center justify-between mb-2 mt-2">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2"><Users2 className="w-4 h-4"/> Groups ({groups.length})</p>
+            <button onClick={()=>setGroupsEdit(v=>!v)} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted">{groupsEdit ? '✓ Τέλος επεξεργασίας' : '✏️ Επεξεργασία'}</button>
+          </div>
+          {groupsEdit && <GroupsPanel clients={clients} groups={groups} onChanged={load}/>}
+          {shownGroups.length>0 && (
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {shownGroups.map(g=>{
+                  const members = (g.member_ids||[]).map(id=>clients.find(c=>c.id===id)).filter(Boolean);
+                  const gweek = members.reduce((n,m)=>n+weekOf(m.id).length,0);
+                  return (
+                    <div key={g.id} onClick={()=>setSelGroup(g)} className="card p-5 hover:shadow-md transition-all cursor-pointer group" style={{borderColor:'rgba(147,51,234,0.25)'}}>
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl flex-shrink-0" style={{background:'linear-gradient(135deg,#9333ea,#7c3aed)'}}>👥</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground truncate">{groupDisplayName(g, clients)}</p>
+                          <p className="text-sm text-muted-foreground">{members.map(m=>firstName(m.name)).join(' & ')||'—'}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-40 group-hover:opacity-100 flex-shrink-0"/>
+                      </div>
+                      <div className="mt-3 flex gap-2 flex-wrap items-center">
+                        <span className="badge" style={{background:'rgba(147,51,234,0.12)',color:'#7c3aed'}}>Ομαδική προπόνηση</span>
+                        {gweek>0 && <span className="badge badge-green">{gweek} προπονήσεις εβδομάδας</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {trials && (
-            <div className="mb-6">
+            <div className="mt-10">
               <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-3">🧪 Δοκιμαστικά — μη εγγεγραμμένοι</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button onClick={() => navigate(`/workout-creator?client=${trials.tc.id}&trial=1`)}
@@ -1049,51 +1098,6 @@ export default function TrainingPlans() {
                   </div>
                 );
               })()}
-            </div>
-          )}
-          {unassigned.length > 0 && (
-            <div className="card p-4 mb-4 border-dashed border-amber-300">
-              <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-2">⏳ Group πελάτες χωρίς group ({unassigned.length})</p>
-              <div className="flex flex-wrap gap-2">
-                {unassigned.map(c => (
-                  <span key={c.id} className="inline-flex items-center gap-2 text-sm font-semibold bg-amber-50 text-amber-800 rounded-full px-3 py-1.5">
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{backgroundColor:c.theme_color||'#f59e0b'}}>{(c.name||'?').charAt(0)}</span>
-                    {c.name}
-                  </span>
-                ))}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-2">Τοποθέτησέ τους σε group από το «✏️ Επεξεργασία» → Προσθήκη στο group → Υπάρχων πελάτης.</p>
-            </div>
-          )}
-          <div className="flex items-center justify-between mb-2 mt-2">
-            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2"><Users2 className="w-4 h-4"/> Groups ({groups.length})</p>
-            <button onClick={()=>setGroupsEdit(v=>!v)} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted">{groupsEdit ? '✓ Τέλος επεξεργασίας' : '✏️ Επεξεργασία'}</button>
-          </div>
-          {groupsEdit && <GroupsPanel clients={clients} groups={groups} onChanged={load}/>}
-          {shownGroups.length>0 && (
-            <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {shownGroups.map(g=>{
-                  const members = (g.member_ids||[]).map(id=>clients.find(c=>c.id===id)).filter(Boolean);
-                  const gweek = members.reduce((n,m)=>n+weekOf(m.id).length,0);
-                  return (
-                    <div key={g.id} onClick={()=>setSelGroup(g)} className="card p-5 hover:shadow-md transition-all cursor-pointer group" style={{borderColor:'rgba(147,51,234,0.25)'}}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl flex-shrink-0" style={{background:'linear-gradient(135deg,#9333ea,#7c3aed)'}}>👥</div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-foreground truncate">{groupDisplayName(g, clients)}</p>
-                          <p className="text-sm text-muted-foreground">{members.map(m=>firstName(m.name)).join(' & ')||'—'}</p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-40 group-hover:opacity-100 flex-shrink-0"/>
-                      </div>
-                      <div className="mt-3 flex gap-2 flex-wrap items-center">
-                        <span className="badge" style={{background:'rgba(147,51,234,0.12)',color:'#7c3aed'}}>Ομαδική προπόνηση</span>
-                        {gweek>0 && <span className="badge badge-green">{gweek} προπονήσεις εβδομάδας</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           )}
         </div>
