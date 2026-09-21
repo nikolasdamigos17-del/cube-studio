@@ -3,6 +3,21 @@ import { sbEnsureFresh } from './supabaseAuth';
 const generateId = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 const getStore = (key) => { try { const d = localStorage.getItem(`studio_${key}`); return d ? JSON.parse(d) : []; } catch { return []; } };
 const setStore = (key, data) => { try { localStorage.setItem(`studio_${key}`, JSON.stringify(data)); } catch {} };
+
+/* Σειριοποίηση που ΔΕΝ σκάει ποτέ: κόβει κύκλους/συναρτήσεις/DOM αντικείμενα
+   και καταγράφει ποιο πεδίο ήταν το προβληματικό. */
+const safeJson = (obj) => {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (k, v) => {
+    if (typeof v === 'function') return undefined;
+    if (v && typeof v === 'object') {
+      if (v.nodeType || (typeof Window !== 'undefined' && v instanceof Window)) { console.warn('[db] κόπηκε DOM αντικείμενο στο πεδίο:', k); return undefined; }
+      if (seen.has(v)) { console.warn('[db] κόπηκε κυκλική αναφορά στο πεδίο:', k); return undefined; }
+      seen.add(v);
+    }
+    return v;
+  });
+};
 const subscribers = {};
 
 const createEntity = (storeName) => ({
@@ -99,7 +114,7 @@ const createSupabaseEntity = (storeName) => {
       const now = new Date().toISOString();
       const rec = { ...data, id: generateId(), created_date: now, updated_date: now };
       const r = await fetch(sbBase(storeName), { method: 'POST', headers: sbHeaders({ Prefer: 'return=minimal' }),
-        body: JSON.stringify({ id: rec.id, doc: rec, created_date: now, updated_date: now }) });
+        body: safeJson({ id: rec.id, doc: rec, created_date: now, updated_date: now }) });
       if (!r.ok) { sbAuthFail(r); throw new Error('Supabase create ' + storeName + ' ' + r.status); }
       return rec;
     },
@@ -110,7 +125,7 @@ const createSupabaseEntity = (storeName) => {
       const now = new Date().toISOString();
       const merged = { ...cur, ...data, id, updated_date: now };
       const r = await fetch(sbBase(storeName) + `?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: sbHeaders({ Prefer: 'return=minimal' }),
-        body: JSON.stringify({ doc: merged, updated_date: now }) });
+        body: safeJson({ doc: merged, updated_date: now }) });
       if (!r.ok) { sbAuthFail(r); throw new Error('Supabase update ' + storeName + ' ' + r.status); }
       return merged;
     },

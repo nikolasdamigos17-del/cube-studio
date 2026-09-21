@@ -333,11 +333,15 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
     setTrialName(''); setChosen(''); setTitle(''); setNotes(''); setExercises([]); setFinishMode('');
     setScreen('trialname');
   };
-  const normEx = (list) => (list || []).map(e => ({ ...e,
-    sets: Math.min(8, Math.max(1, parseInt(e.sets) || 3)),
-    reps: String(e.reps || '10'),
-    weight_kg: Math.max(0, parseFloat(e.weight_kg) || 0),
-    rest_between_sets: Math.max(10, parseInt(e.rest_between_sets) || 60),
+  /* Μόνο τα γνωστά πεδία άσκησης — τίποτα ξένο δεν περνά στη βάση */
+  const normEx = (list) => (list || []).map(e => ({
+    name: String(e?.name || ''),
+    eq: String(e?.eq || ''),
+    sets: Math.min(8, Math.max(1, parseInt(e?.sets) || 3)),
+    reps: String(e?.reps || '10'),
+    weight_kg: Math.max(0, parseFloat(e?.weight_kg) || 0),
+    rest_between_sets: Math.max(10, parseInt(e?.rest_between_sets) || 60),
+    set_details: Array.isArray(e?.set_details) ? e.set_details.filter(x => x == null || typeof x !== 'object' || !x.nodeType).slice(0, 12) : [],
   }));
   const collectAll = () => [ ...draftsRef.current, { clientId: effClientId, clientName: trial ? trialLabel() : data.client.name, title, chosen, notes, exercises } ];
   const createPlansAll = async (extra = {}) => {
@@ -368,9 +372,15 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
   };
   const doSave = async () => {
     setSaving(true);
-    if (groupId) { const plans = await createPlansAll(); afterFinish(`Αποθηκεύτηκαν οι προπονήσεις (${plans.length} ${trial ? 'άτομα' : 'μέλη'}).`); return; }
-    await createPlan();
-    afterFinish('Η προπόνηση αποθηκεύτηκε στον φάκελο του πελάτη.');
+    try {
+      if (groupId) { const plans = await createPlansAll(); afterFinish(`Αποθηκεύτηκαν οι προπονήσεις (${plans.length} ${trial ? 'άτομα' : 'μέλη'}).`); return; }
+      await createPlan();
+      afterFinish('Η προπόνηση αποθηκεύτηκε στον φάκελο του πελάτη.');
+    } catch (e) {
+      console.error('doSave failed:', e);
+      setSaving(false);
+      alert('Η αποθήκευση απέτυχε: ' + String(e?.message || e));
+    }
   };
   const pickDay = async (ds) => {
     setSelDay(ds); setConfirmTime(''); setTimeCheck(null); setManualTime('');
@@ -397,27 +407,33 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
     if (ok) setConfirmTime(t);
   };
   const doSchedule = async () => {
-    setSaving(true);
-    if (groupId) {
-      const plans = await createPlansAll({ date: selDay });
+    try {
+      setSaving(true);
+      if (groupId) {
+        const plans = await createPlansAll({ date: selDay });
+        await db.Appointment.create({
+          title: `${groupLabel()} — ${TYPE_META[chosen]?.label || 'Group'}`,
+          group_id: groupId, client_id: '', client_name: groupLabel(), client_color: ACC,
+          type: 'training', date: selDay, start_time: confirmTime,
+          duration_minutes: (data.client.session_duration_hours || 1) * 60, status: 'scheduled',
+          plan_id: plans[0]?.id || '', group_session_id: groupSessionId,
+        });
+        afterFinish(trial ? `Προγραμματίστηκε το δοκιμαστικό: ${selDay} · ${confirmTime}.` : `Προγραμματίστηκε ΕΝΑ κοινό ραντεβού για το group: ${selDay} · ${confirmTime}.`);
+        return;
+      }
+      const plan = await createPlan({ date: selDay });
       await db.Appointment.create({
-        title: `${groupLabel()} — ${TYPE_META[chosen]?.label || 'Group'}`,
-        group_id: groupId, client_id: '', client_name: groupLabel(), client_color: ACC,
+        title: `${trial ? trialLabel() : data.client.name} — ${TYPE_META[chosen]?.label || 'Προπόνηση'}`,
+        client_id: effClientId, client_name: trial ? trialLabel() : data.client.name, client_color: data.client.theme_color || ACC,
         type: 'training', date: selDay, start_time: confirmTime,
-        duration_minutes: (data.client.session_duration_hours || 1) * 60, status: 'scheduled',
-        plan_id: plans[0]?.id || '', group_session_id: groupSessionId,
+        duration_minutes: (data.client.session_duration_hours || 1) * 60, status: 'scheduled', plan_id: plan.id,
       });
-      afterFinish(trial ? `Προγραμματίστηκε το δοκιμαστικό: ${selDay} · ${confirmTime}.` : `Προγραμματίστηκε ΕΝΑ κοινό ραντεβού για το group: ${selDay} · ${confirmTime}.`);
-      return;
+      afterFinish(`Προγραμματίστηκε: ${selDay} · ${confirmTime} — αποθηκεύτηκε και στα δύο ημερολόγια.`);
+    } catch (e) {
+      console.error('doSchedule failed:', e);
+      setSaving(false);
+      alert('Ο προγραμματισμός απέτυχε: ' + String(e?.message || e));
     }
-    const plan = await createPlan({ date: selDay });
-    await db.Appointment.create({
-      title: `${trial ? trialLabel() : data.client.name} — ${TYPE_META[chosen]?.label || 'Προπόνηση'}`,
-      client_id: effClientId, client_name: trial ? trialLabel() : data.client.name, client_color: data.client.theme_color || ACC,
-      type: 'training', date: selDay, start_time: confirmTime,
-      duration_minutes: (data.client.session_duration_hours || 1) * 60, status: 'scheduled', plan_id: plan.id,
-    });
-    afterFinish(`Προγραμματίστηκε: ${selDay} · ${confirmTime} — αποθηκεύτηκε και στα δύο ημερολόγια.`);
   };
   const openAssign = async () => {
     setFinishMode('assign');
@@ -432,20 +448,26 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
     setOpenAppts(list);
   };
   const doAssign = async (appt) => {
-    setSaving(true);
-    if (groupId) {
-      const plans = await createPlansAll({ date: appt.date });
-      const patch = { plan_id: plans[0]?.id || '', group_session_id: groupSessionId };
-      if (!appt.client_id && !appt.group_id) { patch.group_id = groupId; patch.client_name = groupLabel(); }
+    try {
+      setSaving(true);
+      if (groupId) {
+        const plans = await createPlansAll({ date: appt.date });
+        const patch = { plan_id: plans[0]?.id || '', group_session_id: groupSessionId };
+        if (!appt.client_id && !appt.group_id) { patch.group_id = groupId; patch.client_name = groupLabel(); }
+        await db.Appointment.update(appt.id, patch);
+        afterFinish(`Ανατέθηκαν και οι ${plans.length} προπονήσεις στο ραντεβού ${appt.date} · ${appt.start_time}.`);
+        return;
+      }
+      const plan = await createPlan({ date: appt.date });
+      const patch = { plan_id: plan.id };
+      if (!appt.client_id && !appt.group_id) { patch.client_id = effClientId; patch.client_name = data.client?.name || ''; }
       await db.Appointment.update(appt.id, patch);
-      afterFinish(`Ανατέθηκαν και οι ${plans.length} προπονήσεις στο ραντεβού ${appt.date} · ${appt.start_time}.`);
-      return;
+      afterFinish(`Ανατέθηκε στο ραντεβού ${appt.date} · ${appt.start_time}.`);
+    } catch (e) {
+      console.error('doAssign failed:', e);
+      setSaving(false);
+      alert('Η ανάθεση απέτυχε: ' + String(e?.message || e));
     }
-    const plan = await createPlan({ date: appt.date });
-    const patch = { plan_id: plan.id };
-    if (!appt.client_id && !appt.group_id) { patch.client_id = effClientId; patch.client_name = data.client?.name || ''; }
-    await db.Appointment.update(appt.id, patch);
-    afterFinish(`Ανατέθηκε στο ραντεβού ${appt.date} · ${appt.start_time}.`);
   };
 
   /* ── στυλ ── */

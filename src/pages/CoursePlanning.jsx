@@ -2,8 +2,6 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, X, Lock, Loader2, Target, Leaf, Utensils, Scale, Plus, Sparkles, Home, Dumbbell, TrendingUp, Wallet, MessageCircle } from 'lucide-react';
 import { db } from '../lib/db';
-import { saveWithingsMeasureToClient } from '../lib/withings';
-import WithingsPicker from '../components/WithingsPicker';
 
 /* ═══════════ Στατικά δεδομένα ═══════════ */
 
@@ -98,10 +96,8 @@ export default function CoursePlanning() {
   /* βήμα 4 — μέτρηση */
   const startRef = useRef(new Date().toISOString());
   const [captured, setCaptured] = useState(null);
-  const [wPick, setWPick] = useState(false);
   const [skipMeasure, setSkipMeasure] = useState(false);
-  const [manual, setManual] = useState({ weight_kg:'', body_fat_pct:'', muscle_mass_kg:'', body_water_pct:'' });
-  const [manualOpen, setManualOpen] = useState(false);
+  const [manual, setManual] = useState({ weight_kg:'' });
 
   const ACC = client?.theme_color || '#e0a355';
 
@@ -158,12 +154,9 @@ export default function CoursePlanning() {
     const rec = await db.ClientProgress.create({
       client_id: clientId, date: new Date().toISOString().split('T')[0],
       weight_kg: w,
-      body_fat_pct: parseFloat(manual.body_fat_pct) || null,
-      muscle_mass_kg: parseFloat(manual.muscle_mass_kg) || null,
-      body_water_pct: parseFloat(manual.body_water_pct) || null,
       source: 'course_planning_manual',
     });
-    setCaptured(rec); setManualOpen(false);
+    setCaptured(rec);
   };
 
   const finish = async () => {
@@ -396,25 +389,21 @@ export default function CoursePlanning() {
                 <div style={{ width:64, height:64, margin:'0 auto 16px', borderRadius:'50%', border:`2px solid ${ACC}55`, display:'grid', placeItems:'center', animation:'cpPulse 1.8s ease-in-out infinite' }}>
                   <Scale style={{ width:26, height:26, color:ACC }}/>
                 </div>
-                <p style={{ fontSize:17, fontWeight:800, margin:'0 0 6px' }}>Αναμονή μέτρησης από τη ζυγαριά…</p>
-                <p style={{ ...S.dim, fontSize:13, margin:'0 auto', maxWidth:420 }}>Κάνε τη ζύγιση στη ζυγαριά Withings — μόλις καταχωρηθεί νέα μέτρηση για τον/την {client.name?.split(' ')[0]}, θα εμφανιστεί εδώ αυτόματα.</p>
-                <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:22, flexWrap:'wrap' }}>
-                  <button onClick={()=>setWPick(true)} style={S.btn(true)}>Λήψη από Withings</button>
-                  {wPick && <WithingsPicker onClose={()=>setWPick(false)}
-                    onPick={async(m)=>{ const rec=await saveWithingsMeasureToClient(db, clientId, m); setCaptured(rec); setWPick(false); }}/>}
-                  <button onClick={()=>setManualOpen(v=>!v)} style={S.btn(false)}>Χειροκίνητη καταχώρηση</button>
+                <p style={{ fontSize:17, fontWeight:800, margin:'0 0 6px' }}>Ζύγιση</p>
+                <p style={{ ...S.dim, fontSize:13, margin:'0 auto 18px', maxWidth:380 }}>Γράψε το βάρος του/της {client.name?.split(' ')[0]} — μόνο τα κιλά.</p>
+                <div style={{ display:'flex', gap:10, justifyContent:'center', alignItems:'center' }}>
+                  <input autoFocus type="number" step="0.1" placeholder="0.0" value={manual.weight_kg}
+                    onChange={e=>setManual({ weight_kg: e.target.value })}
+                    onKeyDown={e=>{ if (e.key==='Enter') saveManual(); }}
+                    style={{ ...S.inp, width:160, textAlign:'center', fontSize:28, fontWeight:900, padding:'11px 10px' }}/>
+                  <span style={{ fontSize:16, fontWeight:800, color:'rgba(17,24,39,0.55)' }}>kg</span>
+                </div>
+                <div style={{ display:'flex', gap:12, justifyContent:'center', alignItems:'center', marginTop:18, flexWrap:'wrap' }}>
+                  <button onClick={saveManual} disabled={!parseFloat(manual.weight_kg)} style={{ ...S.btn(true), opacity:parseFloat(manual.weight_kg)?1:.4 }}>Καταχώρηση</button>
                   <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontSize:12.5, color:'rgba(17,24,39,0.55)', cursor:'pointer' }}>
                     <input type="checkbox" checked={skipMeasure} onChange={e=>setSkipMeasure(e.target.checked)}/> Παράλειψη για τώρα
                   </label>
                 </div>
-                {manualOpen&&(
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginTop:20, textAlign:'left' }}>
-                    {[['weight_kg','Βάρος (kg)'],['body_fat_pct','Λίπος %'],['muscle_mass_kg','Μυς (kg)'],['body_water_pct','Νερό %']].map(([k,l])=>(
-                      <div key={k}><p style={{ ...S.lbl, marginBottom:6 }}>{l}</p><input style={S.inp} type="number" step="0.1" value={manual[k]} onChange={e=>setManual(p=>({...p,[k]:e.target.value}))}/></div>
-                    ))}
-                    <button onClick={saveManual} disabled={!parseFloat(manual.weight_kg)} style={{ ...S.btn(true), gridColumn:'1/5', opacity:parseFloat(manual.weight_kg)?1:.4 }}>Καταχώρηση μέτρησης</button>
-                  </div>
-                )}
               </div>
             ):(
               <div style={{ ...S.card, borderColor:`${ACC}66` }}>
@@ -423,11 +412,11 @@ export default function CoursePlanning() {
                   <p style={{ fontSize:16, fontWeight:800, margin:0 }}>Η μέτρηση καταχωρήθηκε</p>
                   <span style={{ ...S.dim, fontSize:12, marginLeft:'auto' }}>{captured.date}</span>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
-                  {[['Βάρος', captured.weight_kg, 'kg'],['Λίπος', captured.body_fat_pct, '%'],['Μυς', captured.muscle_mass_kg, 'kg'],['Νερό', captured.body_water_pct, '%']].map(([l,v,u])=>(
-                    <div key={l} style={{ background:'rgba(0,0,0,0.3)', border:'1px solid rgba(17,24,39,0.13)', borderRadius:14, padding:'13px 14px' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'minmax(160px,240px)', justifyContent:'start' }}>
+                  {[['Βάρος', captured.weight_kg, 'kg']].map(([l,v,u])=>(
+                    <div key={l} style={{ background:'rgba(17,24,39,0.04)', border:'1px solid rgba(17,24,39,0.10)', borderRadius:14, padding:'13px 14px' }}>
                       <p style={{ ...S.lbl, margin:'0 0 5px' }}>{l}</p>
-                      <p style={{ fontSize:22, fontWeight:800, margin:0 }}>{v ?? '—'}<span style={{ fontSize:12, color:'rgba(17,24,39,0.55)' }}> {v!=null?u:''}</span></p>
+                      <p style={{ fontSize:24, fontWeight:900, margin:0 }}>{v ?? '—'}<span style={{ fontSize:12, color:'rgba(17,24,39,0.55)' }}> {v!=null?u:''}</span></p>
                     </div>
                   ))}
                 </div>

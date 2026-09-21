@@ -4,7 +4,7 @@ import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, Che
 import { useNavigate, useLocation } from 'react-router-dom';
 import { db, callAI } from '../lib/db';
 import { EQUIPMENT, EXERCISE_DB, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
-import { isIndividual, groupDisplayName, firstName, GROUP_CAP, ensureTrials } from '../lib/groups';
+import { isIndividual, isGroupService, groupDisplayName, firstName, GROUP_CAP, ensureTrials } from '../lib/groups';
 import GroupsPanel from '../components/GroupsPanel';
 
 // ── Equipment Label Badge ─────────────────────────────────────────────────────
@@ -544,6 +544,98 @@ const resultTotals = (p) => {
   return { planned, done, miss };
 };
 
+/* ── Schedule/Reschedule αποθηκευμένης προπόνησης: νέο event ή ανάθεση σε υπάρχον ── */
+function ScheduleModal({ t, appts, onClose, onDone }) {
+  const todayISO = new Date().toISOString().split('T')[0];
+  const [mode, setMode] = useState('');
+  const [date, setDate] = useState(t.currentAppt?.date || todayISO);
+  const [time, setTime] = useState(t.currentAppt?.start_time || '18:00');
+  const [title, setTitle] = useState(t.currentAppt?.title || t.defaultTitle || '');
+  const [busy, setBusy] = useState(false);
+  const relevant = appts
+    .filter(a => (t.isGroup ? (a.group_id === t.groupId) : (a.client_id === t.clientId)) && (a.date || '') >= todayISO && (!t.currentAppt || a.id !== t.currentAppt.id))
+    .sort((a, b) => ((a.date || '') + (a.start_time || '')).localeCompare((b.date || '') + (b.start_time || ''))).slice(0, 12);
+  const unlinkOld = async () => { if (t.currentAppt) { try { await db.Appointment.update(t.currentAppt.id, { plan_id: '', group_session_id: '' }); } catch {} } };
+  const doNew = async () => {
+    if (busy || !date || !time) return; setBusy(true);
+    try {
+      await unlinkOld();
+      await db.Appointment.create({
+        title: title.trim() || t.defaultTitle, type: 'training', status: 'scheduled',
+        client_id: t.isGroup ? '' : t.clientId, client_name: t.clientName, client_color: t.color,
+        group_id: t.groupId || '', date, start_time: time, duration_minutes: t.durationMin || 60,
+        plan_id: t.plans[0]?.id || '', ...(t.isGroup ? { group_session_id: t.groupSessionId } : {}),
+      });
+      for (const pl of t.plans) { try { await db.TrainingPlan.update(pl.id, { date }); } catch {} }
+      onDone();
+    } catch (e) { setBusy(false); alert('Αποτυχία: ' + String(e?.message || e)); }
+  };
+  const doPick = async (a) => {
+    if (busy) return; setBusy(true);
+    try {
+      await unlinkOld();
+      await db.Appointment.update(a.id, { plan_id: t.plans[0]?.id || '', ...(t.isGroup ? { group_session_id: t.groupSessionId } : {}) });
+      for (const pl of t.plans) { try { await db.TrainingPlan.update(pl.id, { date: a.date }); } catch {} }
+      onDone();
+    } catch (e) { setBusy(false); alert('Αποτυχία: ' + String(e?.message || e)); }
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.45)' }} onClick={onClose}>
+      <div className="card w-full max-w-md p-5 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <p className="font-bold text-foreground">{t.currentAppt ? '📅 Reschedule' : '📅 Προγραμματισμός'}</p>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary"><X className="w-4 h-4"/></button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">{t.plans.length > 1 ? `${t.plans.length} προπονήσεις group` : `«${t.plans[0]?.title || 'Προπόνηση'}»`}{t.currentAppt ? ` · τώρα: ${t.currentAppt.date} ${t.currentAppt.start_time || ''}` : ''}</p>
+        {!mode && (
+          <div className="space-y-2.5">
+            <button onClick={() => setMode('new')} className="w-full text-left card p-4 hover:border-foreground/30 transition-colors">
+              <p className="font-bold text-sm">✨ Δημιουργία νέου event</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Μέρα, ώρα & όνομα — μπαίνει στο ημερολόγιο.</p>
+            </button>
+            <button onClick={() => relevant.length && setMode('pick')} disabled={!relevant.length}
+              className={`w-full text-left card p-4 transition-colors ${relevant.length ? 'hover:border-foreground/30' : 'opacity-45'}`}>
+              <p className="font-bold text-sm">🔗 Ανάθεση σε υπάρχον event</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{relevant.length ? `${relevant.length} προσεχή ραντεβού ${t.isGroup ? 'του group' : 'του πελάτη'}` : `Δεν υπάρχουν προσεχή ραντεβού ${t.isGroup ? 'του group' : 'του πελάτη'}`}.</p>
+            </button>
+          </div>
+        )}
+        {mode === 'new' && (
+          <div className="space-y-3">
+            <div><p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Όνομα event</p>
+              <input value={title} onChange={e => setTitle(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm font-semibold"/></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Ημέρα</p>
+                <input type="date" min={todayISO} value={date} onChange={e => setDate(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-semibold"/></div>
+              <div><p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Ώρα</p>
+                <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-semibold"/></div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setMode('')} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold">Πίσω</button>
+              <button onClick={doNew} disabled={busy || !date || !time}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: 'linear-gradient(180deg,#e0457b,#b52f78)', opacity: busy ? .6 : 1 }}>
+                {busy ? '…' : t.currentAppt ? 'Reschedule εδώ' : 'Δημιουργία & ανάθεση'}
+              </button>
+            </div>
+          </div>
+        )}
+        {mode === 'pick' && (
+          <div className="space-y-2">
+            {relevant.map(a => (
+              <button key={a.id} onClick={() => doPick(a)} disabled={busy}
+                className="w-full text-left rounded-xl border border-border p-3 hover:border-foreground/30 transition-colors">
+                <p className="text-sm font-bold">{a.date} · {a.start_time || '—'}</p>
+                <p className="text-xs text-muted-foreground truncate">{a.title || a.client_name || 'Ραντεβού'}{a.plan_id ? ' · ⚠️ έχει ήδη προπόνηση (θα αντικατασταθεί)' : ''}</p>
+              </button>
+            ))}
+            <button onClick={() => setMode('')} className="w-full py-2.5 rounded-xl border border-border text-sm font-semibold">Πίσω</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TrainingPlans() {
   const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
@@ -556,6 +648,7 @@ export default function TrainingPlans() {
   const [groups, setGroups] = useState([]);
   const [groupsEdit, setGroupsEdit] = useState(false);
   const [trials, setTrials] = useState(null);
+  const [sched, setSched] = useState(null);
   const [selGroup, setSelGroup] = useState(null);
   const location = useLocation();
   /* deep-link από widgets */
@@ -664,6 +757,14 @@ export default function TrainingPlans() {
                   {p.completed && tot.miss>0 && <span className="badge" style={{background:'rgba(244,63,94,0.1)',color:'#e11d48'}}>{tot.miss} κάτω από στόχο</span>}
                   <div className="flex gap-1">
                     {!p.completed && <button onClick={()=>navigate('/live-training',{state:{plan:p,clientName:p.client_name||client.name}})} className="p-2 rounded-lg hover:bg-secondary" title="Έναρξη Live"><Play className="w-4 h-4 text-emerald-500"/></button>}
+                    {!p.completed && (() => { const pa = appts.find(a => a.plan_id === p.id); return (
+                      <button onClick={() => setSched({ plans:[p], isGroup:false, currentAppt: pa || null,
+                          defaultTitle: `${client.name} — ${p.title || 'Προπόνηση'}`, clientId: client.id, clientName: client.name,
+                          color: client.theme_color || '#6366f1', groupId:'', groupSessionId:'', durationMin: (client.session_duration_hours || 1) * 60 })}
+                        className="p-2 rounded-lg hover:bg-secondary" title={pa ? 'Reschedule' : 'Schedule'}>
+                        <CalendarDays className={`w-4 h-4 ${pa ? 'text-amber-500' : 'text-sky-500'}`}/>
+                      </button>
+                    ); })()}
                     <button onClick={()=>setEditPlan(p)} className="p-2 rounded-lg hover:bg-secondary" title="Επεξεργασία"><Edit2 className="w-4 h-4 text-muted-foreground"/></button>
                     <button onClick={async()=>{ await db.TrainingPlan.delete(p.id); load(); }} className="p-2 rounded-lg hover:bg-secondary" title="Διαγραφή"><Trash2 className="w-4 h-4 text-muted-foreground"/></button>
                     <button onClick={()=>setOpenId(open?null:p.id)} className="p-2 rounded-lg hover:bg-secondary"><ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${open?'rotate-90':''}`}/></button>
@@ -693,6 +794,7 @@ export default function TrainingPlans() {
         </div>
 
         {editPlan && <PlanModal clients={clients} plan={editPlan} onClose={()=>setEditPlan(null)} onSaved={load}/>}
+        {sched && <ScheduleModal t={sched} appts={appts} onClose={()=>setSched(null)} onDone={async()=>{ setSched(null); await load(); }}/>}
       </div>
     );
   }
@@ -805,6 +907,14 @@ export default function TrainingPlans() {
                           );
                         })}
                       </div>
+                      {(() => { const pa = appts.find(a => a.group_session_id === sess.id || sess.plans.some(pl => a.plan_id === pl.id)); return (
+                        <button onClick={() => setSched({ plans: sess.plans, isGroup:true, currentAppt: pa || null,
+                            defaultTitle: `${groupDisplayName(g, clients)} — Group προπόνηση`, clientId:'', clientName: groupDisplayName(g, clients),
+                            color:'#e0457b', groupId: g.id, groupSessionId: sess.id, durationMin: 60 })}
+                          className="w-full mb-2 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:border-foreground/40 transition-colors flex items-center justify-center gap-2">
+                          <CalendarDays className={`w-4 h-4 ${pa ? 'text-amber-500' : 'text-sky-500'}`}/> {pa ? `Reschedule (${pa.date} · ${pa.start_time || ''})` : 'Schedule σε ραντεβού'}
+                        </button>
+                      ); })()}
                       {!allDone && (
                         <button onClick={()=>navigate('/group-training',{state:{ plans:sess.plans, members, groupName:groupDisplayName(g, clients) }})}
                           className="btn w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2" style={{background:'linear-gradient(180deg,#e0457b,#b52f78)',boxShadow:'0 4px 16px rgba(224,69,123,.4)'}}>
@@ -818,26 +928,29 @@ export default function TrainingPlans() {
             </div>
           );
         })()}
+        {sched && <ScheduleModal t={sched} appts={appts} onClose={()=>setSched(null)} onDone={async()=>{ setSched(null); await load(); }}/>}
       </div>
     );
   }
 
   /* ─────────── ΚΕΝΤΡΙΚΗ ΟΨΗ ─────────── */
   const q = search.toLowerCase();
-  const shownIndiv = clients.filter(c=>isIndividual(c) && (!q||c.name?.toLowerCase().includes(q)));
+  /* Personal = βάσει υπηρεσίας: αλλαγή PT↔Group στην Επεξεργασία έχει ΑΜΕΣΟ αντίκτυπο εδώ */
+  const shownIndiv = clients.filter(c=>!isGroupService(c.services) && (!q||c.name?.toLowerCase().includes(q)));
+  const unassigned = clients.filter(c=>isGroupService(c.services) && !c.group_id && (!q||c.name?.toLowerCase().includes(q)));
   const shownGroups = groups.filter(g=>(g.member_ids||[]).length>0 && (!q||groupDisplayName(g, clients).toLowerCase().includes(q)));
   const weekTotal = plans.filter(p=>p.completed && ((p.completed_date||p.date||'')>=tcDaysAgo(7))).length;
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto animate-fade-in">
-      <div><h1 className="page-title">Training Center</h1><p className="page-subtitle">{shownIndiv.length} individuals · {shownGroups.length} groups · {weekTotal} ολοκληρωμένες αυτή την εβδομάδα</p></div>
+      <div><h1 className="page-title">Training Center</h1><p className="page-subtitle">{shownIndiv.length} personal · {shownGroups.length} groups · {weekTotal} ολοκληρωμένες αυτή την εβδομάδα</p></div>
 
       <div className="relative my-5 max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Αναζήτηση πελάτη…" className="input-base pl-9"/>
       </div>
 
-      {shownIndiv.length===0 && shownGroups.length===0 ? (
+      {shownIndiv.length===0 && shownGroups.length===0 && unassigned.length===0 ? (
         <div className="text-center py-24 text-muted-foreground">
           <Users className="w-12 h-12 mx-auto mb-3 opacity-30"/>
           <p className="font-medium">Κανένας πελάτης προπόνησης</p>
@@ -936,6 +1049,20 @@ export default function TrainingPlans() {
                   </div>
                 );
               })()}
+            </div>
+          )}
+          {unassigned.length > 0 && (
+            <div className="card p-4 mb-4 border-dashed border-amber-300">
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-600 mb-2">⏳ Group πελάτες χωρίς group ({unassigned.length})</p>
+              <div className="flex flex-wrap gap-2">
+                {unassigned.map(c => (
+                  <span key={c.id} className="inline-flex items-center gap-2 text-sm font-semibold bg-amber-50 text-amber-800 rounded-full px-3 py-1.5">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold" style={{backgroundColor:c.theme_color||'#f59e0b'}}>{(c.name||'?').charAt(0)}</span>
+                    {c.name}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">Τοποθέτησέ τους σε group από το «✏️ Επεξεργασία» → Προσθήκη στο group → Υπάρχων πελάτης.</p>
             </div>
           )}
           <div className="flex items-center justify-between mb-2 mt-2">
