@@ -3,7 +3,7 @@ import { groupDisplayName, groupPrice, groupWeek, memberTrainingPrice, nutrition
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Edit3, Plus, Trash2, X, BarChart2, Dumbbell, Salad, CreditCard, StickyNote, Pin } from 'lucide-react';
-import { db } from '../lib/db';
+import { db, callAI } from '../lib/db';
 import { deleteClientCascade } from '../lib/clientOps';
 import { AddClientModal } from './Clients';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -57,6 +57,76 @@ function AddRecordModal({ clientId, clientName, onClose, onSaved }) {
 }
 
 const SERVICE_LABELS = { personal_training:'Personal Training', personal_training_nutrition:'PT + Nutrition', nutrition_only:'Nutrition Only', group_training:'Group Training', group_training_nutrition:'Group + Nutrition' };
+
+/* ── AI σύνοψη πελάτη (Επισκόπηση) ─────────────────────────────────────────── */
+function AiSummaryCard({ client, progress, plans, nutrition, payments, notes, appointments }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const cacheKey = `cube_summary_${client.id}`;
+
+  const gen = async () => {
+    setBusy(true); setErr('');
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const w = progress.filter(r => r.weight_kg).slice(-6).map(r => `${r.date}: ${r.weight_kg}kg`).join(', ') || '—';
+      const tp = plans.slice(0, 6).map(t => `${t.date} ${t.title}${t.completed ? ' ✓' : ''}`).join('; ') || '—';
+      const np = nutrition.slice(0, 3).map(n => `${n.date} ${n.title || ''} ${n.calories ? n.calories + 'kcal' : ''}`.trim()).join('; ') || '—';
+      const up = appointments.filter(a => a.date >= today).slice(0, 4).map(a => `${a.date} ${a.start_time || ''} ${a.title || ''}`.trim()).join('; ') || '—';
+      const pin = notes.filter(n => n.pinned).map(n => n.title || n.content).slice(0, 3).join('; ') || '—';
+      const pay = payments[0] ? `τελευταία πληρωμή ${payments[0].paid_date || payments[0].date || ''} ${payments[0].amount || ''}€` : 'καμία πληρωμή';
+      const prompt = `Είσαι βοηθός personal trainer. Γράψε ΠΟΛΥ σύντομη σύνοψη πελάτη σε 4-6 bullets (κάθε γραμμή ξεκινά με "-", χωρίς εισαγωγή/κατακλείδα, ελληνικά, μέχρι ~12 λέξεις η γραμμή). Κάλυψε: τάση βάρους, συνέπεια προπονήσεων, διατροφή, επόμενα ραντεβού/εκκρεμότητες.
+Πελάτης: ${client.name}, στόχος: ${client.goals || '—'}, υπηρεσία: ${client.services || '—'}${client.frozen ? ', ΣΕ FREEZE' : ''}.
+Βάρος: ${w}
+Προπονήσεις: ${tp}
+Διατροφή: ${np}
+Επερχόμενα: ${up}
+Καρφιτσωμένες σημειώσεις: ${pin}
+Οικονομικά: ${pay}`;
+      const out = (await callAI(prompt)) || '';
+      const clean = out.trim();
+      if (!clean) throw new Error('Κενή απάντηση AI');
+      setText(clean);
+      try { localStorage.setItem(cacheKey, JSON.stringify({ text: clean, at: Date.now() })); } catch { /* noop */ }
+    } catch (e) {
+      setErr(e?.message || 'Σφάλμα AI');
+    } finally { setBusy(false); }
+  };
+
+  useEffect(() => {
+    setText(''); setErr('');
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch { /* noop */ }
+    if (cached?.text && Date.now() - (cached.at || 0) < 24 * 3600e3) { setText(cached.text); return; }
+    gen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client.id]);
+
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean).map(l => l.replace(/^[-•*]\s*/, ''));
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-gray-900">✨ AI Σύνοψη</h3>
+        <button onClick={gen} disabled={busy} title="Ανανέωση σύνοψης"
+          className="text-xs flex items-center gap-1.5 border border-gray-200 bg-white px-2.5 py-1.5 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+          <span className={busy ? 'animate-spin inline-block' : ''}>↻</span> {busy ? 'Δημιουργία…' : 'Ανανέωση'}
+        </button>
+      </div>
+      {busy && !text && <p className="text-sm text-gray-400">Το AI ετοιμάζει τη σύνοψη…</p>}
+      {err && !busy && <p className="text-sm text-rose-500">{err}</p>}
+      {!!lines.length && (
+        <ul className="space-y-1.5">
+          {lines.map((l, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+              <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: client.theme_color || '#6366f1' }} />
+              <span>{l}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export default function ClientProfile() {
   const [params] = useSearchParams();
@@ -132,7 +202,6 @@ export default function ClientProfile() {
           <button onClick={()=>setEditOpen(true)} className="flex items-center gap-1.5 border border-gray-200 bg-white px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50"><Edit3 className="w-4 h-4"/> Επεξεργασία</button>
           <button onClick={async()=>{ const nf=!client.frozen; await db.Client.update(client.id,{frozen:nf}); setClient({...client, frozen:nf}); }} className={`flex items-center gap-1.5 border px-3 py-2.5 rounded-xl text-sm font-medium ${client.frozen?'border-sky-200 bg-sky-50 text-sky-600':'border-gray-200 bg-white hover:bg-gray-50'}`}>{client.frozen?'🔓 Unfreeze':'❄️ Freeze'}</button>
           <button onClick={()=>setConfirmDel(true)} className="flex items-center gap-1.5 border border-rose-200 bg-rose-50 text-rose-600 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-rose-100">🗑 Διαγραφή</button>
-          <button onClick={()=>setShowRecord(true)} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800"><Plus className="w-4 h-4" /> Add Record</button>
         </div>
       </div>
 
@@ -182,6 +251,7 @@ export default function ClientProfile() {
       {/* OVERVIEW */}
       {tab === 'overview' && (
         <div className="space-y-5">
+          <AiSummaryCard client={client} progress={progress} plans={plans} nutrition={nutrition} payments={payments} notes={notes} appointments={appointments} />
           <div className="grid grid-cols-2 gap-4">
             <div className="card p-5"><h3 className="font-semibold text-gray-900 mb-3">Personal Info</h3><div className="space-y-2 text-sm">{[['Email',client.email],['Phone',client.phone],['Gender',client.gender],['DOB',client.date_of_birth],['Height',client.height?client.height+' cm':null],['Goal',client.goals]].map(([k,v])=>v&&<div key={k} className="flex justify-between"><span className="text-gray-400">{k}</span><span className="text-gray-700 text-right">{v}</span></div>)}</div></div>
             <div className="card p-5"><h3 className="font-semibold text-gray-900 mb-3">Upcoming Sessions</h3>

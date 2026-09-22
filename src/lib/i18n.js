@@ -12,6 +12,7 @@ export const T = {
   nav_statistics:  { en:'Statistics',  el:'Στατιστικά'   },
   nav_logistics:   { en:'Logistics',   el:'Οικονομικά'   },
   nav_messages:    { en:'Messages',    el:'Μηνύματα'     },
+  nav_social:      { en:'Social Media', el:'Social Media' },
 
   // ── App branding ─────────────────────────────────────────────────────────────
   app_name:        { en:'Cube',                       el:'Cube'                        },

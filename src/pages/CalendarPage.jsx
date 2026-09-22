@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth, parseISO, addMonths, subMonths, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth, parseISO, addMonths, subMonths, addWeeks, subWeeks, subDays } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus, X, Clock, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { db } from '../lib/db';
 import { groupDisplayName, unorphanClients } from '../lib/groups';
@@ -253,7 +253,7 @@ function RequestsPanel({ onClose, onUpdated }) {
 
 // ── Main CalendarPage ─────────────────────────────────────────────────────────
 export default function CalendarPage() {
-  const [view, setView] = useState('month');
+  const [view, setView] = useState('day');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
   const [clients, setClients] = useState([]);
@@ -279,7 +279,8 @@ export default function CalendarPage() {
 
   const nav = (dir) => {
     if (view==='month') setCurrentDate(d=>dir>0?addMonths(d,1):subMonths(d,1));
-    else setCurrentDate(d=>dir>0?addWeeks(d,1):subWeeks(d,1));
+    else if (view==='week') setCurrentDate(d=>dir>0?addWeeks(d,1):subWeeks(d,1));
+    else setCurrentDate(d=>dir>0?addDays(d,1):subDays(d,1));
   };
 
   const getAppts = (day) => appointments.filter(a => { try { return isSameDay(parseISO(a.date), day); } catch { return false; } });
@@ -300,10 +301,11 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="page-title">Calendar</h1>
-          <p className="page-subtitle">{view==='month'?format(currentDate,'MMMM yyyy'):`Week of ${format(weekStart,'MMM d, yyyy')}`}</p>
+          <p className="page-subtitle">{view==='month'?format(currentDate,'MMMM yyyy'):view==='week'?`Week of ${format(weekStart,'MMM d, yyyy')}`:format(currentDate,'EEEE, MMM d, yyyy')}</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex bg-muted rounded-xl p-0.5">
+            <button onClick={()=>setView('day')} className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${view==='day'?'bg-card shadow text-foreground font-medium':'text-muted-foreground'}`}>Day</button>
             <button onClick={()=>setView('month')} className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${view==='month'?'bg-card shadow text-foreground font-medium':'text-muted-foreground'}`}>Month</button>
             <button onClick={()=>setView('week')} className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${view==='week'?'bg-card shadow text-foreground font-medium':'text-muted-foreground'}`}>Week</button>
           </div>
@@ -326,6 +328,31 @@ export default function CalendarPage() {
 
       <div className="card overflow-hidden">
         {/* Month view */}
+        {/* Day view — μόνο η επιλεγμένη (προεπιλογή: σημερινή) μέρα */}
+        {view==='day' && (
+          <div className="grid" style={{gridTemplateColumns:'56px 1fr'}}>
+            <div>{HOURS.map(h=><div key={h} className="h-14 border-b border-border flex items-start pt-1 pr-2"><span className="text-xs text-muted-foreground text-right w-full">{h}:00</span></div>)}</div>
+            <div className="relative border-l border-border">
+              {HOURS.map(h=><div key={h} className="h-14 border-b border-border hover:bg-muted/20 cursor-pointer" onClick={()=>{setDefaultDate(format(currentDate,'yyyy-MM-dd'));setShowModal(true);}}/>)}
+              {getAppts(currentDate).map(a=>{
+                const [hh,mm]=(a.start_time||'09:00').split(':').map(Number);
+                const top=(hh-7)*56+(mm/60)*56;
+                const height=Math.max(((a.duration_minutes||60)/60)*56,26);
+                const color=a.client_color||'#6366f1';
+                return (
+                  <div key={a.id} className="absolute left-1 right-1 rounded-lg px-2.5 py-1 z-10 overflow-hidden cursor-pointer hover:opacity-80"
+                    onClick={(e)=>{ e.stopPropagation(); setEditEvent(a); setShowModal(true); }}
+                    style={{top,height,backgroundColor:color+'22',borderLeft:`3px solid ${color}`,outline:a.status==='proposed'?`2px solid #a855f7`:'none'}}>
+                    <p className="text-sm font-semibold truncate" style={{color}}>{a.status==='proposed'?'📤 ':''}{a.title}</p>
+                    <p className="text-xs truncate" style={{color:color+'99'}}>{a.start_time}{a.client_name?` · ${a.client_name}`:''}</p>
+                  </div>
+                );
+              })}
+              {!getAppts(currentDate).length && <p className="absolute top-3 left-3 text-sm text-muted-foreground">Κανένα ραντεβού για αυτή τη μέρα.</p>}
+            </div>
+          </div>
+        )}
+
         {view==='month' && (
           <>
             <div className="grid grid-cols-7 border-b border-border">
