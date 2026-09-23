@@ -129,7 +129,7 @@ function RepRingLight({ target, done, pulseKey, kg }) {
   const R = 90, C = 2 * Math.PI * R;
   const frac = target ? Math.min(1, done / target) : 0;
   return (
-    <div style={{ position:'relative', width:'min(58vw, 34vh, 470px)', aspectRatio:'1', margin:'0 auto', display:'grid', placeItems:'center' }}>
+    <div style={{ position:'relative', width:'min(58vw, 38vmax, 560px)', aspectRatio:'1', margin:'0 auto', display:'grid', placeItems:'center' }}>
       <span key={pulseKey} style={{ position:'absolute', width:'86%', height:'86%', borderRadius:'50%',
         border:`1.5px solid ${ACCENT}55`, animation: pulseKey ? 'ltPulse .62s cubic-bezier(.2,.8,.3,1)' : 'none', pointerEvents:'none' }}/>
       <svg viewBox="0 0 206 206" style={{ width:'100%', height:'100%', transform:'rotate(-90deg)' }}>
@@ -200,7 +200,7 @@ function RestTakeover({ seconds, onDone, onSkip, isExChange, nextSub, nextKg, ne
       <p style={{ margin:'12px 0 0', textAlign:'center', fontSize:11, letterSpacing:'.3em', fontWeight:800, color:ACCENT }}>
         {isExChange ? 'ΑΛΛΑΓΗ ΑΣΚΗΣΗΣ' : 'ΔΙΑΛΕΙΜΜΑ'}
       </p>
-      <div style={{ position:'relative', width:'min(62vw, 30vh, 440px)', aspectRatio:'1', margin:'10px auto 0' }}>
+      <div style={{ position:'relative', width:'min(62vw, 38vmax, 560px)', aspectRatio:'1', margin:'10px auto 0' }}>
         <svg viewBox="0 0 206 206" style={{ width:'100%', height:'100%', transform:'rotate(-90deg)', display:'block' }}>
           <circle cx="103" cy="103" r={R} fill="none" stroke="#eceef1" strokeWidth="13"/>
           <circle cx="103" cy="103" r={R} fill="none" stroke="url(#ltrest)" strokeWidth="13" strokeLinecap="round"
@@ -211,14 +211,14 @@ function RestTakeover({ seconds, onDone, onSkip, isExChange, nextSub, nextKg, ne
           </linearGradient></defs>
         </svg>
         <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
-          <span style={{ fontFamily:'ui-monospace,monospace', fontWeight:700, fontSize:'clamp(40px,9vh,120px)', letterSpacing:'-.04em', lineHeight:1, color: left <= 3 ? ACCENT : '#0e1116', fontVariantNumeric:'tabular-nums' }}>{mm}:{ss}</span>
+          <span style={{ fontFamily:'ui-monospace,monospace', fontWeight:700, fontSize:'clamp(40px,6.5vmax,135px)', letterSpacing:'-.04em', lineHeight:1, color: left <= 3 ? ACCENT : '#0e1116', fontVariantNumeric:'tabular-nums' }}>{mm}:{ss}</span>
           <span style={{ fontSize:9, letterSpacing:'.22em', fontWeight:800, color:'#a1a1aa', marginTop:5 }}>ΑΠΟ {seconds}″</span>
         </div>
       </div>
       <div style={{ textAlign:'center', marginTop:10 }}>
         <p style={{ margin:0, fontSize:10, letterSpacing:'.22em', fontWeight:800, color:'#a1a1aa' }}>{nextSub}</p>
         {(nextReps != null) && (
-          <p style={{ margin:'6px 0 0', fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em', fontSize:'clamp(34px,6.5vh,90px)', lineHeight:1 }}>
+          <p style={{ margin:'6px 0 0', fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em', fontSize:'clamp(34px,5vmax,105px)', lineHeight:1 }}>
             {nextKg || 0}<span style={{ fontSize:'.42em' }}>kg</span> <span style={{ fontSize:'.55em', color:'#6b7280' }}>× {nextReps}</span>
           </p>
         )}
@@ -227,7 +227,7 @@ function RestTakeover({ seconds, onDone, onSkip, isExChange, nextSub, nextKg, ne
         {vurl && vOk && (
           <video key={vurl} src={vurl} autoPlay loop muted playsInline preload="metadata"
             onError={() => setVOk(false)}
-            style={{ width:'clamp(72px,10vh,190px)', height:'clamp(72px,10vh,190px)', objectFit:'contain', background:'#fcfcfd', mixBlendMode:'multiply', borderRadius:14 }}/>
+            style={{ width:'clamp(72px,9vmax,220px)', height:'clamp(72px,9vmax,220px)', objectFit:'contain', background:'#fcfcfd', mixBlendMode:'multiply', borderRadius:14 }}/>
         )}
         <div style={{ textAlign:'left' }}>
           <p style={{ margin:0, fontSize:9, color:'#a1a1aa', letterSpacing:'.16em', fontWeight:800 }}>{isExChange ? 'ΕΠΟΜΕΝΗ' : 'ΣΥΝΕΧΙΖΟΥΜΕ'}</p>
@@ -584,10 +584,10 @@ export default function LiveTraining() {
             <video key={`${exIdx}-${exerciseVideoUrl(ex.name)}`} src={exerciseVideoUrl(ex.name)}
               autoPlay loop muted playsInline preload="metadata"
               onError={() => setVidOk(false)} onClick={() => setShowVid(true)}
-              style={{ width:'100%', height:'clamp(220px,34vh,720px)', objectFit:'contain',
+              style={{ width:'100%', flex:'1 1 260px', minHeight:260, maxHeight:'58vmax', objectFit:'contain',
                 background:'#fcfcfd', mixBlendMode:'multiply', cursor:'zoom-in' }}/>
           ) : (
-            <div style={{ padding:'6px 0 2px' }}>
+            <div style={{ flex:'1 1 auto', display:'grid', placeItems:'center', padding:'6px 0 2px' }}>
               <RepRingLight target={target} done={phase === 'active' ? rep : (logged[`${exIdx}-${setIdx}`] ?? 0)}
                 pulseKey={rep} kg={cur?.weight_kg || 0}/>
             </div>
@@ -627,7 +627,7 @@ export default function LiveTraining() {
             <div>
               <p style={{ margin:0, fontSize:'clamp(9.5px,1.3vh,17px)', letterSpacing:'.2em', fontWeight:800, color:'#a1a1aa' }}>ΣΕΤ {Math.min(setIdx + 1, sets.length)} · ΕΠΑΝΑΛΗΨΕΙΣ</p>
               <p key={'bn' + rep} style={{ margin:'2px 0 0', fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em',
-                fontSize:'clamp(44px,9vh,120px)', lineHeight:.95, fontVariantNumeric:'tabular-nums',
+                fontSize:'clamp(44px,7vmax,145px)', lineHeight:.95, fontVariantNumeric:'tabular-nums',
                 animation: phase === 'active' && rep ? 'ltBump .18s ease' : 'none' }}>
                 {phase === 'active' ? rep : (logged[`${exIdx}-${setIdx}`] ?? 0)}<span style={{ fontSize:'.42em', color:'#a1a1aa' }}>/{target}</span>
               </p>
@@ -635,7 +635,7 @@ export default function LiveTraining() {
             <div style={{ textAlign:'right' }}>
               <p style={{ margin:0, fontSize:'clamp(9.5px,1.3vh,17px)', letterSpacing:'.2em', fontWeight:800, color:'#a1a1aa' }}>ΦΟΡΤΙΟ</p>
               <p style={{ margin:'2px 0 0', fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em',
-                fontSize:'clamp(28px,5.5vh,72px)', lineHeight:1, color:ACCENT, fontVariantNumeric:'tabular-nums' }}>
+                fontSize:'clamp(28px,4.2vmax,88px)', lineHeight:1, color:ACCENT, fontVariantNumeric:'tabular-nums' }}>
                 {cur?.weight_kg || 0}<span style={{ fontSize:'.5em' }}>kg</span>
               </p>
             </div>
@@ -673,7 +673,7 @@ export default function LiveTraining() {
             {exercises[exIdx + 1] && (
               <div style={{ display:'flex', alignItems:'center', gap:9, borderTop:'1px solid rgba(14,17,22,.09)', paddingTop:9 }}>
                 <ExerciseMedia name={exercises[exIdx + 1].name} rounded={10}
-                  style={{ width:'clamp(40px,6vh,120px)', height:'clamp(40px,6vh,120px)', mixBlendMode:'multiply', background:'#fcfcfd' }}/>
+                  style={{ width:'clamp(40px,5vmax,140px)', height:'clamp(40px,5vmax,140px)', mixBlendMode:'multiply', background:'#fcfcfd' }}/>
                 <div>
                   <p style={{ margin:0, fontSize:'clamp(9.5px,1.2vh,16px)', color:'#a1a1aa', fontWeight:700 }}>Επόμενη άσκηση</p>
                   <p style={{ margin:0, fontSize:'clamp(12.5px,1.7vh,24px)', fontWeight:800 }}>{exercises[exIdx + 1].name} · {setsOf(exercises[exIdx + 1]).length} σετ</p>

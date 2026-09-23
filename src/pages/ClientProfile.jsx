@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { groupDisplayName, groupPrice, groupWeek, memberTrainingPrice, nutritionPrice, hasNutrition } from '../lib/groups';
+import { REASON_LABELS } from '../lib/credits';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Edit3, Plus, Trash2, X, BarChart2, Dumbbell, Salad, CreditCard, StickyNote, Pin } from 'lucide-react';
@@ -74,7 +74,8 @@ function AiSummaryCard({ client, progress, plans, nutrition, payments, notes, ap
       const np = nutrition.slice(0, 3).map(n => `${n.date} ${n.title || ''} ${n.calories ? n.calories + 'kcal' : ''}`.trim()).join('; ') || '—';
       const up = appointments.filter(a => a.date >= today).slice(0, 4).map(a => `${a.date} ${a.start_time || ''} ${a.title || ''}`.trim()).join('; ') || '—';
       const pin = notes.filter(n => n.pinned).map(n => n.title || n.content).slice(0, 3).join('; ') || '—';
-      const pay = payments[0] ? `τελευταία πληρωμή ${payments[0].paid_date || payments[0].date || ''} ${payments[0].amount || ''}€` : 'καμία πληρωμή';
+      const balT = (payments || []).filter(e => e.kind !== 'nutrition').reduce((s2, e) => s2 + (Number(e.delta) || 0), 0);
+      const pay = `υπόλοιπο ${balT} tokens προπόνησης`;
       const prompt = `Είσαι βοηθός personal trainer. Γράψε ΠΟΛΥ σύντομη σύνοψη πελάτη σε 4-6 bullets (κάθε γραμμή ξεκινά με "-", χωρίς εισαγωγή/κατακλείδα, ελληνικά, μέχρι ~12 λέξεις η γραμμή). Κάλυψε: τάση βάρους, συνέπεια προπονήσεων, διατροφή, επόμενα ραντεβού/εκκρεμότητες.
 Πελάτης: ${client.name}, στόχος: ${client.goals || '—'}, υπηρεσία: ${client.services || '—'}${client.frozen ? ', ΣΕ FREEZE' : ''}.
 Βάρος: ${w}
@@ -82,7 +83,7 @@ function AiSummaryCard({ client, progress, plans, nutrition, payments, notes, ap
 Διατροφή: ${np}
 Επερχόμενα: ${up}
 Καρφιτσωμένες σημειώσεις: ${pin}
-Οικονομικά: ${pay}`;
+Tokens: ${pay}`;
       const out = (await callAI(prompt)) || '';
       const clean = out.trim();
       if (!clean) throw new Error('Κενή απάντηση AI');
@@ -153,11 +154,14 @@ export default function ClientProfile() {
   const load = async () => {
     if (!clientId) return;
     const [c,prog,tp,np,pay,n,appts] = await Promise.all([
-      db.Client.get(clientId), db.ClientProgress.filter({client_id:clientId},'date'), db.TrainingPlan.filter({client_id:clientId},'-date'), db.NutritionPlan.filter({client_id:clientId},'-date'), db.Payment.filter({client_id:clientId},'-paid_date'), db.ClientNote.filter({client_id:clientId},'-created_date'), db.Appointment.filter({client_id:clientId},'-date'),
+      db.Client.get(clientId), db.ClientProgress.filter({client_id:clientId},'date'), db.TrainingPlan.filter({client_id:clientId},'-date'), db.NutritionPlan.filter({client_id:clientId},'-date'), db.CreditEntry.filter({client_id:clientId},'-date'), db.ClientNote.filter({client_id:clientId},'-created_date'), db.Appointment.filter({client_id:clientId},'-date'),
     ]);
     setClient(c); setProgress(prog); setPlans(tp); setNutrition(np); setPayments(pay); setNotes(n); setAppointments(appts);
   };
   useEffect(() => { load(); }, [clientId]);
+
+  const tokenBal = payments.filter(e => e.kind !== 'nutrition').reduce((sum, e) => sum + (Number(e.delta) || 0), 0);
+  const nutriTokens = payments.filter(e => e.kind === 'nutrition').reduce((sum, e) => sum + (Number(e.delta) || 0), 0);
   useEffect(() => { (async () => {
     if (!client?.group_id) { setGroup(null); setGroupMembers([]); return; }
     const g = await db.Group.get(client.group_id);
@@ -176,7 +180,7 @@ export default function ClientProfile() {
     { key:'training', label:'Training', icon:Dumbbell },
     { key:'nutrition', label:'Nutrition', icon:Salad },
     { key:'records', label:'Records', icon:BarChart2 },
-    { key:'logistics', label:'Logistics', icon:CreditCard },
+    { key:'logistics', label:'Tokens', icon:CreditCard },
     { key:'notes', label:'Notes', icon:StickyNote },
   ];
 
@@ -192,7 +196,8 @@ export default function ClientProfile() {
               <h1 className="page-title">{client.name}</h1>
               <div className="flex flex-wrap gap-2 mt-1">
                 <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{SERVICE_LABELS[client.services]||'—'}</span>
-                {client.monthly_price && <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">€{client.monthly_price}/mo</span>}
+                {!client.group_id && <span className={`text-xs px-2 py-0.5 rounded-full ${tokenBal<=0?'bg-red-50 text-red-600':tokenBal<=2?'bg-amber-50 text-amber-600':'bg-green-50 text-green-700'}`}>🎟 {tokenBal} tokens</span>}
+                {nutriTokens !== 0 && <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">🥗 {nutriTokens}</span>}
                 {client.sessions_per_week && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{client.sessions_per_week}×/wk</span>}
               </div>
             </div>
@@ -326,7 +331,7 @@ export default function ClientProfile() {
         </div>
       )}
 
-      {/* LOGISTICS */}
+      {/* LOGISTICS — tokens only */}
       {tab === 'logistics' && (
         <div className="space-y-4">
           <div className="card p-5">
@@ -335,13 +340,18 @@ export default function ClientProfile() {
               <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="font-medium text-gray-900">{SERVICE_LABELS[client.services]||'—'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Sessions / week</span><span className="font-medium text-gray-900">{client.sessions_per_week}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Session duration</span><span className="font-medium text-gray-900">{client.session_duration_hours}h</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Monthly price</span><span className="font-bold text-gray-900">€{client.monthly_price}</span></div>
+              {!client.group_id && <div className="flex justify-between"><span className="text-gray-500">Υπόλοιπο tokens</span><span className={`font-bold ${tokenBal<=0?'text-red-600':tokenBal<=2?'text-amber-600':'text-emerald-600'}`}>🎟 {tokenBal}</span></div>}
+              {nutriTokens !== 0 && <div className="flex justify-between"><span className="text-gray-500">Διατροφικές</span><span className="font-bold text-emerald-600">🥗 {nutriTokens}</span></div>}
             </div>
+            {client.group_id && <p className="text-xs text-gray-400 mt-3">Οι προπονήσεις χρεώνονται στο κοινό υπόλοιπο του group — δες το στη σελίδα Logistics.</p>}
           </div>
           <div className="card overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-50"><p className="font-medium text-gray-900 text-sm">Payment History ({payments.length})</p></div>
-            {payments.map(p=><div key={p.id} className="flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0"><div><p className="text-sm font-medium text-gray-900">{p.description||'Payment'}</p><p className="text-xs text-gray-400">{p.paid_date?format(parseISO(p.paid_date),'MMM d, yyyy'):''} · {p.method}</p>{p.period_to&&<p className="text-xs text-gray-400">Coverage until {format(parseISO(p.period_to),'MMM d, yyyy')}</p>}</div><span className="font-bold text-gray-900">€{p.amount}</span></div>)}
-            {!payments.length&&<div className="text-center py-8 text-gray-400 text-sm">No payments recorded</div>}
+            <div className="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
+              <p className="font-medium text-gray-900 text-sm">Ιστορικό Tokens ({payments.length})</p>
+              <button onClick={()=>navigate('/Logistics')} className="text-xs font-semibold text-violet-600 hover:text-violet-800">Διαχείριση →</button>
+            </div>
+            {payments.map(e=><div key={e.id} className="flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-0"><span>{e.kind==='nutrition'?'🥗':'🏋️'}</span><div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-900 truncate">{REASON_LABELS[e.reason]||e.reason}{e.note?` — ${e.note}`:''}</p><p className="text-xs text-gray-400">{e.date}</p></div><span className={`font-bold ${(e.delta||0)>0?'text-emerald-600':'text-red-500'}`}>{(e.delta||0)>0?`+${e.delta}`:e.delta}</span></div>)}
+            {!payments.length&&<div className="text-center py-8 text-gray-400 text-sm">Καμία κίνηση tokens</div>}
           </div>
         </div>
       )}

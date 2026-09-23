@@ -4,12 +4,9 @@ import { useAppContext } from '../lib/AppContext';
 import { db } from '../lib/db';
 import { creditBalance, REASON_LABELS, getGroupTrainingBalance } from '../lib/credits';
 
-const METHOD_EMOJI = { cash:'💵', card:'💳', transfer:'🏦', other:'📄' };
-
 export default function ClientFinancial() {
   const { clientUser } = useAppContext();
   const [client, setClient] = useState(null);
-  const [payments, setPayments] = useState([]);
   const [entries, setEntries] = useState([]);
   const [groupTraining, setGroupTraining] = useState(null);   // κοινό υπόλοιπο αν είναι μέλος group
 
@@ -17,10 +14,9 @@ export default function ClientFinancial() {
     if (!clientUser?.clientId) return;
     Promise.all([
       db.Client.get(clientUser.clientId),
-      db.Payment.filter({ client_id: clientUser.clientId }, '-paid_date'),
       db.CreditEntry.filter({ client_id: clientUser.clientId }),
-    ]).then(([c, p, e]) => {
-      setClient(c); setPayments(p);
+    ]).then(([c, e]) => {
+      setClient(c);
       setEntries([...e].sort((a, b) => ((b.date || '') + (b.id || '')).localeCompare((a.date || '') + (a.id || ''))));
       if (c?.group_id) db.Group.get(c.group_id).then(g => g && getGroupTrainingBalance(g).then(setGroupTraining));
     });
@@ -32,7 +28,7 @@ export default function ClientFinancial() {
   const hasNutri = (client?.nutrition_meetings_per_month > 0) || bal.nutrition !== 0;
 
   return (
-    <ClientLayout title="Financial">
+    <ClientLayout title="Υπόλοιπα">
       <div className="p-5 space-y-4">
 
         {/* Υπόλοιπό μου */}
@@ -62,7 +58,6 @@ export default function ClientFinancial() {
                 ['Πρόγραμμα', client.services?.replace(/_/g,' ')?.replace(/\b\w/g, l => l.toUpperCase())],
                 ['Προπονήσεις', client.sessions_per_week ? `${client.sessions_per_week}× / εβδομάδα · ${client.session_duration_hours || 1}h` : null],
                 ['Διατροφικές', client.nutrition_meetings_per_month ? `${client.nutrition_meetings_per_month}× / μήνα` : null],
-                ['Μηνιαίο πακέτο', client.monthly_price ? `€${client.monthly_price}` : null],
               ].map(([k, v]) => v && (
                 <div key={k} className="flex justify-between">
                   <span style={{ color:'var(--cp-text-dim)' }}>{k}</span>
@@ -72,24 +67,6 @@ export default function ClientFinancial() {
             </div>
           </div>
         )}
-
-        {/* Ιστορικό συναλλαγών */}
-        <div className="rounded-2xl p-4" style={{ backgroundColor:'var(--cp-card-bg)', border:'1px solid var(--cp-border)' }}>
-          <p className="font-semibold text-sm mb-2" style={{ color:'var(--cp-text)' }}>Ιστορικό συναλλαγών</p>
-          {payments.length === 0 && <p className="text-sm py-2" style={{ color:'var(--cp-text-dim)' }}>Καμία συναλλαγή ακόμα.</p>}
-          <div>
-            {payments.map(p => (
-              <div key={p.id} className="flex items-center gap-3 py-2.5" style={{ borderTop:'1px solid var(--cp-border)' }}>
-                <span className="text-lg">{METHOD_EMOJI[p.method] || '📄'}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color:'var(--cp-text)' }}>{p.description || 'Πληρωμή'}</p>
-                  <p className="text-xs" style={{ color:'var(--cp-text-dim)' }}>{p.paid_date}{p.item_trainings ? ` · ${p.item_trainings} προπ.` : ''}{p.item_nutrition ? ` + ${p.item_nutrition} διατρ.` : ''}</p>
-                </div>
-                <p className="text-sm font-bold" style={{ color:'var(--cp-accent)' }}>€{p.amount}</p>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* Κινήσεις υπολοίπου */}
         <div className="rounded-2xl p-4" style={{ backgroundColor:'var(--cp-card-bg)', border:'1px solid var(--cp-border)' }}>

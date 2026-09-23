@@ -710,7 +710,7 @@ export default function Nutrition() {
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl" style={{backgroundColor:client.theme_color||'#6366f1'}}>{client.name?.charAt(0)}</div>
           <div className="flex-1">
             <h1 className="page-title">{client.name}</h1>
-            <p className="page-subtitle">{client.nutrition_meetings_per_month||'—'} διατροφικές συναντήσεις / μήνα{client.monthly_price?` · €${client.monthly_price}/μήνα`:''}</p>
+            <p className="page-subtitle">{client.nutrition_meetings_per_month||'—'} διατροφικές συναντήσεις / μήνα</p>
           </div>
           {setupDone
             ? <span className="badge badge-green">Course Planning ✓</span>

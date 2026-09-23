@@ -309,7 +309,7 @@ export default function GroupTraining() {
           {/* κεντρικό ψηφιακό ρολόι με δευτερόλεπτα */}
           <div style={{ textAlign:'center', margin:'6px 0 10px' }}>
             <span style={{ display:'block', fontSize:'clamp(8.5px,1.2vh,16px)', letterSpacing:'.24em', fontWeight:800, color:'#a1a1aa' }}>ΡΟΛΟΪ ΠΡΟΠΟΝΗΣΗΣ</span>
-            <span style={{ fontFamily:'ui-monospace,monospace', fontWeight:700, fontSize:'clamp(44px,8vh,150px)', letterSpacing:'-.02em', lineHeight:1, fontVariantNumeric:'tabular-nums' }}>
+            <span style={{ fontFamily:'ui-monospace,monospace', fontWeight:700, fontSize:'clamp(44px,7vmax,185px)', letterSpacing:'-.02em', lineHeight:1, fontVariantNumeric:'tabular-nums' }}>
               {String(Math.floor(clock/60)).padStart(2,'0')}:{String(clock%60).padStart(2,'0')}
             </span>
             <span style={{ display:'block', fontSize:'clamp(9px,1.3vh,18px)', color:'#6b7280', marginTop:2 }}>μέτρα το δικό σου διάλειμμα</span>
@@ -334,7 +334,7 @@ export default function GroupTraining() {
                   border:'1px solid rgba(14,17,22,.09)', borderRadius:16, padding:'12px 11px 10px',
                   display:'flex', gap:10, alignItems:'stretch', overflow:'hidden', opacity: m.done ? .55 : 1 }}>
                   <span style={{ position:'absolute', inset:'0 0 auto 0', height:4, background:col }}/>
-                  {cx && <GVid name={cx.name} col={col} w={three ? 'clamp(88px,12vh,270px)' : 'clamp(110px,17vh,360px)'}/>}
+                  {cx && <GVid name={cx.name} col={col} w={three ? 'clamp(100px,24%,420px)' : 'clamp(124px,28%,520px)'}/>}
                   <div style={{ minWidth:0, flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                       <span style={{ fontSize:'clamp(9.5px,1.3vh,17px)', fontWeight:800, padding:'.35em 1.1em', borderRadius:99, color:'#fff', background:col, letterSpacing:'.05em' }}>{nameOf(i).toUpperCase()}</span>
@@ -348,13 +348,13 @@ export default function GroupTraining() {
                       <p style={{ margin:'8px 0 0', fontSize:'clamp(15px,2.2vh,30px)', fontWeight:900 }}>Ολοκληρώθηκε 🏁</p>
                     ) : cx ? (
                       <>
-                        <p style={{ margin:'5px 0 1px', fontSize: three ? 'clamp(13.5px,2vh,28px)' : 'clamp(15.5px,2.4vh,34px)', fontWeight:900, letterSpacing:'-.01em',
+                        <p style={{ margin:'5px 0 1px', fontSize: three ? 'clamp(13.5px,1.7vmax,36px)' : 'clamp(15.5px,2vmax,42px)', fontWeight:900, letterSpacing:'-.01em',
                           overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cx.name}</p>
                         <p style={{ margin:'0 0 3px', fontSize:'clamp(8.5px,1.2vh,16px)', letterSpacing:'.16em', fontWeight:800, color:'#a1a1aa' }}>
                           ΑΣΚ. {m.ex + 1}/{exs.length} · ΣΕΤ {m.set + 1}/{rows.length} · ΔΙΑΛ. {restLbl}″
                         </p>
                         <p style={{ margin:0, fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em',
-                          fontSize: three ? 'clamp(26px,4.2vh,64px)' : 'clamp(32px,5vh,78px)', lineHeight:1, color:col, fontVariantNumeric:'tabular-nums' }}>
+                          fontSize: three ? 'clamp(26px,3.4vmax,84px)' : 'clamp(32px,4.2vmax,100px)', lineHeight:1, color:col, fontVariantNumeric:'tabular-nums' }}>
                           {kg > 0 ? <>{kg}<span style={{ fontSize:'.45em' }}>kg</span></> : 'BW'}
                           <span style={{ fontSize:'.5em', color:'#0e1116' }}> × {rr}</span>
                         </p>
@@ -381,13 +381,13 @@ export default function GroupTraining() {
                     )}
                   </div>
                   {three && !m.done && cx && (
-                    <div style={{ width:'clamp(34px,4.4vh,72px)', flexShrink:0, display:'flex', flexDirection:'column', gap:4 }}>
+                    <div style={{ width:'clamp(34px,3.6vmax,84px)', flexShrink:0, display:'flex', flexDirection:'column', gap:4 }}>
                       <span style={{ fontSize:'clamp(7px,1vh,13px)', letterSpacing:'.16em', textAlign:'center', color:'#a1a1aa', fontWeight:800 }}>ΣΕΤ</span>
                       {rows.map((r2, si) => {
                         const st = si < m.set ? 'don' : si === m.set ? 'act' : 'fut';
                         return (
                           <span key={si} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-                            borderRadius:8, fontSize:'clamp(11px,1.6vh,22px)', fontWeight:800, minHeight:'clamp(20px,2.6vh,44px)',
+                            borderRadius:8, fontSize:'clamp(11px,1.6vh,22px)', fontWeight:800, minHeight:'clamp(20px,2.2vmax,54px)',
                             border: st === 'fut' ? '1.5px solid rgba(14,17,22,.1)' : '1.5px solid transparent',
                             background: st === 'don' ? '#16a34a' : st === 'act' ? col : '#fff',
                             color: st === 'fut' ? '#c3c8d1' : '#fff' }}>{si + 1}</span>
@@ -397,7 +397,7 @@ export default function GroupTraining() {
                   )}
                   {!m.done && cx && (
                     <button onClick={(e) => { e.stopPropagation(); advance(i); }}
-                      style={{ alignSelf:'center', flexShrink:0, width:'clamp(46px,6vh,96px)', height:'clamp(46px,6vh,96px)', borderRadius:'clamp(14px,1.8vh,24px)', border:'none', cursor:'pointer',
+                      style={{ alignSelf:'center', flexShrink:0, width:'clamp(46px,4.8vmax,112px)', height:'clamp(46px,4.8vmax,112px)', borderRadius:'clamp(14px,1.8vh,24px)', border:'none', cursor:'pointer',
                         background:col, color:'#fff', fontSize:'clamp(17px,2.4vh,36px)', fontWeight:900, boxShadow:`0 4px 14px ${col}55` }}
                       title={`Σετ ✓ (πλήκτρο ${i + 1})`}>✓</button>
                   )}

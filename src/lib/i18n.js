@@ -153,7 +153,7 @@ export const T = {
   cp_training:     { en:'Training',                   el:'Προπόνηση'                   },
   cp_nutrition:    { en:'Nutrition',                  el:'Διατροφή'                    },
   cp_stats:        { en:'Stats',                      el:'Στατιστικά'                  },
-  cp_financial:    { en:'Financial',                  el:'Οικονομικά'                  },
+  cp_financial:    { en:'Tokens',                     el:'Υπόλοιπα'                    },
   cp_messages:     { en:'Messages',                   el:'Μηνύματα'                    },
   cp_hello:        { en:'Hello',                      el:'Γεια σου'                    },
   cp_next_session: { en:'Next Session',               el:'Επόμενη Συνεδρία'            },

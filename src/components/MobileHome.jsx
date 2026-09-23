@@ -45,7 +45,7 @@ const WIDGETS = {
   week:      { label:'Εβδομάδα',         icon:CalendarRange,color:'#3b82f6', sizes:[2,4]   },
   month:     { label:'Μήνας',            icon:LayoutGrid,   color:'#6366f1', sizes:[4]     },
   todo:      { label:'Εκκρεμότητες',     icon:CheckSquare,  color:'#f59e0b', sizes:[1,2,4] },
-  revenue:   { label:'Οικονομικά',       icon:CreditCard,   color:'#22c55e', sizes:[2,4]   },
+  revenue:   { label:'Tokens',           icon:CreditCard,   color:'#22c55e', sizes:[2,4]   },
   attention: { label:'Χρειάζονται προσοχή', icon:AlertTriangle, color:'#ef4444', sizes:[2,4] },
   messages:  { label:'Μηνύματα',         icon:MessageCircle,color:'#a855f7', sizes:[1,2]   },
   roster:    { label:'Πελατολόγιο',      icon:Users,        color:'#8b5cf6', sizes:[1]     },
@@ -107,7 +107,7 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
       db.Client.list('name'),
       db.Appointment.list('date', 400),
       db.TodoItem.list('-created_date', 60),
-      db.Payment.list('-paid_date', 200),
+      db.CreditEntry.list('-date', 600).catch(() => []),
       db.Message?.filter?.({ sender:'client', read:false }).catch(() => []) || [],
       db.AppointmentRequest?.filter?.({ status:'pending' }).catch(() => []) || [],
       db.TrainingPlan?.list?.('-date', 60).catch(() => []) || [],
@@ -165,27 +165,31 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
   const monthStart = format(startOfMonth(now), 'yyyy-MM-dd');
   const prevStart = format(startOfMonth(subDays(startOfMonth(now), 1)), 'yyyy-MM-dd');
   const prevEnd = format(subDays(startOfMonth(now), 1), 'yyyy-MM-dd');
-  const paid = (p) => p.status !== 'pending' && p.status !== 'overdue';
-  const monthRevenue = D.payments.filter(p => p.paid_date >= monthStart && paid(p)).reduce((s, p) => s + (p.amount || 0), 0);
-  const prevRevenue = D.payments.filter(p => p.paid_date >= prevStart && p.paid_date <= prevEnd && paid(p)).reduce((s, p) => s + (p.amount || 0), 0);
-  const revDelta = prevRevenue > 0 ? Math.round(((monthRevenue - prevRevenue) / prevRevenue) * 100) : null;
-  const outstanding = D.payments.filter(p => !paid(p)).reduce((s, p) => s + (p.amount || 0), 0);
-  const debtors = [...new Set(D.payments.filter(p => !paid(p)).map(p => p.client_name).filter(Boolean))];
+  const trainCE = D.payments.filter(e => e.kind !== 'nutrition');   /* credit entries πλέον */
+  const totalTokens = trainCE.reduce((s2, e) => s2 + (Number(e.delta) || 0), 0);
+  const monthUsed = trainCE.filter(e => (e.date || '') >= monthStart && Number(e.delta) < 0).reduce((s2, e) => s2 - Number(e.delta), 0);
+  const prevUsed = trainCE.filter(e => (e.date || '') >= prevStart && (e.date || '') <= prevEnd && Number(e.delta) < 0).reduce((s2, e) => s2 - Number(e.delta), 0);
+  const usedDelta = prevUsed > 0 ? Math.round(((monthUsed - prevUsed) / prevUsed) * 100) : null;
+  const balByClient = {};
+  trainCE.forEach(e => { if (e.client_id) balByClient[e.client_id] = (balByClient[e.client_id] || 0) + (Number(e.delta) || 0); });
+  const debtors = D.clients.filter(c => !c.group_id && !c.is_trial && c.active !== false && balByClient[c.id] !== undefined && balByClient[c.id] <= 2 && balByClient[c.id] > 0).map(c => c.name).filter(Boolean);
+  const zeroTokens = D.clients.filter(c => !c.group_id && !c.is_trial && c.active !== false && balByClient[c.id] !== undefined && balByClient[c.id] <= 0).length;
   const revBars = Array.from({ length:6 }, (_, k) => {
     const dref = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1);
-    const s = format(startOfMonth(dref), 'yyyy-MM-dd'), e = format(endOfMonth(dref), 'yyyy-MM-dd');
-    return { v:D.payments.filter(p => p.paid_date >= s && p.paid_date <= e && paid(p)).reduce((x, p) => x + (p.amount || 0), 0),
-             label:format(dref, 'LLLLL', loc) };
+    const s2 = format(startOfMonth(dref), 'yyyy-MM-dd'), e2 = format(endOfMonth(dref), 'yyyy-MM-dd');
+    return { v: trainCE.filter(x => (x.date || '') >= s2 && (x.date || '') <= e2 && Number(x.delta) < 0).reduce((a, x) => a - Number(x.delta), 0),
+             label: format(dref, 'LLLLL', loc) };
   });
 
   /* attention queue — assembled from the data, nothing new stored */
   const attention = (() => {
     const out = [];
-    D.payments.forEach(p => {
-      if (!p.period_to) return;
-      const d = differenceInDays(parseISO(p.period_to), now);
-      if (d >= 0 && d <= 7) out.push({ k:'exp', name:p.client_name, why:`συνδρομή λήγει σε ${d}${d === 1 ? ' μέρα' : ' μέρες'}`,
-        c:'#ef4444', id:p.client_id, rank:d });
+    D.clients.forEach(c => {
+      if (c.group_id || c.is_trial || c.active === false) return;
+      const b = balByClient[c.id];
+      if (b === undefined) return;
+      if (b <= 0) out.push({ k:'exp', name:c.name, why:'τα tokens τελείωσαν', c:'#ef4444', id:c.id, rank:0 });
+      else if (b <= 2) out.push({ k:'exp', name:c.name, why:`υπόλοιπο ${b} token${b === 1 ? '' : 's'}`, c:'#f59e0b', id:c.id, rank:b });
     });
     D.clients.forEach(c => {
       const last = D.appts.filter(a => a.client_id === c.id && a.date <= today).sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -506,17 +510,11 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
           <div onClick={() => !editMode && navigate('/Logistics')} style={{ ...pad, cursor:'pointer' }}>
             <div>
               <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
-                <span style={{ ...big, fontSize:25 }}>€{Math.round(monthRevenue).toLocaleString()}</span>
-                {revDelta != null && (
-                  <span style={{ ...big, fontSize:10, padding:'3px 7px', borderRadius:999,
-                    background: revDelta >= 0 ? 'rgba(34,197,94,.18)' : 'rgba(239,68,68,.18)',
-                    color: revDelta >= 0 ? '#4ade80' : '#f87171' }}>
-                    {revDelta >= 0 ? '+' : ''}{revDelta}%
-                  </span>
-                )}
+                <span style={{ ...big, fontSize:25 }}>{totalTokens}</span>
+                <span style={{ ...tick }}>TOKENS ΕΝΕΡΓΑ</span>
               </div>
               <div style={{ ...tick, marginTop:2 }}>
-                {format(now, 'LLLL', loc)}{prevRevenue ? ` · έναντι €${Math.round(prevRevenue).toLocaleString()}` : ''}
+                {monthUsed} sessions {format(now, 'LLLL', loc)}{debtors.length ? ` · ${debtors.length} χαμηλά` : ''}{zeroTokens ? ` · ${zeroTokens} στο 0` : ''}
               </div>
             </div>
             <div style={{ flex:1, display:'flex', alignItems:'flex-end', gap:4, marginTop:8 }}>
@@ -528,52 +526,25 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
             </div>
           </div>
         );
-        const collectedPct = (monthRevenue + outstanding) > 0
-          ? Math.round((monthRevenue / (monthRevenue + outstanding)) * 100) : 100;
-        const r = 34, C = 2 * Math.PI * r;
         return (
           <div onClick={() => !editMode && navigate('/Logistics')} style={{ ...pad, cursor:'pointer' }}>
-            <Head color={c} icon={CreditCard} title={format(now, 'LLLL', loc)} sub="μηνιαίος τζίρος"
-              right={revDelta != null ? (
+            <Head color={c} icon={CreditCard} title={format(now, 'LLLL', loc)} sub="υπόλοιπα tokens"
+              right={usedDelta != null ? (
                 <span style={{ ...big, fontSize:10, padding:'3px 7px', borderRadius:999,
-                  background: revDelta >= 0 ? 'rgba(34,197,94,.18)' : 'rgba(239,68,68,.18)',
-                  color: revDelta >= 0 ? '#4ade80' : '#f87171' }}>
-                  {revDelta >= 0 ? '+' : ''}{revDelta}%
+                  background:'rgba(34,197,94,.18)', color:'#4ade80' }}>
+                  {usedDelta >= 0 ? '+' : ''}{usedDelta}% sessions
                 </span>) : null}/>
-            <div style={{ display:'flex', alignItems:'center', gap:15, marginTop:4 }}>
-              <div style={{ position:'relative', width:84, height:84, flex:'0 0 auto' }}>
-                <svg width="84" height="84" style={{ transform:'rotate(-90deg)' }}>
-                  <circle cx="42" cy="42" r={r} fill="none" stroke="rgba(245,158,11,.35)" strokeWidth="9"/>
-                  <circle cx="42" cy="42" r={r} fill="none" stroke={c} strokeWidth="9" strokeLinecap="round"
-                    strokeDasharray={C} strokeDashoffset={C * (1 - collectedPct / 100)}/>
-                </svg>
-                <div style={{ position:'absolute', inset:0, ...center, flexDirection:'column' }}>
-                  <span style={{ ...big, fontSize:16 }}>{collectedPct}%</span>
-                  <span style={tick}>εισπρ.</span>
-                </div>
-              </div>
-              <div style={{ flex:1 }}>
-                <div style={{ marginBottom:10 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <span style={{ width:8, height:8, borderRadius:2, background:c }}/>
-                    <span style={tick}>ΕΙΣΠΡΑΧΘΗΚΑΝ</span>
-                  </div>
-                  <div style={{ ...big, fontSize:19, marginTop:2 }}>€{Math.round(monthRevenue).toLocaleString()}</div>
-                </div>
-                <div>
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <span style={{ width:8, height:8, borderRadius:2, background:'#f59e0b' }}/>
-                    <span style={tick}>ΕΚΚΡΕΜΟΥΝ</span>
-                  </div>
-                  <div style={{ ...big, fontSize:19, marginTop:2, color:'#f59e0b' }}>
-                    €{Math.round(outstanding).toLocaleString()}
-                  </div>
-                </div>
-              </div>
+            <div style={{ display:'flex', alignItems:'baseline', gap:8, marginTop:6 }}>
+              <span style={{ ...big, fontSize:34 }}>{totalTokens}</span>
+              <span style={tick}>ΕΝΕΡΓΑ TOKENS</span>
             </div>
-            <div style={{ height:1, background:'hsl(var(--border))', margin:'auto 0 8px' }}/>
-            <div style={{ display:'flex', alignItems:'center' }}>
-              <span style={tick}>{debtors.length ? `${debtors.length} ΜΕ ΟΦΕΙΛΗ` : 'ΚΑΜΙΑ ΟΦΕΙΛΗ'}</span>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginTop:10 }}>
+              {[[monthUsed, 'SESSIONS ΜΗΝΑ', c], [debtors.length, 'ΧΑΜΗΛΑ (1-2)', '#fbbf24'], [zeroTokens, 'ΣΤΟ ΜΗΔΕΝ', '#f87171']].map(([v, l, col2]) => (
+                <div key={l}><div style={{ ...big, fontSize:19, color:col2 }}>{v}</div><div style={tick}>{l}</div></div>
+              ))}
+            </div>
+            <div style={{ display:'flex', alignItems:'center', marginTop:'auto' }}>
+              <span style={tick}>{debtors.length ? `ΓΙΑ ΑΝΑΝΕΩΣΗ` : 'ΟΛΑ ΕΝΤΑΞΕΙ'}</span>
               <span style={{ ...tick, marginLeft:'auto', color:'#fbbf24', overflow:'hidden',
                 textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'62%' }}>
                 {debtors.slice(0, 2).join(' · ')}{debtors.length ? ' →' : ''}
@@ -876,11 +847,11 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
 
           {/* REVENUE — wide */}
           <div onClick={go('/Logistics')} style={card({ gridColumn:'6/13', gridRow:'1/2', cursor:'pointer' })}>
-            {hR({ icon:CreditCard, title:`Οικονομικά · ${format(now, 'LLLL', loc)}`, color:col.rev })}
+            {hR({ icon:CreditCard, title:`Tokens · ${format(now, 'LLLL', loc)}`, color:col.rev })}
             <div style={{ display:'flex', alignItems:'center', gap:22, flex:1, minHeight:0 }}>
               <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', flex:'0 0 auto' }}>
-                <div style={{ ...big, fontSize:32 }}>€{Math.round(monthRevenue).toLocaleString()}</div>
-                {revDelta != null && <div style={{ fontFamily:'var(--font-display)', fontSize:11.5, fontWeight:700, marginTop:5, color: revDelta >= 0 ? '#4ade80' : '#f87171' }}>{revDelta >= 0 ? '▲ ' : '▼ '}{Math.abs(revDelta)}% vs {format(subDays(startOfMonth(now), 1), 'LLLL', loc)}</div>}
+                <div style={{ ...big, fontSize:32 }}>{totalTokens}<span style={{ ...lbl, fontWeight:600 }}> tokens ενεργά</span></div>
+                <div style={{ fontFamily:'var(--font-display)', fontSize:11.5, fontWeight:700, marginTop:5, color:'#4ade80' }}>{monthUsed} sessions αυτόν τον μήνα</div>
               </div>
               <div style={{ flex:1, height:'100%', display:'flex', alignItems:'center', minWidth:0 }}>
                 <svg viewBox="0 0 260 60" preserveAspectRatio="none" style={{ width:'100%', height:60 }}>
@@ -890,8 +861,8 @@ export default function MobileHome({ columns = 2, rowHeight = ROW, wide = false 
                 </svg>
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:11, borderLeft:'1px solid hsl(var(--border))', paddingLeft:20, flex:'0 0 auto' }}>
-                <div><div style={tick}>ΕΚΚΡΕΜΗ</div><div style={{ fontFamily:'var(--font-display)', fontSize:18, fontWeight:800, marginTop:2, color:'#f59e0b' }}>€{Math.round(outstanding).toLocaleString()}</div></div>
-                <div><div style={tick}>ΟΦΕΙΛΕΤΕΣ</div><div style={{ fontFamily:'var(--font-display)', fontSize:18, fontWeight:800, marginTop:2, color:'hsl(var(--foreground))' }}>{debtors.length}</div></div>
+                <div><div style={tick}>ΧΑΜΗΛΑ (1-2)</div><div style={{ fontFamily:'var(--font-display)', fontSize:18, fontWeight:800, marginTop:2, color:'#f59e0b' }}>{debtors.length}</div></div>
+                <div><div style={tick}>ΣΤΟ ΜΗΔΕΝ</div><div style={{ fontFamily:'var(--font-display)', fontSize:18, fontWeight:800, marginTop:2, color:'#f87171' }}>{zeroTokens}</div></div>
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO, isToday, isTomorrow, differenceInDays, differenceInMinutes } from 'date-fns';
-import { Plus, Calendar, Users, Dumbbell, Salad, BarChart2, Bell, CheckSquare, Square, Trash2, X, ChevronLeft, ChevronRight, Clock, CreditCard, Sparkles, Search, Loader2, Check } from 'lucide-react';
+import { Plus, Calendar, Users, Dumbbell, Salad, BarChart2, Bell, CheckSquare, Square, Trash2, X, ChevronLeft, ChevronRight, Clock, Sparkles, Search, Loader2, Check } from 'lucide-react';
 import { db } from '../lib/db';
 import MobileHome from '../components/MobileHome';
 
@@ -37,7 +37,6 @@ export default function Home() {
   const [clients, setClients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [todos, setTodos] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [modal, setModal] = useState(null);
@@ -48,8 +47,8 @@ export default function Home() {
   const quickRef = useRef(null);
 
   const load = async () => {
-    const [c,a,t,p] = await Promise.all([db.Client.list('name'), db.Appointment.list('date',200), db.TodoItem.list('-created_date',50), db.Payment.list('-paid_date',50)]);
-    setClients(c); setAppointments(a); setTodos(t); setPayments(p);
+    const [c,a,t] = await Promise.all([db.Client.list('name'), db.Appointment.list('date',200), db.TodoItem.list('-created_date',50)]);
+    setClients(c); setAppointments(a); setTodos(t);
   };
   useEffect(()=>{ load(); },[]);
   useEffect(()=>{
@@ -82,11 +81,6 @@ export default function Home() {
       if (diff>0&&diff<=60) notifs.unshift({ id:`soon-${a.id}`, icon:'⚠️', text:`In ${diff} min: ${a.client_name}`, sub:'Starting soon', type:'orange' });
     }
   });
-  payments.forEach(p=>{
-    if (!p.period_to) return;
-    const dl=differenceInDays(parseISO(p.period_to),now2);
-    if (dl>=0&&dl<=7) notifs.push({ id:`pay-${p.id}`, icon:'💳', text:`${p.client_name}'s plan ends in ${dl}d`, sub:'Remind at next session', type:'red' });
-  });
   todos.filter(t=>!t.completed&&t.due_date).forEach(t=>{
     const dl=differenceInDays(now2,parseISO(t.due_date));
     if (dl>=0) notifs.push({ id:`td-${t.id}`, icon:'☑️', text:`Overdue: ${t.title}`, sub:`Was due ${format(parseISO(t.due_date),'MMM d')}`, type:'purple' });
@@ -108,7 +102,6 @@ export default function Home() {
     else if (a==='record') navigate('/Statistics');
     else if (a==='training') navigate('/TrainingPlans');
     else if (a==='nutrition') navigate('/Nutrition');
-    else if (a==='payment') navigate('/Logistics',{state:{openLogPay:true}});
     else if (a==='assistant') setModal('assistant');
   };
 
@@ -123,7 +116,6 @@ export default function Home() {
     {a:'record',l:'Add Record',I:BarChart2,c:'text-green-600'},
     {a:'training',l:'Training Plan',I:Dumbbell,c:'text-purple-600'},
     {a:'nutrition',l:'Nutrition Plan',I:Salad,c:'text-amber-600'},
-    {a:'payment',l:'Log Payment',I:CreditCard,c:'text-rose-600'},
   ];
 
 
@@ -385,26 +377,3 @@ function EventForm({clients,onSave}) {
   );
 }
 
-function PaymentForm({clients,onSave}) {
-  const [f,setF]=useState({client_id:'',client_name:'',amount:'',currency:'EUR',description:'',paid_date:format(new Date(),'yyyy-MM-dd'),period_from:'',period_to:'',method:'cash'});
-  const [saving,setSaving]=useState(false);
-  const set=(k,v)=>setF(p=>({...p,[k]:v}));
-  const hc=(id)=>{ const c=clients.find(c=>c.id===id); setF(p=>({...p,client_id:id,client_name:c?.name||''})); };
-  const save=async()=>{ setSaving(true); await onSave({...f,amount:parseFloat(f.amount)}); setSaving(false); };
-  return (
-    <div className="space-y-3">
-      <div><label className="section-label">Client</label><select value={f.client_id} onChange={e=>hc(e.target.value)} className="input-base mt-1"><option value="">Select</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="section-label">Amount (€)</label><input type="number" value={f.amount} onChange={e=>set('amount',e.target.value)} placeholder="0.00" className="input-base mt-1"/></div>
-        <div><label className="section-label">Method</label><select value={f.method} onChange={e=>set('method',e.target.value)} className="input-base mt-1"><option value="cash">Cash</option><option value="card">Card</option><option value="transfer">Transfer</option></select></div>
-      </div>
-      <div><label className="section-label">Description</label><input value={f.description} onChange={e=>set('description',e.target.value)} placeholder="e.g. Monthly PT — June" className="input-base mt-1"/></div>
-      <div><label className="section-label">Date Paid</label><input type="date" value={f.paid_date} onChange={e=>set('paid_date',e.target.value)} className="input-base mt-1"/></div>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="section-label">Period From</label><input type="date" value={f.period_from} onChange={e=>set('period_from',e.target.value)} className="input-base mt-1"/></div>
-        <div><label className="section-label">Period To</label><input type="date" value={f.period_to} onChange={e=>set('period_to',e.target.value)} className="input-base mt-1"/></div>
-      </div>
-      <button onClick={save} disabled={saving||!f.client_id||!f.amount} className="btn btn-primary w-full mt-2">{saving?<><Loader2 className="w-4 h-4 animate-spin"/>Saving…</>:'Log Payment'}</button>
-    </div>
-  );
-}
