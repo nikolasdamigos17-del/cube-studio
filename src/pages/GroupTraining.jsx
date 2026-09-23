@@ -24,11 +24,11 @@ function GVid({ name, col, w = 92 }) {
   const [ok, setOk] = useState(true);
   useEffect(() => { setOk(true); }, [url]);
   if (!url || !ok) return (
-    <div style={{ width:w, alignSelf:'stretch', minHeight:96, borderRadius:12, background:`${col}14`,
-      display:'grid', placeItems:'center', color:col, fontWeight:900, fontSize:26, flexShrink:0 }}>{(name||'?').charAt(0)}</div>
+    <div style={{ width:w, alignSelf:'stretch', minHeight:'clamp(96px,14vh,300px)', borderRadius:12, background:`${col}14`,
+      display:'grid', placeItems:'center', color:col, fontWeight:900, fontSize:'clamp(26px,4vh,60px)', flexShrink:0 }}>{(name||'?').charAt(0)}</div>
   );
   return <video key={url} src={url} autoPlay loop muted playsInline preload="metadata" onError={() => setOk(false)}
-    style={{ width:w, alignSelf:'stretch', minHeight:96, objectFit:'contain', background:'#fcfcfd',
+    style={{ width:w, alignSelf:'stretch', minHeight:'clamp(96px,14vh,300px)', objectFit:'contain', background:'#fcfcfd',
       mixBlendMode:'multiply', flexShrink:0 }}/>;
 }
 const fmt = (s) => `${Math.floor(s/60)}:${String(Math.max(0,s)%60).padStart(2,'0')}`;
@@ -174,19 +174,19 @@ export default function GroupTraining() {
   };
 
   const S = {
-    page:{ minHeight:'var(--lt-vh, 100vh)', position:'relative', overflowX:'hidden', color:'#f3ecff', fontFamily:'var(--cp-font, "Space Grotesk", sans-serif)' },
+    page:{ minHeight:'var(--lt-vh, 100vh)', position:'relative', overflowX:'hidden', color:'#0e1116', fontFamily:'var(--cp-font, "Space Grotesk", sans-serif)' },
     center:{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 20px', position:'relative', zIndex:1, textAlign:'center' },
     kicker:{ fontSize:10.5, letterSpacing:'.3em', textTransform:'uppercase', color:'rgba(224,69,123,.9)', fontWeight:700, margin:0 },
     cta:(bg)=>({ border:'none', borderRadius:15, padding:'15px 30px', fontSize:15, fontWeight:800, cursor:'pointer', color:'#fff', fontFamily:'inherit',
-      background: bg || 'linear-gradient(180deg,#e0457b,#b52f78)', boxShadow:'0 6px 26px rgba(224,69,123,.4)' }),
-    ghost:{ border:'1px solid rgba(255,255,255,.2)', borderRadius:14, padding:'12px 20px', fontSize:13.5, fontWeight:700, cursor:'pointer', background:'rgba(255,255,255,.05)', color:'#e6dcff', fontFamily:'inherit' },
+      background: bg || 'linear-gradient(135deg,#e0457b,#8b5cf6)', boxShadow:'0 8px 28px rgba(224,69,123,.3)' }),
+    ghost:{ border:'1px solid rgba(14,17,22,.16)', borderRadius:14, padding:'12px 20px', fontSize:13.5, fontWeight:700, cursor:'pointer', background:'#fff', color:'#0e1116', fontFamily:'inherit' },
   };
 
   if (!plans.length) {
     return (
-      <div style={{ ...S.page, background:PULSE_BG }}>
+      <div style={{ ...S.page, background:'#fcfcfd' }}>
         <div style={S.center}>
-          <p style={{ fontSize:16, marginBottom:16 }}>Δεν βρέθηκε ομαδική προπόνηση.</p>
+          <p style={{ fontSize:16, marginBottom:16, fontWeight:700 }}>Δεν βρέθηκε ομαδική προπόνηση.</p>
           <button onClick={()=>navigate('/TrainingPlans')} style={S.cta()}>Πίσω στο Training Center</button>
         </div>
       </div>
@@ -246,42 +246,43 @@ export default function GroupTraining() {
 
   return (
     <>
-    <div style={{ ...S.page, background:PULSE_BG }}
+    <div style={{ ...S.page, background:'#fcfcfd', color:'#0e1116' }}
       onMouseDown={screen === 'run' ? onMouseDown : undefined}
       onContextMenu={screen === 'run' ? (e)=>e.preventDefault() : undefined}>
-      <CubeBackground/>
-      <div style={{ position:'fixed', inset:0, zIndex:0, background:'rgba(6,4,14,.55)', pointerEvents:'none' }}/>
 
-      {/* ── ΧΑΙΡΕΤΙΣΜΟΣ ── */}
+      {/* ── ΧΑΙΡΕΤΙΣΜΟΣ — λευκό (Arena) ── */}
       {screen === 'greet' && (
         <div style={S.center}>
-          <p style={S.kicker}>The Cube · Ομαδική προπόνηση</p>
-          <div style={{ fontSize:54, margin:'14px 0 6px' }}>👥</div>
-          <h1 style={{ fontSize:34, fontWeight:800, color:'#fff', margin:'0 0 8px', fontFamily:'var(--cp-font)' }}>{groupName}</h1>
-          <p style={{ fontSize:14.5, color:'rgba(240,224,236,.7)', margin:'0 0 4px' }}>
-            {plans.map((p,i)=>nameOf(i)).join('  ·  ')}
-          </p>
-          <p style={{ fontSize:12.5, color:'rgba(255,255,255,.42)', maxWidth:400, margin:'6px 0 26px' }}>Προπονείστε ταυτόχρονα — κάθε μέλος με το πρόγραμμά του. Με το ✓ (ή τα πλήκτρα 1/2/3 · αριστερό/δεξί κλικ) μετράς τα σετ του καθενός, και το ρολόι δείχνει σε όλους το διάλειμμά τους.</p>
+          <p style={{ fontSize:'clamp(10.5px,1.4vh,18px)', letterSpacing:'.3em', textTransform:'uppercase', color:ACCENT, fontWeight:800, margin:0 }}>GROUP <span style={{ color:'#0e1116' }}>LIVE</span> · The Cube</p>
+          <div style={{ fontSize:'clamp(50px,7vh,110px)', margin:'14px 0 6px' }}>👥</div>
+          <h1 style={{ fontSize:'clamp(34px,5.4vh,84px)', fontWeight:900, letterSpacing:'-.03em', margin:'0 0 10px',
+            background:'linear-gradient(135deg,#e0457b,#8b5cf6)', WebkitBackgroundClip:'text', backgroundClip:'text', color:'transparent' }}>{groupName}</h1>
+          <div style={{ display:'flex', gap:10, flexWrap:'wrap', justifyContent:'center', margin:'0 0 12px' }}>
+            {plans.map((p, i2) => (
+              <span key={i2} style={{ fontSize:'clamp(11px,1.5vh,20px)', fontWeight:800, padding:'.4em 1.2em', borderRadius:99, color:'#fff', background:colorOf(i2) }}>{nameOf(i2)}</span>
+            ))}
+          </div>
+          <p style={{ fontSize:'clamp(12.5px,1.7vh,21px)', color:'#6b7280', maxWidth:520, margin:'0 0 26px', lineHeight:1.6 }}>Προπονείστε ταυτόχρονα — κάθε μέλος με το πρόγραμμά του. Με το ✓ (ή τα πλήκτρα 1/2/3 · αριστερό/δεξί κλικ) μετράς τα σετ του καθενός, και το ρολόι δείχνει σε όλους το διάλειμμά τους.</p>
           <button onClick={()=>setScreen('preview')} style={S.cta()}>Προβολή προπόνησης</button>
         </div>
       )}
 
-      {/* ── PREVIEW (μόνο ονόματα ασκήσεων) ── */}
+      {/* ── PREVIEW — λευκό (Arena) ── */}
       {screen === 'preview' && (
-        <div style={{ position:'relative', zIndex:1, maxWidth:820, margin:'0 auto', padding:'34px 18px 44px' }}>
-          <p style={{ ...S.kicker, textAlign:'center' }}>Σύνοψη · {groupName}</p>
-          <h1 style={{ fontSize:24, fontWeight:800, color:'#fff', textAlign:'center', margin:'8px 0 22px', fontFamily:'var(--cp-font)' }}>Η σημερινή προπόνηση</h1>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            {plans.map((p, i) => (
-              <div key={i} style={{ background:'rgba(0,0,0,.5)', border:'1px solid rgba(255,255,255,.1)', borderRadius:16, padding:'16px 16px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
-                  <span style={{ width:24, height:24, borderRadius:'50%', background:colorOf(i), display:'grid', placeItems:'center', color:'#fff', fontWeight:800, fontSize:11 }}>{nameOf(i).charAt(0)}</span>
-                  <span style={{ fontSize:15, fontWeight:800, color:'#fff' }}>{nameOf(i)}</span>
+        <div style={{ position:'relative', zIndex:1, maxWidth:880, margin:'0 auto', padding:'34px 18px 44px' }}>
+          <p style={{ fontSize:'clamp(10.5px,1.4vh,17px)', letterSpacing:'.3em', textTransform:'uppercase', color:ACCENT, fontWeight:800, margin:0, textAlign:'center' }}>Σύνοψη · {groupName}</p>
+          <h1 style={{ fontSize:'clamp(24px,3.4vh,44px)', fontWeight:900, letterSpacing:'-.02em', textAlign:'center', margin:'8px 0 22px' }}>Η σημερινή προπόνηση</h1>
+          <div style={{ display:'grid', gridTemplateColumns: plans.length >= 3 ? '1fr 1fr 1fr' : '1fr 1fr', gap:12 }}>
+            {plans.map((p, i2) => (
+              <div key={i2} style={{ background:'#fff', border:'1px solid rgba(14,17,22,.09)', borderRadius:16, padding:'16px', position:'relative', overflow:'hidden' }}>
+                <span style={{ position:'absolute', inset:'0 0 auto 0', height:4, background:colorOf(i2) }}/>
+                <div style={{ display:'flex', alignItems:'center', gap:8, margin:'4px 0 12px' }}>
+                  <span style={{ fontSize:'clamp(9.5px,1.3vh,16px)', fontWeight:800, padding:'.35em 1.1em', borderRadius:99, color:'#fff', background:colorOf(i2) }}>{nameOf(i2).toUpperCase()}</span>
                 </div>
                 {(p.exercises || []).map((ex, k) => (
-                  <div key={k} style={{ display:'flex', gap:8, padding:'6px 0', borderTop: k ? '1px solid rgba(255,255,255,.06)' : 'none' }}>
-                    <span style={{ color:colorOf(i), fontWeight:800, fontSize:13, minWidth:16 }}>{k + 1}</span>
-                    <span style={{ fontSize:13.5, color:'#eee', fontWeight:600 }}>{ex.name}</span>
+                  <div key={k} style={{ display:'flex', gap:8, padding:'6px 0', borderTop: k ? '1px solid rgba(14,17,22,.07)' : 'none' }}>
+                    <span style={{ color:colorOf(i2), fontWeight:800, fontSize:'clamp(13px,1.7vh,20px)', minWidth:18 }}>{k + 1}</span>
+                    <span style={{ fontSize:'clamp(13.5px,1.8vh,21px)', fontWeight:600 }}>{ex.name}</span>
                   </div>
                 ))}
               </div>
@@ -301,17 +302,17 @@ export default function GroupTraining() {
           padding:'calc(12px + env(safe-area-inset-top)) 14px 0' }}>
 
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <span style={{ fontWeight:900, letterSpacing:'.16em', fontSize:11 }}>GROUP <span style={{ color:ACCENT }}>LIVE</span></span>
-            <span style={{ fontSize:10, fontWeight:800, padding:'4px 11px', borderRadius:99, letterSpacing:'.06em', background:'#fdf2f8', color:ACCENT, maxWidth:170, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{groupName.toUpperCase()}</span>
+            <span style={{ fontWeight:900, letterSpacing:'.16em', fontSize:'clamp(11px,1.4vh,20px)' }}>GROUP <span style={{ color:ACCENT }}>LIVE</span></span>
+            <span style={{ fontSize:'clamp(10px,1.3vh,18px)', fontWeight:800, padding:'.4em 1.1em', borderRadius:99, letterSpacing:'.06em', background:'#fdf2f8', color:ACCENT, maxWidth:'32vw', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{groupName.toUpperCase()}</span>
           </div>
 
           {/* κεντρικό ψηφιακό ρολόι με δευτερόλεπτα */}
           <div style={{ textAlign:'center', margin:'6px 0 10px' }}>
-            <span style={{ display:'block', fontSize:8.5, letterSpacing:'.24em', fontWeight:800, color:'#a1a1aa' }}>ΡΟΛΟΪ ΠΡΟΠΟΝΗΣΗΣ</span>
-            <span style={{ fontFamily:'ui-monospace,monospace', fontWeight:700, fontSize:'clamp(38px,10vw,52px)', letterSpacing:'-.02em', lineHeight:1, fontVariantNumeric:'tabular-nums' }}>
+            <span style={{ display:'block', fontSize:'clamp(8.5px,1.2vh,16px)', letterSpacing:'.24em', fontWeight:800, color:'#a1a1aa' }}>ΡΟΛΟΪ ΠΡΟΠΟΝΗΣΗΣ</span>
+            <span style={{ fontFamily:'ui-monospace,monospace', fontWeight:700, fontSize:'clamp(44px,8vh,150px)', letterSpacing:'-.02em', lineHeight:1, fontVariantNumeric:'tabular-nums' }}>
               {String(Math.floor(clock/60)).padStart(2,'0')}:{String(clock%60).padStart(2,'0')}
             </span>
-            <span style={{ display:'block', fontSize:9, color:'#6b7280', marginTop:2 }}>μέτρα το δικό σου διάλειμμα</span>
+            <span style={{ display:'block', fontSize:'clamp(9px,1.3vh,18px)', color:'#6b7280', marginTop:2 }}>μέτρα το δικό σου διάλειμμα</span>
           </div>
 
           {/* κάρτες μελών */}
@@ -333,27 +334,27 @@ export default function GroupTraining() {
                   border:'1px solid rgba(14,17,22,.09)', borderRadius:16, padding:'12px 11px 10px',
                   display:'flex', gap:10, alignItems:'stretch', overflow:'hidden', opacity: m.done ? .55 : 1 }}>
                   <span style={{ position:'absolute', inset:'0 0 auto 0', height:4, background:col }}/>
-                  {cx && <GVid name={cx.name} col={col} w={three ? 84 : 106}/>}
+                  {cx && <GVid name={cx.name} col={col} w={three ? 'clamp(88px,12vh,270px)' : 'clamp(110px,17vh,360px)'}/>}
                   <div style={{ minWidth:0, flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                      <span style={{ fontSize:9.5, fontWeight:800, padding:'3px 10px', borderRadius:99, color:'#fff', background:col, letterSpacing:'.05em' }}>{nameOf(i).toUpperCase()}</span>
+                      <span style={{ fontSize:'clamp(9.5px,1.3vh,17px)', fontWeight:800, padding:'.35em 1.1em', borderRadius:99, color:'#fff', background:col, letterSpacing:'.05em' }}>{nameOf(i).toUpperCase()}</span>
                       {myRest != null && !m.done && (
-                        <span style={{ fontFamily:'ui-monospace,monospace', fontSize:10.5, fontWeight:700, color: myRest >= restLbl ? '#dc2626' : '#6b7280' }}>
+                        <span style={{ fontFamily:'ui-monospace,monospace', fontSize:'clamp(10.5px,1.6vh,22px)', fontWeight:700, color: myRest >= restLbl ? '#dc2626' : '#6b7280' }}>
                           ⏱ {fmt(myRest)}
                         </span>
                       )}
                     </div>
                     {m.done ? (
-                      <p style={{ margin:'8px 0 0', fontSize:15, fontWeight:900 }}>Ολοκληρώθηκε 🏁</p>
+                      <p style={{ margin:'8px 0 0', fontSize:'clamp(15px,2.2vh,30px)', fontWeight:900 }}>Ολοκληρώθηκε 🏁</p>
                     ) : cx ? (
                       <>
-                        <p style={{ margin:'5px 0 1px', fontSize: three ? 13.5 : 15.5, fontWeight:900, letterSpacing:'-.01em',
+                        <p style={{ margin:'5px 0 1px', fontSize: three ? 'clamp(13.5px,2vh,28px)' : 'clamp(15.5px,2.4vh,34px)', fontWeight:900, letterSpacing:'-.01em',
                           overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cx.name}</p>
-                        <p style={{ margin:'0 0 3px', fontSize:8.5, letterSpacing:'.16em', fontWeight:800, color:'#a1a1aa' }}>
+                        <p style={{ margin:'0 0 3px', fontSize:'clamp(8.5px,1.2vh,16px)', letterSpacing:'.16em', fontWeight:800, color:'#a1a1aa' }}>
                           ΑΣΚ. {m.ex + 1}/{exs.length} · ΣΕΤ {m.set + 1}/{rows.length} · ΔΙΑΛ. {restLbl}″
                         </p>
                         <p style={{ margin:0, fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em',
-                          fontSize: three ? 26 : 32, lineHeight:1, color:col, fontVariantNumeric:'tabular-nums' }}>
+                          fontSize: three ? 'clamp(26px,4.2vh,64px)' : 'clamp(32px,5vh,78px)', lineHeight:1, color:col, fontVariantNumeric:'tabular-nums' }}>
                           {kg > 0 ? <>{kg}<span style={{ fontSize:'.45em' }}>kg</span></> : 'BW'}
                           <span style={{ fontSize:'.5em', color:'#0e1116' }}> × {rr}</span>
                         </p>
@@ -363,11 +364,11 @@ export default function GroupTraining() {
                               const st = si < m.set ? 'don' : si === m.set ? 'act' : 'fut';
                               return (
                                 <span key={si} style={{ flex:1, textAlign:'center', borderRadius:10, padding:'5px 2px 4px',
-                                  fontSize:10.5, fontWeight:800, fontVariantNumeric:'tabular-nums',
+                                  fontSize:'clamp(10.5px,1.5vh,20px)', fontWeight:800, fontVariantNumeric:'tabular-nums',
                                   border: st === 'fut' ? '1.5px solid rgba(14,17,22,.1)' : '1.5px solid transparent',
                                   background: st === 'don' ? '#16a34a' : st === 'act' ? col : '#fff',
                                   color: st === 'fut' ? '#c3c8d1' : '#fff' }}>
-                                  <span style={{ display:'block', fontSize:7, letterSpacing:'.1em', opacity:.8 }}>ΣΕΤ {si + 1}</span>
+                                  <span style={{ display:'block', fontSize:'clamp(7px,.95vh,12px)', letterSpacing:'.1em', opacity:.8 }}>ΣΕΤ {si + 1}</span>
                                   {num(r2.weight_kg) > 0 ? num(r2.weight_kg) : 'BW'}×{repN(r2.reps)}
                                 </span>
                               );
@@ -380,13 +381,13 @@ export default function GroupTraining() {
                     )}
                   </div>
                   {three && !m.done && cx && (
-                    <div style={{ width:34, flexShrink:0, display:'flex', flexDirection:'column', gap:4 }}>
-                      <span style={{ fontSize:7, letterSpacing:'.16em', textAlign:'center', color:'#a1a1aa', fontWeight:800 }}>ΣΕΤ</span>
+                    <div style={{ width:'clamp(34px,4.4vh,72px)', flexShrink:0, display:'flex', flexDirection:'column', gap:4 }}>
+                      <span style={{ fontSize:'clamp(7px,1vh,13px)', letterSpacing:'.16em', textAlign:'center', color:'#a1a1aa', fontWeight:800 }}>ΣΕΤ</span>
                       {rows.map((r2, si) => {
                         const st = si < m.set ? 'don' : si === m.set ? 'act' : 'fut';
                         return (
                           <span key={si} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-                            borderRadius:8, fontSize:11, fontWeight:800, minHeight:20,
+                            borderRadius:8, fontSize:'clamp(11px,1.6vh,22px)', fontWeight:800, minHeight:'clamp(20px,2.6vh,44px)',
                             border: st === 'fut' ? '1.5px solid rgba(14,17,22,.1)' : '1.5px solid transparent',
                             background: st === 'don' ? '#16a34a' : st === 'act' ? col : '#fff',
                             color: st === 'fut' ? '#c3c8d1' : '#fff' }}>{si + 1}</span>
@@ -396,8 +397,8 @@ export default function GroupTraining() {
                   )}
                   {!m.done && cx && (
                     <button onClick={(e) => { e.stopPropagation(); advance(i); }}
-                      style={{ alignSelf:'center', flexShrink:0, width:46, height:46, borderRadius:14, border:'none', cursor:'pointer',
-                        background:col, color:'#fff', fontSize:17, fontWeight:900, boxShadow:`0 4px 14px ${col}55` }}
+                      style={{ alignSelf:'center', flexShrink:0, width:'clamp(46px,6vh,96px)', height:'clamp(46px,6vh,96px)', borderRadius:'clamp(14px,1.8vh,24px)', border:'none', cursor:'pointer',
+                        background:col, color:'#fff', fontSize:'clamp(17px,2.4vh,36px)', fontWeight:900, boxShadow:`0 4px 14px ${col}55` }}
                       title={`Σετ ✓ (πλήκτρο ${i + 1})`}>✓</button>
                   )}
                 </div>
@@ -420,25 +421,25 @@ export default function GroupTraining() {
       {screen === 'finish' && (
         savedMsg ? (
           <div style={S.center}>
-            <span style={{ width:52, height:52, borderRadius:'50%', background:'#22c55e', display:'grid', placeItems:'center', marginBottom:14, fontSize:26 }}>✓</span>
-            <p style={{ fontSize:16, fontWeight:800, color:'#fff', maxWidth:420 }}>{savedMsg}</p>
+            <span style={{ width:56, height:56, borderRadius:'50%', background:'#16a34a', display:'grid', placeItems:'center', marginBottom:14, fontSize:26, color:'#fff' }}>✓</span>
+            <p style={{ fontSize:'clamp(16px,2.1vh,26px)', fontWeight:800, color:'#0e1116', maxWidth:460 }}>{savedMsg}</p>
           </div>
         ) : (
           <div style={{ position:'relative', zIndex:1, maxWidth:640, margin:'0 auto', padding:'34px 18px 44px' }}>
             <p style={{ ...S.kicker, textAlign:'center' }}>Ολοκλήρωση · {groupName}</p>
-            <h1 style={{ fontSize:23, fontWeight:800, color:'#fff', textAlign:'center', margin:'8px 0 6px', fontFamily:'var(--cp-font)' }}>Σημειώσεις ανά πελάτη</h1>
-            <p style={{ fontSize:12.5, color:'rgba(255,255,255,.5)', textAlign:'center', margin:'0 0 22px', maxWidth:440, marginInline:'auto' }}>π.χ. «απέτυχε στις τελευταίες επαναλήψεις», «αύξηση κιλών την επόμενη φορά». Ο εγκέφαλος θα τις λάβει υπόψη στις μελλοντικές προπονήσεις και διατροφές.</p>
+            <h1 style={{ fontSize:'clamp(23px,3.2vh,40px)', fontWeight:900, letterSpacing:'-.02em', textAlign:'center', margin:'8px 0 6px' }}>Σημειώσεις ανά πελάτη</h1>
+            <p style={{ fontSize:'clamp(12.5px,1.7vh,20px)', color:'#6b7280', textAlign:'center', margin:'0 0 22px', maxWidth:460, marginInline:'auto' }}>π.χ. «απέτυχε στις τελευταίες επαναλήψεις», «αύξηση κιλών την επόμενη φορά». Ο εγκέφαλος θα τις λάβει υπόψη στις μελλοντικές προπονήσεις και διατροφές.</p>
             <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
               {plans.map((p, i) => (
-                <div key={i} style={{ background:'rgba(0,0,0,.5)', border:'1px solid rgba(255,255,255,.1)', borderRadius:16, padding:'14px 15px' }}>
+                <div key={i} style={{ background:'#fff', border:'1px solid rgba(14,17,22,.09)', borderRadius:16, padding:'14px 15px' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:10 }}>
                     <span style={{ width:26, height:26, borderRadius:'50%', background:colorOf(i), display:'grid', placeItems:'center', color:'#fff', fontWeight:800, fontSize:12 }}>{nameOf(i).charAt(0)}</span>
-                    <span style={{ fontSize:15, fontWeight:800, color:'#fff' }}>{nameOf(i)}</span>
+                    <span style={{ fontSize:'clamp(15px,2vh,24px)', fontWeight:800 }}>{nameOf(i)}</span>
                     {p.title && <span style={{ fontSize:11, color:colorOf(i), fontWeight:700 }}>· {p.title}</span>}
                   </div>
                   <textarea value={notes[p.id] || ''} onChange={e=>setNotes(n=>({ ...n, [p.id]: e.target.value }))}
                     placeholder="Παρατηρήσεις προπόνησης…"
-                    style={{ width:'100%', minHeight:74, resize:'vertical', background:'rgba(0,0,0,.45)', border:'1px solid rgba(255,255,255,.15)', borderRadius:11, color:'#fff', padding:'10px 12px', fontSize:13.5, fontFamily:'inherit', outline:'none' }}/>
+                    style={{ width:'100%', minHeight:74, resize:'vertical', background:'#fcfcfd', border:'1px solid rgba(14,17,22,.14)', borderRadius:11, color:'#0e1116', padding:'10px 12px', fontSize:'clamp(13.5px,1.8vh,20px)', fontFamily:'inherit', outline:'none' }}/>
                 </div>
               ))}
             </div>
