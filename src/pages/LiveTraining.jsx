@@ -194,7 +194,7 @@ function RestTakeover({ seconds, onDone, onSkip, isExChange, nextSub, nextKg, ne
       animation:'ltFade .3s ease' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <span style={{ fontWeight:900, letterSpacing:'.16em', fontSize:11 }}>THE <span style={{ color:ACCENT }}>CUBE</span> · LIVE</span>
-        <span style={{ fontFamily:'ui-monospace,monospace', fontSize:11, color:'#6b7280', fontWeight:600 }}>{clockLabel || ''}</span>
+        <span style={{ fontFamily:'ui-monospace,monospace', fontSize:11.5, fontWeight:700, fontVariantNumeric:'tabular-nums', letterSpacing:'.05em', background:'#0e1116', color:'#fff', borderRadius:9, padding:'.3em .8em' }}>{clockLabel || ''}</span>
         <span style={{ fontSize:10, fontWeight:800, padding:'4px 10px', borderRadius:99, letterSpacing:'.06em', background:'#eef2ff', color:'#4f46e5' }}>{(clientName || 'ATHLETE').toUpperCase()}</span>
       </div>
       <p style={{ margin:'12px 0 0', textAlign:'center', fontSize:11, letterSpacing:'.3em', fontWeight:800, color:ACCENT }}>
@@ -399,7 +399,7 @@ export default function LiveTraining() {
   const clockLabel = (() => {
     const d = new Date(nowMs);
     const el = Math.floor((nowMs - t0) / 60000);
-    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} · ${el}′`;
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')} · ${el}′`;
   })();
 
   const ex = exercises[exIdx];
@@ -571,7 +571,7 @@ export default function LiveTraining() {
           {/* ── 1. top bar ── */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             <span style={{ fontWeight:900, letterSpacing:'.16em', fontSize:'clamp(11px,1.4vh,20px)' }}>THE <span style={{ color:ACCENT }}>CUBE</span> · LIVE</span>
-            <span style={{ fontFamily:'ui-monospace,monospace', fontSize:'clamp(11px,1.4vh,20px)', color:'#6b7280', fontWeight:600 }}>{clockLabel}</span>
+            <span style={{ fontFamily:'ui-monospace,monospace', fontSize:'clamp(11px,1.5vh,21px)', fontWeight:700, fontVariantNumeric:'tabular-nums', letterSpacing:'.05em', background:'#0e1116', color:'#fff', borderRadius:10, padding:'.32em .85em' }}>{clockLabel}</span>
             <span style={{ fontSize:'clamp(10px,1.3vh,18px)', fontWeight:800, padding:'.4em 1em', borderRadius:99, letterSpacing:'.06em', background:'#eef2ff', color:'#4f46e5', maxWidth:'22vw', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{(clientName || 'ATHLETE').toUpperCase()}</span>
           </div>
 
