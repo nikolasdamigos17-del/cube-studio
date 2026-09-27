@@ -332,7 +332,7 @@ function ResultsReview({ draft, onEdit, onConfirm, saving }) {
 }
 
 /* ── finish — λευκό (Cinema) ──────────────────────────────────────────── */
-function Finish({ plan, clientName, totals, deduction, onClose }) {
+function Finish({ plan, clientName, totals, deduction, charge, onCharge, onClose }) {
   return (
     <div style={{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', justifyContent:'center',
       alignItems:'center', padding:'40px 20px', background:'#fcfcfd', color:'#0e1116', textAlign:'center' }}>
@@ -353,10 +353,26 @@ function Finish({ plan, clientName, totals, deduction, onClose }) {
             </div>
           ))}
         </div>
+        {charge?.status === 'ask' && (
+          <div style={{ background:'#fffbeb', border:'1.5px solid #fcd34d', borderRadius:15, padding:'14px 16px', marginBottom:14, textAlign:'left' }}>
+            <p style={{ margin:0, fontSize:'clamp(13px,1.8vh,21px)', color:'#92400e', fontWeight:800 }}>🎟 Χρέωση session</p>
+            <p style={{ margin:'5px 0 12px', fontSize:'clamp(12.5px,1.7vh,20px)', color:'#78350f', lineHeight:1.5 }}>
+              Να αφαιρεθεί <b>1 token προπόνησης</b> από {charge.group ? <>το κοινό υπόλοιπο του group{charge.name ? <> <b>{charge.name}</b></> : null}</> : <b>{charge.name}</b>};{' '}
+              Υπόλοιπο: <b>{charge.left}</b> → <b style={{ color:ACCENT }}>{charge.left - 1}</b>
+            </p>
+            <div style={{ display:'flex', gap:8 }}>
+              <button disabled={charge.busy} onClick={()=>onCharge(true)} style={{ flex:1, border:'none', borderRadius:12, padding:'clamp(11px,1.6vh,20px)', cursor:'pointer', background:'linear-gradient(135deg,#e0457b,#8b5cf6)', color:'#fff', fontSize:'clamp(12.5px,1.7vh,20px)', fontWeight:800, fontFamily:'inherit' }}>{charge.busy ? 'Χρέωση…' : '✓ Ναι, αφαίρεσε −1'}</button>
+              <button disabled={charge.busy} onClick={()=>onCharge(false)} style={{ border:'1px solid rgba(14,17,22,.16)', borderRadius:12, padding:'clamp(11px,1.6vh,20px) 18px', cursor:'pointer', background:'#fff', color:'#0e1116', fontSize:'clamp(12.5px,1.7vh,20px)', fontWeight:800, fontFamily:'inherit' }}>Όχι</button>
+            </div>
+          </div>
+        )}
         <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:15, padding:'14px 16px', marginBottom:18, textAlign:'left' }}>
           <p style={{ margin:0, fontSize:'clamp(12.5px,1.7vh,20px)', color:'#166534', lineHeight:1.55 }}>✅ Τα δεδομένα της προπόνησης αποθηκεύτηκαν στην καρτέλα του πελάτη για μελλοντικά πλάνα.</p>
           {deduction && (
             <p style={{ margin:'8px 0 0', fontSize:'clamp(12.5px,1.7vh,20px)', color:'#166534', lineHeight:1.55 }}>🏋️ Αφαιρέθηκε <b>1 προπόνηση</b> — Νέο υπόλοιπο{deduction.group?' group':''}: <b style={{ color:ACCENT }}>{deduction.left} προπονήσεις</b></p>
+          )}
+          {charge?.status === 'no' && (
+            <p style={{ margin:'8px 0 0', fontSize:'clamp(12.5px,1.7vh,20px)', color:'#6b7280', lineHeight:1.55 }}>🎟 Δεν αφαιρέθηκε token — υπόλοιπο{charge.group?' group':''}: <b>{charge.left}</b></p>
           )}
         </div>
         <button onClick={onClose} style={{ width:'100%', padding:'clamp(14px,2vh,26px)', borderRadius:15, border:'none',
@@ -386,6 +402,7 @@ export default function LiveTraining() {
   const [logged, setLogged] = useState({});          // `${ex}-${set}` -> reps done
   const [resultsDraft, setResultsDraft] = useState([]);
   const [deduction, setDeduction] = useState(null);
+  const [charge, setCharge] = useState(null);       // { status:'ask'|'no'|'yes', group, id, name, left, busy }
   const [savingRes, setSavingRes] = useState(false);
   const [vidOk, setVidOk] = useState(true);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -486,22 +503,39 @@ export default function LiveTraining() {
     try {
       if (plan?.id) await db.TrainingPlan.update(plan.id, { completed: true, completed_date: new Date().toISOString(), session_results });
       if (plan?.client_id) {
+        // Ρωτάμε ΠΡΙΝ τη χρέωση — η αφαίρεση γίνεται μόνο με «Ναι» στην οθόνη τέλους
         const c = await db.Client.get(plan.client_id);
         if (c?.group_id) {
-          // Μέλος group → η προπόνηση αφαιρείται από το ΚΟΙΝΟ υπόλοιπο του group
           const g = await db.Group.get(c.group_id);
-          await addGroupCredit(c.group_id, -1, 'session', plan.id, plan.title || '');
           const left = g ? await getGroupTrainingBalance(g) : 0;
-          setDeduction({ left, group: true });
+          setCharge({ status:'ask', group:true, id:c.group_id, name:g?.name || '', left });
         } else {
-          await addCredit(plan.client_id, 'training', -1, 'session', plan.id, plan.title || '');
           const b = await getBalance(plan.client_id);
-          setDeduction({ left: b.training });
+          setCharge({ status:'ask', group:false, id:plan.client_id, name:c?.name || clientName || 'τον πελάτη', left:b.training });
         }
       }
     } catch {}
     setSavingRes(false);
     setScreen('finish');
+  };
+
+  const answerCharge = async (yes) => {
+    if (!charge || charge.busy || charge.status !== 'ask') return;
+    if (!yes) { setCharge(c => ({ ...c, status:'no' })); return; }
+    setCharge(c => ({ ...c, busy:true }));
+    try {
+      if (charge.group) {
+        await addGroupCredit(charge.id, -1, 'session', plan?.id || null, plan?.title || '');
+        const g = await db.Group.get(charge.id);
+        const left = g ? await getGroupTrainingBalance(g) : charge.left - 1;
+        setDeduction({ left, group:true });
+      } else {
+        await addCredit(charge.id, 'training', -1, 'session', plan?.id || null, plan?.title || '');
+        const b = await getBalance(charge.id);
+        setDeduction({ left: b.training });
+      }
+      setCharge(c => ({ ...c, status:'yes', busy:false }));
+    } catch (e) { setCharge(c => ({ ...c, busy:false })); }
   };
 
   const afterExRest = () => {
@@ -560,7 +594,7 @@ export default function LiveTraining() {
         <ResultsReview draft={resultsDraft} onEdit={editDraft} onConfirm={confirmResults} saving={savingRes}/>
       )}
       {screen === 'finish' && (
-        <Finish plan={plan} clientName={clientName} totals={totals} deduction={deduction} onClose={() => nav(-1)}/>
+        <Finish plan={plan} clientName={clientName} totals={totals} deduction={deduction} charge={charge} onCharge={answerCharge} onClose={() => nav(-1)}/>
       )}
 
       {screen === 'run' && ex && (

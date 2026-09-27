@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../lib/db';
-import { addGroupCredit } from '../lib/credits';
+import { addGroupCredit, getGroupTrainingBalance } from '../lib/credits';
 import CubeBackground from '../components/CubeBackground';
 
 /* ── Παλμός palette (ίδιο με Live Training) ── */
@@ -29,6 +29,7 @@ export default function GroupTraining() {
   const [notes, setNotes] = useState({});
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState('');
+  const [charge, setCharge] = useState(null);        // { gid, left, busy } — ερώτηση χρέωσης
 
   const colorOf = (i) => members[i]?.theme_color || (i === 0 ? ACCENT : '#8b5cf6');
   const nameOf = (i) => plans[i]?.client_name || members[i]?.name || `Μέλος ${i + 1}`;
@@ -72,11 +73,37 @@ export default function GroupTraining() {
         if (fb && p.client_id) await db.ClientNote.create({ client_id: p.client_id, type: 'training_feedback', content: fb, date: stamp.split('T')[0], source: 'group_training' });
       } catch (e) {}
     }
-    /* −1 κοινό token του group ανά session (Logistics) */
+    /* Χρέωση session: ρωτάμε ΠΡΙΝ αφαιρεθεί το κοινό token του group */
     const gid = members.find(m => m?.group_id)?.group_id;
-    if (gid) { try { await addGroupCredit(gid, -1, 'session', plans[0]?.id || null, groupName); } catch (e) {} }
+    if (gid) {
+      let left = 0;
+      try { const g = await db.Group.get(gid); left = g ? await getGroupTrainingBalance(g) : 0; } catch (e) {}
+      setSaving(false);
+      setCharge({ gid, left, busy:false });
+      return;
+    }
     setSavedMsg('Οι σημειώσεις αποθηκεύτηκαν — ο εγκέφαλος θα τις λάβει υπόψη στις επόμενες προπονήσεις/διατροφές.');
     setTimeout(() => navigate('/TrainingPlans'), 1400);
+  };
+
+  const answerCharge = async (yes) => {
+    if (!charge || charge.busy) return;
+    if (!yes) {
+      setSavedMsg(`Αποθηκεύτηκε — χωρίς χρέωση token. Υπόλοιπο group: ${charge.left}.`);
+      setCharge(null);
+      setTimeout(() => navigate('/TrainingPlans'), 1600);
+      return;
+    }
+    setCharge(c => ({ ...c, busy:true }));
+    let left = charge.left - 1;
+    try {
+      await addGroupCredit(charge.gid, -1, 'session', plans[0]?.id || null, groupName);
+      const g = await db.Group.get(charge.gid);
+      if (g) left = await getGroupTrainingBalance(g);
+    } catch (e) {}
+    setSavedMsg(`Αποθηκεύτηκε ✓ — Αφαιρέθηκε 1 token · Νέο υπόλοιπο group: ${left}.`);
+    setCharge(null);
+    setTimeout(() => navigate('/TrainingPlans'), 1600);
   };
 
   const S = {
@@ -236,6 +263,19 @@ export default function GroupTraining() {
           <div style={S.center}>
             <span style={{ width:52, height:52, borderRadius:'50%', background:'#22c55e', display:'grid', placeItems:'center', marginBottom:14, fontSize:26 }}>✓</span>
             <p style={{ fontSize:16, fontWeight:800, color:'#fff', maxWidth:420 }}>{savedMsg}</p>
+          </div>
+        ) : charge ? (
+          <div style={S.center}>
+            <p style={S.kicker}>Χρέωση session</p>
+            <div style={{ fontSize:46, margin:'12px 0 4px' }}>🎟</div>
+            <h1 style={{ fontSize:26, fontWeight:800, color:'#fff', margin:'0 0 6px', fontFamily:'var(--cp-font)' }}>Να αφαιρεθεί 1 token προπόνησης;</h1>
+            <p style={{ fontSize:14, color:'rgba(240,224,236,.75)', margin:'0 0 22px' }}>
+              Κοινό υπόλοιπο «{groupName}»: <b style={{ color:'#fff' }}>{charge.left}</b> → <b style={{ color:ACCENT }}>{charge.left - 1}</b>
+            </p>
+            <div style={{ display:'flex', gap:10, flexWrap:'wrap', justifyContent:'center' }}>
+              <button disabled={charge.busy} onClick={()=>answerCharge(true)} style={{ ...S.cta(), opacity:charge.busy?.6:1 }}>{charge.busy ? 'Χρέωση…' : '✓ Ναι, αφαίρεσε −1'}</button>
+              <button disabled={charge.busy} onClick={()=>answerCharge(false)} style={S.ghost}>Όχι, χωρίς χρέωση</button>
+            </div>
           </div>
         ) : (
           <div style={{ position:'relative', zIndex:1, maxWidth:640, margin:'0 auto', padding:'34px 18px 44px' }}>
