@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth, parseISO, addMonths, subMonths, addWeeks, subWeeks, subDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameDay, isSameMonth, parseISO, addMonths, subMonths, addWeeks, subWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus, X, Clock, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { db } from '../lib/db';
 import { groupDisplayName, unorphanClients } from '../lib/groups';
@@ -251,9 +251,87 @@ function RequestsPanel({ onClose, onUpdated }) {
   );
 }
 
+// ── Today Bar — μακρόστενη γρήγορη ματιά στη σημερινή μέρα ──────────────────────
+function TodayBar({ appointments, onEdit, onNew }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const iv = setInterval(() => tick(t => t + 1), 60000); return () => clearInterval(iv); }, []);
+  const today = new Date();
+  const appts = appointments
+    .filter(a => { try { return isSameDay(parseISO(a.date), today) && a.status !== 'cancelled'; } catch { return false; } })
+    .map(a => {
+      const [hh, mm] = (a.start_time || '09:00').split(':').map(Number);
+      const start = hh * 60 + (mm || 0);
+      const end = start + (a.duration_minutes || 60);
+      const endStr = `${String(Math.floor(end / 60) % 24).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+      return { ...a, _start: start, _end: end, _endStr: endStr };
+    })
+    .sort((x, y) => x._start - y._start);
+
+  const rangeStart = Math.min(7, ...appts.map(a => Math.floor(a._start / 60))) * 60;
+  const rangeEnd = Math.max(22, ...appts.map(a => Math.ceil(a._end / 60))) * 60;
+  const span = rangeEnd - rangeStart || 1;
+  const pct = (m) => ((m - rangeStart) / span) * 100;
+
+  /* λωρίδες για επικαλυπτόμενα ραντεβού */
+  const lanes = [];
+  for (const a of appts) {
+    let li = lanes.findIndex(endAt => endAt <= a._start);
+    if (li === -1) { li = lanes.length; lanes.push(0); }
+    lanes[li] = a._end; a._lane = li;
+  }
+  const laneCount = Math.max(1, lanes.length);
+  const ROW = 34;
+
+  const nowMin = today.getHours() * 60 + today.getMinutes();
+  const hours = []; for (let h = rangeStart / 60; h <= rangeEnd / 60; h++) hours.push(h);
+
+  return (
+    <div className="card mb-4 overflow-hidden">
+      <div className="flex items-center justify-between px-4 pt-3 pb-1 flex-wrap gap-2">
+        <p className="text-xs font-bold tracking-widest text-muted-foreground uppercase">
+          <span style={{ color:'#e0457b' }}>●</span> ΣΗΜΕΡΑ · {format(today, 'EEEE d MMM')}
+        </p>
+        <p className="text-xs text-muted-foreground font-medium">{appts.length ? `${appts.length} ραντεβού` : 'Κανένα ραντεβού σήμερα'}</p>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="relative mx-4 mb-3 mt-1 cursor-pointer" style={{ minWidth: 620, height: laneCount * ROW + 22 }} onClick={onNew}>
+          {/* ώρες */}
+          {hours.map(h => (
+            <div key={h} className="absolute top-0 bottom-0" style={{ left: `${pct(h * 60)}%` }}>
+              <div className="absolute top-4 bottom-0 border-l border-border" style={{ opacity:.7 }}/>
+              <span className="absolute top-0 -translate-x-1/2 text-[10px] text-muted-foreground font-medium">{h}:00</span>
+            </div>
+          ))}
+          {/* δείκτης τώρα */}
+          {nowMin > rangeStart && nowMin < rangeEnd && (
+            <div className="absolute z-20 pointer-events-none" style={{ left:`${pct(nowMin)}%`, top:14, bottom:0 }}>
+              <div style={{ width:2, height:'100%', background:'#e0457b', boxShadow:'0 0 8px rgba(224,69,123,.8)' }}/>
+              <div style={{ position:'absolute', top:-5, left:-3, width:8, height:8, borderRadius:99, background:'#e0457b' }}/>
+            </div>
+          )}
+          {/* ραντεβού πάνω στην μπάρα, με έναρξη–λήξη */}
+          {appts.map(a => {
+            const color = a.client_color || '#6366f1';
+            return (
+              <div key={a.id} title={`${a.title} · ${a.start_time}–${a._endStr}`}
+                onClick={(e) => { e.stopPropagation(); onEdit(a); }}
+                className="absolute rounded-lg px-2 z-10 overflow-hidden cursor-pointer hover:opacity-80 flex flex-col justify-center"
+                style={{ left:`${pct(a._start)}%`, width:`max(${(pct(a._end) - pct(a._start)).toFixed(3)}%, 56px)`, top: 18 + a._lane * ROW, height: ROW - 5,
+                  backgroundColor: color + '22', borderLeft: `3px solid ${color}`, outline: a.status === 'proposed' ? '2px solid #a855f7' : 'none' }}>
+                <p className="text-[11px] font-bold leading-tight truncate" style={{ color }}>{a.status === 'proposed' ? '📤 ' : ''}{a.start_time}–{a._endStr}</p>
+                <p className="text-[10px] leading-tight truncate" style={{ color: color + 'bb' }}>{a.client_name || a.title}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main CalendarPage ─────────────────────────────────────────────────────────
 export default function CalendarPage() {
-  const [view, setView] = useState('day');
+  const [view, setView] = useState('month');   // προεπιλογή: μηνιαία όψη
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
   const [clients, setClients] = useState([]);
@@ -279,8 +357,7 @@ export default function CalendarPage() {
 
   const nav = (dir) => {
     if (view==='month') setCurrentDate(d=>dir>0?addMonths(d,1):subMonths(d,1));
-    else if (view==='week') setCurrentDate(d=>dir>0?addWeeks(d,1):subWeeks(d,1));
-    else setCurrentDate(d=>dir>0?addDays(d,1):subDays(d,1));
+    else setCurrentDate(d=>dir>0?addWeeks(d,1):subWeeks(d,1));
   };
 
   const getAppts = (day) => appointments.filter(a => { try { return isSameDay(parseISO(a.date), day); } catch { return false; } });
@@ -301,11 +378,10 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="page-title">Calendar</h1>
-          <p className="page-subtitle">{view==='month'?format(currentDate,'MMMM yyyy'):view==='week'?`Week of ${format(weekStart,'MMM d, yyyy')}`:format(currentDate,'EEEE, MMM d, yyyy')}</p>
+          <p className="page-subtitle">{view==='month'?format(currentDate,'MMMM yyyy'):`Week of ${format(weekStart,'MMM d, yyyy')}`}</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex bg-muted rounded-xl p-0.5">
-            <button onClick={()=>setView('day')} className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${view==='day'?'bg-card shadow text-foreground font-medium':'text-muted-foreground'}`}>Day</button>
             <button onClick={()=>setView('month')} className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${view==='month'?'bg-card shadow text-foreground font-medium':'text-muted-foreground'}`}>Month</button>
             <button onClick={()=>setView('week')} className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${view==='week'?'bg-card shadow text-foreground font-medium':'text-muted-foreground'}`}>Week</button>
           </div>
@@ -326,33 +402,12 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      <TodayBar appointments={appointments}
+        onEdit={(a)=>{ setEditEvent(a); setShowModal(true); }}
+        onNew={()=>{ setDefaultDate(format(new Date(),'yyyy-MM-dd')); setShowModal(true); }}/>
+
       <div className="card overflow-hidden">
         {/* Month view */}
-        {/* Day view — μόνο η επιλεγμένη (προεπιλογή: σημερινή) μέρα */}
-        {view==='day' && (
-          <div className="grid" style={{gridTemplateColumns:'56px 1fr'}}>
-            <div>{HOURS.map(h=><div key={h} className="h-14 border-b border-border flex items-start pt-1 pr-2"><span className="text-xs text-muted-foreground text-right w-full">{h}:00</span></div>)}</div>
-            <div className="relative border-l border-border">
-              {HOURS.map(h=><div key={h} className="h-14 border-b border-border hover:bg-muted/20 cursor-pointer" onClick={()=>{setDefaultDate(format(currentDate,'yyyy-MM-dd'));setShowModal(true);}}/>)}
-              {getAppts(currentDate).map(a=>{
-                const [hh,mm]=(a.start_time||'09:00').split(':').map(Number);
-                const top=(hh-7)*56+(mm/60)*56;
-                const height=Math.max(((a.duration_minutes||60)/60)*56,26);
-                const color=a.client_color||'#6366f1';
-                return (
-                  <div key={a.id} className="absolute left-1 right-1 rounded-lg px-2.5 py-1 z-10 overflow-hidden cursor-pointer hover:opacity-80"
-                    onClick={(e)=>{ e.stopPropagation(); setEditEvent(a); setShowModal(true); }}
-                    style={{top,height,backgroundColor:color+'22',borderLeft:`3px solid ${color}`,outline:a.status==='proposed'?`2px solid #a855f7`:'none'}}>
-                    <p className="text-sm font-semibold truncate" style={{color}}>{a.status==='proposed'?'📤 ':''}{a.title}</p>
-                    <p className="text-xs truncate" style={{color:color+'99'}}>{a.start_time}{a.client_name?` · ${a.client_name}`:''}</p>
-                  </div>
-                );
-              })}
-              {!getAppts(currentDate).length && <p className="absolute top-3 left-3 text-sm text-muted-foreground">Κανένα ραντεβού για αυτή τη μέρα.</p>}
-            </div>
-          </div>
-        )}
-
         {view==='month' && (
           <>
             <div className="grid grid-cols-7 border-b border-border">
