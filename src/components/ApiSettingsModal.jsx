@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { callAI } from '../lib/db';
 import { portalTarget } from '../lib/tvMode';
 import { createPortal } from 'react-dom';
-import { Key, Sparkles, Database, Scale, X, Check, Eye, EyeOff, ExternalLink, ChevronDown, Save, ShieldAlert, Copy, Link2, Unplug } from 'lucide-react';
+import { Key, Sparkles, Database, Scale, X, Check, Eye, EyeOff, ExternalLink, ChevronDown, Save, ShieldAlert, Copy, Link2, Unplug, Instagram } from 'lucide-react';
 import { WITHINGS_CLIENT_ID, withingsAuthorizeUrl, withingsCallbackUrl, isWithingsConnected, disconnectWithings } from '../lib/withings';
 import { SUPABASE_URL, SUPABASE_ANON } from '../lib/supabaseConfig';
 
@@ -16,6 +16,7 @@ const TEAL    = '#10b981';
 
 const LS = {
   anthropic:    'studio_api_key',
+  instagram:    'studio_insta_key',
   withings_id:  'withings_client_id',
   supabase_url: 'supabase_url',
   supabase_key: 'supabase_anon_key',
@@ -89,6 +90,7 @@ export default function ApiSettingsModal({ onClose }) {
 
   const [v, setV] = useState({
     anthropic: get(LS.anthropic),
+    insta: get(LS.instagram),
     wId: get(LS.withings_id) || WITHINGS_CLIENT_ID,
     sUrl: get(LS.supabase_url) || SUPABASE_URL,
     sKey: get(LS.supabase_key) || SUPABASE_ANON,
@@ -108,6 +110,7 @@ export default function ApiSettingsModal({ onClose }) {
   const save = () => {
     const put = (k, val) => { val && val.trim() ? localStorage.setItem(k, val.trim()) : localStorage.removeItem(k); };
     put(LS.anthropic, v.anthropic);
+    put(LS.instagram, v.insta);
     put(LS.withings_id, v.wId);
     put(LS.supabase_url, v.sUrl);
     put(LS.supabase_key, v.sKey);
@@ -185,6 +188,16 @@ export default function ApiSettingsModal({ onClose }) {
             )}
             <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" style={linkBtn()}>
               Console Anthropic <ExternalLink size={13}/>
+            </a>
+          </Section>
+
+          {/* Instagram */}
+          <Section icon={Instagram} tint={VIOLET} title="Instagram (Social Media)"
+            subtitle="Access token για την καρτέλα Social Media. Χωρίς token εμφανίζονται demo δεδομένα — τα ζωντανά απαιτούν το Graph API."
+            badge={<StatusDot ok={!!(v.insta||'').trim()} okLabel="Ορίστηκε" offLabel="Κενό"/>}>
+            <Field label="Access Token" secret mono value={v.insta} onChange={val => set('insta', val)} placeholder="IGQW..." />
+            <a href="https://developers.facebook.com/docs/instagram-platform" target="_blank" rel="noopener noreferrer" style={linkBtn()}>
+              Instagram Platform Docs <ExternalLink size={13}/>
             </a>
           </Section>
 

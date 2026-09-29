@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { groupDisplayName, groupPrice, groupWeek, memberTrainingPrice, nutritionPrice, hasNutrition } from '../lib/groups';
+import { REASON_LABELS } from '../lib/credits';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ArrowLeft, Edit3, Plus, Trash2, X, BarChart2, Dumbbell, Salad, CreditCard, StickyNote, Pin } from 'lucide-react';
-import { db } from '../lib/db';
+import { db, callAI } from '../lib/db';
 import { deleteClientCascade } from '../lib/clientOps';
 import { AddClientModal } from './Clients';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -58,6 +58,77 @@ function AddRecordModal({ clientId, clientName, onClose, onSaved }) {
 
 const SERVICE_LABELS = { personal_training:'Personal Training', personal_training_nutrition:'PT + Nutrition', nutrition_only:'Nutrition Only', group_training:'Group Training', group_training_nutrition:'Group + Nutrition' };
 
+/* ── AI σύνοψη πελάτη (Επισκόπηση) ─────────────────────────────────────────── */
+function AiSummaryCard({ client, progress, plans, nutrition, payments, notes, appointments }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const cacheKey = `cube_summary_${client.id}`;
+
+  const gen = async () => {
+    setBusy(true); setErr('');
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const w = progress.filter(r => r.weight_kg).slice(-6).map(r => `${r.date}: ${r.weight_kg}kg`).join(', ') || '—';
+      const tp = plans.slice(0, 6).map(t => `${t.date} ${t.title}${t.completed ? ' ✓' : ''}`).join('; ') || '—';
+      const np = nutrition.slice(0, 3).map(n => `${n.date} ${n.title || ''} ${n.calories ? n.calories + 'kcal' : ''}`.trim()).join('; ') || '—';
+      const up = appointments.filter(a => a.date >= today).slice(0, 4).map(a => `${a.date} ${a.start_time || ''} ${a.title || ''}`.trim()).join('; ') || '—';
+      const pin = notes.filter(n => n.pinned).map(n => n.title || n.content).slice(0, 3).join('; ') || '—';
+      const balT = (payments || []).filter(e => e.kind !== 'nutrition').reduce((s2, e) => s2 + (Number(e.delta) || 0), 0);
+      const pay = `υπόλοιπο ${balT} tokens προπόνησης`;
+      const prompt = `Είσαι βοηθός personal trainer. Γράψε ΠΟΛΥ σύντομη σύνοψη πελάτη σε 4-6 bullets (κάθε γραμμή ξεκινά με "-", χωρίς εισαγωγή/κατακλείδα, ελληνικά, μέχρι ~12 λέξεις η γραμμή). Κάλυψε: τάση βάρους, συνέπεια προπονήσεων, διατροφή, επόμενα ραντεβού/εκκρεμότητες.
+Πελάτης: ${client.name}, στόχος: ${client.goals || '—'}, υπηρεσία: ${client.services || '—'}${client.frozen ? ', ΣΕ FREEZE' : ''}.
+Βάρος: ${w}
+Προπονήσεις: ${tp}
+Διατροφή: ${np}
+Επερχόμενα: ${up}
+Καρφιτσωμένες σημειώσεις: ${pin}
+Tokens: ${pay}`;
+      const out = (await callAI(prompt)) || '';
+      const clean = out.trim();
+      if (!clean) throw new Error('Κενή απάντηση AI');
+      setText(clean);
+      try { localStorage.setItem(cacheKey, JSON.stringify({ text: clean, at: Date.now() })); } catch { /* noop */ }
+    } catch (e) {
+      setErr(e?.message || 'Σφάλμα AI');
+    } finally { setBusy(false); }
+  };
+
+  useEffect(() => {
+    setText(''); setErr('');
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch { /* noop */ }
+    if (cached?.text && Date.now() - (cached.at || 0) < 24 * 3600e3) { setText(cached.text); return; }
+    gen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client.id]);
+
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean).map(l => l.replace(/^[-•*]\s*/, ''));
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-semibold text-gray-900">✨ AI Σύνοψη</h3>
+        <button onClick={gen} disabled={busy} title="Ανανέωση σύνοψης"
+          className="text-xs flex items-center gap-1.5 border border-gray-200 bg-white px-2.5 py-1.5 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+          <span className={busy ? 'animate-spin inline-block' : ''}>↻</span> {busy ? 'Δημιουργία…' : 'Ανανέωση'}
+        </button>
+      </div>
+      {busy && !text && <p className="text-sm text-gray-400">Το AI ετοιμάζει τη σύνοψη…</p>}
+      {err && !busy && <p className="text-sm text-rose-500">{err}</p>}
+      {!!lines.length && (
+        <ul className="space-y-1.5">
+          {lines.map((l, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+              <span className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: client.theme_color || '#6366f1' }} />
+              <span>{l}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function ClientProfile() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -83,11 +154,14 @@ export default function ClientProfile() {
   const load = async () => {
     if (!clientId) return;
     const [c,prog,tp,np,pay,n,appts] = await Promise.all([
-      db.Client.get(clientId), db.ClientProgress.filter({client_id:clientId},'date'), db.TrainingPlan.filter({client_id:clientId},'-date'), db.NutritionPlan.filter({client_id:clientId},'-date'), db.Payment.filter({client_id:clientId},'-paid_date'), db.ClientNote.filter({client_id:clientId},'-created_date'), db.Appointment.filter({client_id:clientId},'-date'),
+      db.Client.get(clientId), db.ClientProgress.filter({client_id:clientId},'date'), db.TrainingPlan.filter({client_id:clientId},'-date'), db.NutritionPlan.filter({client_id:clientId},'-date'), db.CreditEntry.filter({client_id:clientId},'-date'), db.ClientNote.filter({client_id:clientId},'-created_date'), db.Appointment.filter({client_id:clientId},'-date'),
     ]);
     setClient(c); setProgress(prog); setPlans(tp); setNutrition(np); setPayments(pay); setNotes(n); setAppointments(appts);
   };
   useEffect(() => { load(); }, [clientId]);
+
+  const tokenBal = payments.filter(e => e.kind !== 'nutrition').reduce((sum, e) => sum + (Number(e.delta) || 0), 0);
+  const nutriTokens = payments.filter(e => e.kind === 'nutrition').reduce((sum, e) => sum + (Number(e.delta) || 0), 0);
   useEffect(() => { (async () => {
     if (!client?.group_id) { setGroup(null); setGroupMembers([]); return; }
     const g = await db.Group.get(client.group_id);
@@ -106,7 +180,7 @@ export default function ClientProfile() {
     { key:'training', label:'Training', icon:Dumbbell },
     { key:'nutrition', label:'Nutrition', icon:Salad },
     { key:'records', label:'Records', icon:BarChart2 },
-    { key:'logistics', label:'Logistics', icon:CreditCard },
+    { key:'logistics', label:'Tokens', icon:CreditCard },
     { key:'notes', label:'Notes', icon:StickyNote },
   ];
 
@@ -122,7 +196,8 @@ export default function ClientProfile() {
               <h1 className="page-title">{client.name}</h1>
               <div className="flex flex-wrap gap-2 mt-1">
                 <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{SERVICE_LABELS[client.services]||'—'}</span>
-                {client.monthly_price && <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">€{client.monthly_price}/mo</span>}
+                {!client.group_id && <span className={`text-xs px-2 py-0.5 rounded-full ${tokenBal<=0?'bg-red-50 text-red-600':tokenBal<=2?'bg-amber-50 text-amber-600':'bg-green-50 text-green-700'}`}>🎟 {tokenBal} tokens</span>}
+                {nutriTokens !== 0 && <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">🥗 {nutriTokens}</span>}
                 {client.sessions_per_week && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{client.sessions_per_week}×/wk</span>}
               </div>
             </div>
@@ -132,7 +207,6 @@ export default function ClientProfile() {
           <button onClick={()=>setEditOpen(true)} className="flex items-center gap-1.5 border border-gray-200 bg-white px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50"><Edit3 className="w-4 h-4"/> Επεξεργασία</button>
           <button onClick={async()=>{ const nf=!client.frozen; await db.Client.update(client.id,{frozen:nf}); setClient({...client, frozen:nf}); }} className={`flex items-center gap-1.5 border px-3 py-2.5 rounded-xl text-sm font-medium ${client.frozen?'border-sky-200 bg-sky-50 text-sky-600':'border-gray-200 bg-white hover:bg-gray-50'}`}>{client.frozen?'🔓 Unfreeze':'❄️ Freeze'}</button>
           <button onClick={()=>setConfirmDel(true)} className="flex items-center gap-1.5 border border-rose-200 bg-rose-50 text-rose-600 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-rose-100">🗑 Διαγραφή</button>
-          <button onClick={()=>setShowRecord(true)} className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800"><Plus className="w-4 h-4" /> Add Record</button>
         </div>
       </div>
 
@@ -182,6 +256,7 @@ export default function ClientProfile() {
       {/* OVERVIEW */}
       {tab === 'overview' && (
         <div className="space-y-5">
+          <AiSummaryCard client={client} progress={progress} plans={plans} nutrition={nutrition} payments={payments} notes={notes} appointments={appointments} />
           <div className="grid grid-cols-2 gap-4">
             <div className="card p-5"><h3 className="font-semibold text-gray-900 mb-3">Personal Info</h3><div className="space-y-2 text-sm">{[['Email',client.email],['Phone',client.phone],['Gender',client.gender],['DOB',client.date_of_birth],['Height',client.height?client.height+' cm':null],['Goal',client.goals]].map(([k,v])=>v&&<div key={k} className="flex justify-between"><span className="text-gray-400">{k}</span><span className="text-gray-700 text-right">{v}</span></div>)}</div></div>
             <div className="card p-5"><h3 className="font-semibold text-gray-900 mb-3">Upcoming Sessions</h3>
@@ -256,7 +331,7 @@ export default function ClientProfile() {
         </div>
       )}
 
-      {/* LOGISTICS */}
+      {/* LOGISTICS — tokens only */}
       {tab === 'logistics' && (
         <div className="space-y-4">
           <div className="card p-5">
@@ -265,13 +340,18 @@ export default function ClientProfile() {
               <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="font-medium text-gray-900">{SERVICE_LABELS[client.services]||'—'}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Sessions / week</span><span className="font-medium text-gray-900">{client.sessions_per_week}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">Session duration</span><span className="font-medium text-gray-900">{client.session_duration_hours}h</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Monthly price</span><span className="font-bold text-gray-900">€{client.monthly_price}</span></div>
+              {!client.group_id && <div className="flex justify-between"><span className="text-gray-500">Υπόλοιπο tokens</span><span className={`font-bold ${tokenBal<=0?'text-red-600':tokenBal<=2?'text-amber-600':'text-emerald-600'}`}>🎟 {tokenBal}</span></div>}
+              {nutriTokens !== 0 && <div className="flex justify-between"><span className="text-gray-500">Διατροφικές</span><span className="font-bold text-emerald-600">🥗 {nutriTokens}</span></div>}
             </div>
+            {client.group_id && <p className="text-xs text-gray-400 mt-3">Οι προπονήσεις χρεώνονται στο κοινό υπόλοιπο του group — δες το στη σελίδα Logistics.</p>}
           </div>
           <div className="card overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-50"><p className="font-medium text-gray-900 text-sm">Payment History ({payments.length})</p></div>
-            {payments.map(p=><div key={p.id} className="flex items-center justify-between px-5 py-3 border-b border-gray-50 last:border-0"><div><p className="text-sm font-medium text-gray-900">{p.description||'Payment'}</p><p className="text-xs text-gray-400">{p.paid_date?format(parseISO(p.paid_date),'MMM d, yyyy'):''} · {p.method}</p>{p.period_to&&<p className="text-xs text-gray-400">Coverage until {format(parseISO(p.period_to),'MMM d, yyyy')}</p>}</div><span className="font-bold text-gray-900">€{p.amount}</span></div>)}
-            {!payments.length&&<div className="text-center py-8 text-gray-400 text-sm">No payments recorded</div>}
+            <div className="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
+              <p className="font-medium text-gray-900 text-sm">Ιστορικό Tokens ({payments.length})</p>
+              <button onClick={()=>navigate('/Logistics')} className="text-xs font-semibold text-violet-600 hover:text-violet-800">Διαχείριση →</button>
+            </div>
+            {payments.map(e=><div key={e.id} className="flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-0"><span>{e.kind==='nutrition'?'🥗':'🏋️'}</span><div className="flex-1 min-w-0"><p className="text-sm font-medium text-gray-900 truncate">{REASON_LABELS[e.reason]||e.reason}{e.note?` — ${e.note}`:''}</p><p className="text-xs text-gray-400">{e.date}</p></div><span className={`font-bold ${(e.delta||0)>0?'text-emerald-600':'text-red-500'}`}>{(e.delta||0)>0?`+${e.delta}`:e.delta}</span></div>)}
+            {!payments.length&&<div className="text-center py-8 text-gray-400 text-sm">Καμία κίνηση tokens</div>}
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Loader2, Brain, ArrowLeft, Dumbbell, TrendingDown, CalendarDays, Clock, Plus, Sparkles, Save, Link2, Pencil } from 'lucide-react';
 import { db, callAI } from '../lib/db';
 import { EXERCISE_DB, EQUIPMENT, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
+import { ExerciseVideoOverlay } from '../components/ExerciseMedia';
 import { groupDisplayName, firstName } from '../lib/groups';
 
 /* ═══════════ Σταθερά ═══════════ */
@@ -93,6 +94,7 @@ export default function WorkoutCreator() {
   const groupId = params.get('group') || '';
 
   const [group, setGroup] = useState(null);
+  const [previewEx, setPreviewEx] = useState(null);
   const [members, setMembers] = useState([]);
   const [memberIndex, setMemberIndex] = useState(0);
   const [groupSessionId] = useState(() => 'gs_' + Date.now());
@@ -665,7 +667,11 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                     opacity: dragI === i ? 0.35 : 1, background: dragI === i ? 'rgba(17,24,39,0.05)' : 'transparent' }}>
                   <span title="Σύρε για αλλαγή σειράς" style={{ cursor:'grab', color:'rgba(17,24,39,0.55)', fontSize:14, userSelect:'none', textAlign:'center' }}>⋮⋮</span>
                   <div style={{ minWidth:0 }}>
-                    <p style={{ margin:0, fontSize:13.5, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{i + 1}. {e.name}</p>
+                    <p style={{ margin:0, fontSize:13.5, fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{i + 1}. {e.name}
+                      <span role="button" title="Προβολή εκτέλεσης" onClick={() => setPreviewEx(e.name)}
+                        style={{ marginLeft:7, display:'inline-flex', alignItems:'center', justifyContent:'center',
+                          width:20, height:20, borderRadius:6, fontSize:9, cursor:'pointer', verticalAlign:'middle',
+                          color:'#6b7280', background:'rgba(17,24,39,0.06)' }}>▶</span></p>
                     <span style={{ fontSize:9.5, color: (EQUIPMENT[e.eq]?.color) || 'rgba(17,24,39,0.55)' }}>{EQUIPMENT[e.eq]?.label || e.eq || ''}</span>
                     {isNarrow && (
                       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginTop:7 }}>
@@ -720,8 +726,14 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                           onMouseEnter={(ev)=>{ ev.currentTarget.style.background='rgba(17,24,39,0.05)'; }}
                           onMouseLeave={(ev)=>{ ev.currentTarget.style.background='transparent'; }}>
                           <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.name}</span>
-                          <span style={{ fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:6, flexShrink:0,
-                            color: EQUIPMENT[c.eq]?.color || '#6b7280', background: EQUIPMENT[c.eq]?.bg || 'rgba(17,24,39,0.05)' }}>{EQUIPMENT[c.eq]?.short || '—'}</span>
+                          <span style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                            <span role="button" title="Προβολή εκτέλεσης"
+                              onMouseDown={(ev) => { ev.preventDefault(); ev.stopPropagation(); setPreviewEx(c.name); }}
+                              style={{ width:22, height:22, borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center',
+                                fontSize:10, color:'#6b7280', background:'rgba(17,24,39,0.06)' }}>▶</span>
+                            <span style={{ fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:6,
+                              color: EQUIPMENT[c.eq]?.color || '#6b7280', background: EQUIPMENT[c.eq]?.bg || 'rgba(17,24,39,0.05)' }}>{EQUIPMENT[c.eq]?.short || '—'}</span>
+                          </span>
                         </button>
                       )]; })}
                       {q && !exact && (
@@ -903,6 +915,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
         @keyframes wcpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.07);opacity:.7}}
         @keyframes wcin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
       `}</style>
+      {previewEx && <ExerciseVideoOverlay name={previewEx} onClose={() => setPreviewEx(null)}/>}
     </div>
   );
 }

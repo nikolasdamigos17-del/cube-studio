@@ -15,7 +15,7 @@ export const SERVICE_LABELS = {
 export function AddClientModal({ onClose, onSaved, client, clients, forGroup, onGroupClient }) {
   const [f, setF] = useState(client || { name:'', phone:'', email:'',
     services: forGroup ? 'group_training' : 'personal_training',
-    sessions_per_week:3, nutrition_meetings_per_month:2, monthly_price:'', active:true });
+    sessions_per_week:3, nutrition_meetings_per_month:2, active:true });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const locked = client?.account_status === 'active'; // το email είναι ο τρόπος σύνδεσης
@@ -166,8 +166,7 @@ export function AddClientModal({ onClose, onSaved, client, clients, forGroup, on
           {hasTraining&&<div><label className="text-xs font-medium text-gray-500 uppercase">Προπονήσεις / εβδομάδα</label><input type="number" min="1" value={f.sessions_per_week||''} onChange={e=>set('sessions_per_week',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}
           {hasTraining&&<div><label className="text-xs font-medium text-gray-500 uppercase">Διάρκεια συνεδρίας (ώρες)</label><input type="number" step="0.5" min="0.5" value={f.session_duration_hours||''} onChange={e=>set('session_duration_hours',parseFloat(e.target.value)||'')} className="input-base mt-1" placeholder="1"/></div>}
           {hasNutrition&&<div><label className="text-xs font-medium text-gray-500 uppercase">Διατροφικές συναντήσεις / μήνα</label><input type="number" min="1" value={f.nutrition_meetings_per_month||''} onChange={e=>set('nutrition_meetings_per_month',parseInt(e.target.value)||0)} className="input-base mt-1"/></div>}
-          {hasNutrition&&<div><label className="text-xs font-medium text-gray-500 uppercase">Τιμή διατροφής / μήνα (€)</label><input type="number" step="0.5" value={f.nutrition_price??''} onChange={e=>set('nutrition_price',e.target.value===''?'':parseFloat(e.target.value)||0)} className="input-base mt-1" placeholder="= μηνιαία τιμή"/></div>}
-          <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase">Μηνιαία τιμή (€)</label><input type="number" value={f.monthly_price||''} onChange={e=>set('monthly_price',parseFloat(e.target.value)||'')} className="input-base mt-1"/></div>
+          
         </div>
 
         {!client&&<p className="text-[11px] text-gray-400 mb-4">Χρώμα προφίλ & κωδικός portal δημιουργούνται αυτόματα. Στόχος, μετρήσεις και διατροφικό προφίλ ορίζονται στο Course Planning — όχι εδώ.</p>}
@@ -237,7 +236,7 @@ export default function Clients() {
         {c.weight&&<span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full">{c.weight} kg</span>}
         {(c.sessions_per_month||c.sessions_per_week)&&<span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full">{c.sessions_per_month?`${c.sessions_per_month}× προπ./μήνα`:`${c.sessions_per_week}×/εβδ.`}</span>}
         {["nutrition_only","personal_training_nutrition"].includes(c.services)&&c.nutrition_meetings_per_month?<span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full">🥗 {c.nutrition_meetings_per_month}×/μήνα</span>:null}
-        {c.monthly_price&&<span className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">€{c.monthly_price}/mo</span>}
+        
       </div>}
     </div>
   );

@@ -9,10 +9,14 @@ import { ageFromDob } from '../lib/bodyCalc';
    προσαρμόζει ΜΟΝΟ τις ποσότητες και τους αριθμούς στις ανάγκες του παραλήπτη. */
 
 const strip = (t) => {
-  let c = String(t || '').trim().replace(/^```json?\s*/i, '').replace(/\s*```$/, '').trim();
+  let c = String(t || '').trim().replace(/```json?/gi, '').replace(/```/g, '').trim();
   const a = c.indexOf('{'), z = c.lastIndexOf('}');
-  if (a === -1 || z === -1) throw new Error('Μη έγκυρη απάντηση AI');
-  return JSON.parse(c.slice(a, z + 1));
+  if (a === -1 || z === -1) throw new Error('Μη έγκυρη απάντηση — πάτησε ξανά «Προσαρμογή & Μεταφορά».');
+  const body = c.slice(a, z + 1).replace(/,\s*([}\]])/g, '$1');   // trailing commas
+  try { return JSON.parse(body); }
+  catch (e) {
+    throw new Error('Η απάντηση ήρθε ελλιπής ή κομμένη και δεν διαβάζεται — πάτησε ξανά «Προσαρμογή & Μεταφορά» (συνήθως με τη δεύτερη περνάει).');
+  }
 };
 
 export default function TransferPlanModal({ plan, sourceClient, clients, onClose, onDone }) {
@@ -61,9 +65,9 @@ ${profBits ? '- Προφίλ/στόχος: ' + JSON.stringify(profBits) : ''}
 ΠΛΑΝΟ ΠΡΟΣ ΠΡΟΣΑΡΜΟΓΗ:
 ${JSON.stringify(src)}
 
-Επίστρεψε ΜΟΝΟ το προσαρμοσμένο JSON object, με τα ίδια κλειδιά. Χωρίς markdown, χωρίς σχόλια.`;
+Επίστρεψε ΜΟΝΟ το προσαρμοσμένο JSON object, με τα ίδια κλειδιά. Χωρίς markdown, χωρίς σχόλια. ΣΥΜΠΑΓΕΣ JSON σε μία γραμμή, χωρίς περιττά κενά και αλλαγές γραμμής, χωρίς trailing commas.`;
 
-      const out = await callAI(prompt, 'Return ONLY a valid JSON object. No markdown. Start with {');
+      const out = await callAI(prompt, 'Return ONLY a valid JSON object. No markdown. Start with {', { maxTokens: 16000 });
       if (typeof out === 'string' && out.startsWith('__ERROR__')) throw new Error(out.replace('__ERROR__', '').trim() || 'Σφάλμα AI');
       const adapted = strip(out);
 

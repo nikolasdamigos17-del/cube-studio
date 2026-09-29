@@ -12,6 +12,7 @@ export const T = {
   nav_statistics:  { en:'Statistics',  el:'Στατιστικά'   },
   nav_logistics:   { en:'Logistics',   el:'Οικονομικά'   },
   nav_messages:    { en:'Messages',    el:'Μηνύματα'     },
+  nav_social:      { en:'Social Media', el:'Social Media' },
 
   // ── App branding ─────────────────────────────────────────────────────────────
   app_name:        { en:'Cube',                       el:'Cube'                        },
@@ -152,7 +153,7 @@ export const T = {
   cp_training:     { en:'Training',                   el:'Προπόνηση'                   },
   cp_nutrition:    { en:'Nutrition',                  el:'Διατροφή'                    },
   cp_stats:        { en:'Stats',                      el:'Στατιστικά'                  },
-  cp_financial:    { en:'Financial',                  el:'Οικονομικά'                  },
+  cp_financial:    { en:'Tokens',                     el:'Υπόλοιπα'                    },
   cp_messages:     { en:'Messages',                   el:'Μηνύματα'                    },
   cp_hello:        { en:'Hello',                      el:'Γεια σου'                    },
   cp_next_session: { en:'Next Session',               el:'Επόμενη Συνεδρία'            },

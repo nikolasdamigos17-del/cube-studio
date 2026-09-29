@@ -4,6 +4,8 @@ import { addCredit, getBalance, addGroupCredit, getGroupTrainingBalance } from '
 import { useLocation, useNavigate } from 'react-router-dom';
 import { EQUIPMENT } from '../lib/gymEquipment';
 import CubeBackground from '../components/CubeBackground';
+import ExerciseMedia, { ExerciseVideoOverlay } from '../components/ExerciseMedia';
+import { exerciseVideoUrl } from '../lib/exerciseApi';
 
 /* ── audio ────────────────────────────────────────────────────────────── */
 const beep = (freq = 880, dur = .18, vol = .4) => {
@@ -122,6 +124,35 @@ function RepRing({ target, done, pulseKey }) {
   );
 }
 
+/* ── λευκός κύκλος επαναλήψεων — όταν η άσκηση δεν έχει βίντεο ─────────── */
+function RepRingLight({ target, done, pulseKey, kg }) {
+  const R = 90, C = 2 * Math.PI * R;
+  const frac = target ? Math.min(1, done / target) : 0;
+  return (
+    <div style={{ position:'relative', width:'min(58vw, 38vmax, 560px)', aspectRatio:'1', margin:'0 auto', display:'grid', placeItems:'center' }}>
+      <span key={pulseKey} style={{ position:'absolute', width:'86%', height:'86%', borderRadius:'50%',
+        border:`1.5px solid ${ACCENT}55`, animation: pulseKey ? 'ltPulse .62s cubic-bezier(.2,.8,.3,1)' : 'none', pointerEvents:'none' }}/>
+      <svg viewBox="0 0 206 206" style={{ width:'100%', height:'100%', transform:'rotate(-90deg)' }}>
+        <circle cx="103" cy="103" r={R} fill="none" stroke="#eceef1" strokeWidth="13"/>
+        <circle cx="103" cy="103" r={R} fill="none" stroke="url(#ltgradL)" strokeWidth="13" strokeLinecap="round"
+          strokeDasharray={C} strokeDashoffset={C * (1 - frac)}
+          style={{ transition:'stroke-dashoffset .28s cubic-bezier(.22,1,.36,1)' }}/>
+        <defs><linearGradient id="ltgradL" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={ACCENT}/><stop offset="100%" stopColor={ACCENT2}/>
+        </linearGradient></defs>
+      </svg>
+      <div style={{ position:'absolute', textAlign:'center' }}>
+        <div key={'n'+done} style={{ fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em',
+          fontSize:'clamp(48px,15vw,64px)', lineHeight:1, color:'#0e1116', fontVariantNumeric:'tabular-nums',
+          animation: pulseKey ? 'ltBump .18s ease' : 'none' }}>
+          {done}<span style={{ fontSize:'.4em', color:'#a1a1aa' }}>/{target}</span>
+        </div>
+        <div style={{ fontSize:9, letterSpacing:'.22em', fontWeight:800, color:'#a1a1aa', marginTop:5 }}>ΕΠΑΝΑΛΗΨΕΙΣ · {kg ? kg + ' KG' : 'BW'}</div>
+      </div>
+    </div>
+  );
+}
+
 /* ── circular workout progress ────────────────────────────────────────── */
 function ProgressRing({ pct, size = 74, stroke = 7 }) {
   const r = (size - stroke) / 2, C = 2 * Math.PI * r;
@@ -142,8 +173,8 @@ function ProgressRing({ pct, size = 74, stroke = 7 }) {
   );
 }
 
-/* ── ξεκούραση: πλήρης κατάληψη οθόνης ────────────────────────────────── */
-function RestTakeover({ seconds, onDone, nextLabel, isExChange, onSkip }) {
+/* ── ξεκούραση: λευκή σελίδα διαλείμματος (Cinema) ─────────────────────── */
+function RestTakeover({ seconds, onDone, onSkip, isExChange, nextSub, nextKg, nextReps, contName, clientName, clockLabel }) {
   const [left, setLeft] = useState(seconds);
   useEffect(() => {
     if (left <= 0) { sStart(); onDone(); return; }
@@ -151,172 +182,202 @@ function RestTakeover({ seconds, onDone, nextLabel, isExChange, onSkip }) {
     const t = setTimeout(() => setLeft(l => l - 1), 1000);
     return () => clearTimeout(t);
   }, [left]);
-  const frac = (seconds - left) / seconds;
-  const R = 150, C = 2 * Math.PI * R;
+  const frac = seconds ? (seconds - left) / seconds : 0;
+  const R = 90, C = 2 * Math.PI * R;
+  const vurl = contName ? exerciseVideoUrl(contName) : null;
+  const [vOk, setVOk] = useState(true);
+  const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, '0');
   return (
     <div onClick={onSkip} style={{ position:'fixed', inset:0, zIndex:20, cursor:'pointer',
-      background:'radial-gradient(circle at 50% 42%, #3a1250 0%, #140a24 55%, #0b0714 100%)',
-      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-      textAlign:'center', padding:'32px 22px', animation:'ltFade .3s ease' }}>
-      <p style={{ fontSize:11, letterSpacing:'.36em', textTransform:'uppercase',
-        color:'rgba(224,69,123,.9)', fontWeight:700, margin:'0 0 22px' }}>
-        {isExChange ? 'Αλλαγή άσκησης' : 'Ξεκούραση'}
+      background:'#fcfcfd', color:'#0e1116', fontFamily:'var(--cp-font)',
+      display:'flex', flexDirection:'column', padding:'calc(14px + env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom))',
+      animation:'ltFade .3s ease' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <span style={{ fontWeight:900, letterSpacing:'.16em', fontSize:11 }}>THE <span style={{ color:ACCENT }}>CUBE</span> · LIVE</span>
+        <span style={{ fontFamily:'ui-monospace,monospace', fontSize:11.5, fontWeight:700, fontVariantNumeric:'tabular-nums', letterSpacing:'.05em', background:'#0e1116', color:'#fff', borderRadius:9, padding:'.3em .8em' }}>{clockLabel || ''}</span>
+        <span style={{ fontSize:10, fontWeight:800, padding:'4px 10px', borderRadius:99, letterSpacing:'.06em', background:'#eef2ff', color:'#4f46e5' }}>{(clientName || 'ATHLETE').toUpperCase()}</span>
+      </div>
+      <p style={{ margin:'12px 0 0', textAlign:'center', fontSize:11, letterSpacing:'.3em', fontWeight:800, color:ACCENT }}>
+        {isExChange ? 'ΑΛΛΑΓΗ ΑΣΚΗΣΗΣ' : 'ΔΙΑΛΕΙΜΜΑ'}
       </p>
-      <div style={{ position:'relative', width:'min(74vw,330px)', height:'min(74vw,330px)', display:'grid', placeItems:'center' }}>
-        <svg viewBox="0 0 330 330" style={{ width:'100%', height:'100%', transform:'rotate(-90deg)' }}>
-          <circle cx="165" cy="165" r={R} fill="none" stroke="rgba(224,69,123,.14)" strokeWidth="6"/>
-          <circle cx="165" cy="165" r={R} fill="none" stroke="url(#ltrest)" strokeWidth="6" strokeLinecap="round"
+      <div style={{ position:'relative', width:'min(62vw, 38vmax, 560px)', aspectRatio:'1', margin:'10px auto 0' }}>
+        <svg viewBox="0 0 206 206" style={{ width:'100%', height:'100%', transform:'rotate(-90deg)', display:'block' }}>
+          <circle cx="103" cy="103" r={R} fill="none" stroke="#eceef1" strokeWidth="13"/>
+          <circle cx="103" cy="103" r={R} fill="none" stroke="url(#ltrest)" strokeWidth="13" strokeLinecap="round"
             strokeDasharray={C} strokeDashoffset={C * frac}
-            style={{ transition:'stroke-dashoffset .95s linear', filter:'drop-shadow(0 0 14px rgba(224,69,123,.7))' }}/>
+            style={{ transition:'stroke-dashoffset .95s linear' }}/>
           <defs><linearGradient id="ltrest" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#e0457b"/><stop offset="100%" stopColor="#8b5cf6"/>
           </linearGradient></defs>
         </svg>
-        <div style={{ position:'absolute' }}>
-          <div style={{ fontSize:'clamp(96px,26vw,180px)', fontWeight:800, lineHeight:1,
-            fontFamily:'var(--cp-font)', fontVariantNumeric:'tabular-nums', color: left <= 3 ? '#ff9db8' : '#fff',
-            textShadow:'0 0 40px rgba(224,69,123,.5)' }}>{left}</div>
+        <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ fontFamily:'ui-monospace,monospace', fontWeight:700, fontSize:'clamp(40px,6.5vmax,135px)', letterSpacing:'-.04em', lineHeight:1, color: left <= 3 ? ACCENT : '#0e1116', fontVariantNumeric:'tabular-nums' }}>{mm}:{ss}</span>
+          <span style={{ fontSize:9, letterSpacing:'.22em', fontWeight:800, color:'#a1a1aa', marginTop:5 }}>ΑΠΟ {seconds}″</span>
         </div>
       </div>
-      <div style={{ marginTop:30, padding:'14px 22px', border:'1px solid rgba(224,69,123,.35)',
-        borderRadius:16, background:'rgba(20,10,36,.6)', maxWidth:340 }}>
-        <p style={{ margin:0, fontSize:13, color:'rgba(240,224,236,.9)', lineHeight:1.55 }}>{nextLabel}</p>
+      <div style={{ textAlign:'center', marginTop:10 }}>
+        <p style={{ margin:0, fontSize:10, letterSpacing:'.22em', fontWeight:800, color:'#a1a1aa' }}>{nextSub}</p>
+        {(nextReps != null) && (
+          <p style={{ margin:'6px 0 0', fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em', fontSize:'clamp(34px,5vmax,105px)', lineHeight:1 }}>
+            {nextKg || 0}<span style={{ fontSize:'.42em' }}>kg</span> <span style={{ fontSize:'.55em', color:'#6b7280' }}>× {nextReps}</span>
+          </p>
+        )}
       </div>
-      <p style={{ fontSize:11, letterSpacing:'.14em', textTransform:'uppercase',
-        color:'rgba(255,255,255,.32)', fontWeight:700, marginTop:26 }}>πάτα για συνέχεια νωρίτερα</p>
+      <div style={{ display:'flex', alignItems:'center', gap:12, justifyContent:'center', marginTop:'auto', paddingTop:10 }}>
+        {vurl && vOk && (
+          <video key={vurl} src={vurl} autoPlay loop muted playsInline preload="metadata"
+            onError={() => setVOk(false)}
+            style={{ width:'clamp(72px,9vmax,220px)', height:'clamp(72px,9vmax,220px)', objectFit:'contain', background:'#fcfcfd', mixBlendMode:'multiply', borderRadius:14 }}/>
+        )}
+        <div style={{ textAlign:'left' }}>
+          <p style={{ margin:0, fontSize:9, color:'#a1a1aa', letterSpacing:'.16em', fontWeight:800 }}>{isExChange ? 'ΕΠΟΜΕΝΗ' : 'ΣΥΝΕΧΙΖΟΥΜΕ'}</p>
+          <p style={{ margin:'2px 0 0', fontSize:'clamp(16px,2.2vh,30px)', fontWeight:900, letterSpacing:'-.01em' }}>{contName || '—'}</p>
+        </div>
+      </div>
+      <div style={{ marginTop:14, background:'#0e1116', color:'#fff', borderRadius:14, padding:'clamp(13px,1.8vh,24px)', textAlign:'center', fontSize:'clamp(11px,1.5vh,20px)', fontWeight:800, letterSpacing:'.14em' }}>
+        ΠΑΡΑΛΕΙΨΗ ΔΙΑΛΕΙΜΜΑΤΟΣ →
+      </div>
     </div>
   );
 }
 
-/* ── welcome ──────────────────────────────────────────────────────────── */
+/* ── welcome — λευκή οθόνη υποδοχής (Cinema) ──────────────────────────── */
 function Welcome({ plan, clientName, onStart }) {
   const exs = plan.exercises || [];
-  const sets = exs.reduce((s, e) => s + setsOf(e).length, 0);
-  const reps = exs.reduce((s, e) => s + setsOf(e).reduce((x, d) => x + repTargetOf(d), 0), 0);
+  const sets = exs.reduce((s2, e) => s2 + setsOf(e).length, 0);
+  const reps = exs.reduce((s2, e) => s2 + setsOf(e).reduce((x, d) => x + repTargetOf(d), 0), 0);
   const eq = [...new Set(exs.map(e => e.eq).filter(Boolean))];
   return (
-    <div style={{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', justifyContent:'center',
-      alignItems:'center', padding:'32px 20px', position:'relative', zIndex:1, textAlign:'center' }}>
-      <div style={{ maxWidth:440, width:'100%' }}>
-        <p style={{ fontSize:10, letterSpacing:'.24em', textTransform:'uppercase',
-          color:'rgba(255,255,255,.42)', margin:0 }}>Personal Training Studio</p>
-        <h1 style={{ fontSize:32, fontWeight:800, color:'#fff', fontFamily:'var(--cp-font)',
-          lineHeight:1.12, margin:'8px 0 6px' }}>
-          Έτοιμος,<br/><span style={{ color:ACCENT }}>{clientName || 'Athlete'}</span>;
+    <div style={{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column',
+      padding:'calc(14px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom))',
+      background:'#fcfcfd', color:'#0e1116' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <span style={{ fontWeight:900, letterSpacing:'.16em', fontSize:'clamp(11px,1.4vh,20px)' }}>THE <span style={{ color:ACCENT }}>CUBE</span> · LIVE</span>
+        <span style={{ fontSize:'clamp(10px,1.3vh,18px)', fontWeight:800, padding:'.4em 1em', borderRadius:99, letterSpacing:'.06em', background:'#eef2ff', color:'#4f46e5' }}>{(clientName || 'ATHLETE').toUpperCase()}</span>
+      </div>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', textAlign:'center', maxWidth:560, width:'100%', margin:'0 auto' }}>
+        <p style={{ fontSize:'clamp(10px,1.3vh,17px)', letterSpacing:'.3em', fontWeight:800, color:ACCENT, margin:0 }}>ΑΤΟΜΙΚΗ ΠΡΟΠΟΝΗΣΗ</p>
+        <h1 style={{ fontSize:'clamp(34px,6vh,72px)', fontWeight:900, letterSpacing:'-.03em', lineHeight:1.06, margin:'10px 0 6px' }}>
+          Έτοιμος,<br/>
+          <span style={{ background:'linear-gradient(135deg,#e0457b,#8b5cf6)', WebkitBackgroundClip:'text', backgroundClip:'text', color:'transparent' }}>{clientName || 'Athlete'}</span>;
         </h1>
-        <p style={{ fontSize:14, color:'rgba(255,255,255,.5)', margin:'0 0 24px' }}>{plan.title}</p>
-
+        <p style={{ fontSize:'clamp(13px,1.8vh,22px)', color:'#6b7280', margin:'0 0 24px' }}>{plan.title}</p>
         <div style={{ display:'flex', gap:10, marginBottom:16 }}>
           {[[exs.length, 'ΑΣΚΗΣΕΙΣ'], [sets, 'ΣΕΤ'], [reps, 'ΕΠΑΝΑΛΗΨΕΙΣ']].map(([v, k]) => (
-            <div key={k} style={{ flex:1, background:'rgba(0,0,0,.5)', backdropFilter:'blur(10px)',
-              border:'1px solid rgba(255,255,255,.1)', borderRadius:14, padding:'13px 8px' }}>
-              <div style={{ fontSize:22, fontWeight:900, color:'#fff', fontFamily:'var(--cp-font)' }}>{v}</div>
-              <div style={{ fontSize:8.5, letterSpacing:'.12em', color:'rgba(255,255,255,.4)', marginTop:3 }}>{k}</div>
+            <div key={k} style={{ flex:1, background:'#fff', border:'1px solid rgba(14,17,22,.09)', borderRadius:16, padding:'clamp(13px,2vh,24px) 8px' }}>
+              <div style={{ fontSize:'clamp(22px,3.4vh,44px)', fontWeight:900, fontFamily:'ui-monospace,monospace', letterSpacing:'-.03em' }}>{v}</div>
+              <div style={{ fontSize:'clamp(8.5px,1.1vh,14px)', letterSpacing:'.14em', color:'#a1a1aa', fontWeight:800, marginTop:4 }}>{k}</div>
             </div>
           ))}
         </div>
-
         {eq.length > 0 && (
-          <div style={{ display:'flex', flexWrap:'wrap', gap:5, justifyContent:'center', marginBottom:16 }}>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6, justifyContent:'center', marginBottom:18 }}>
             {eq.map(k => EQUIPMENT[k] && (
-              <span key={k} style={{ fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:20,
-                color:EQUIPMENT[k].color, background:EQUIPMENT[k].bg,
-                border:`1px solid ${EQUIPMENT[k].color}44` }}>{EQUIPMENT[k].label}</span>
+              <span key={k} style={{ fontSize:'clamp(10px,1.3vh,16px)', fontWeight:700, padding:'.35em 1em', borderRadius:20,
+                color:EQUIPMENT[k].color, background:EQUIPMENT[k].bg, border:`1px solid ${EQUIPMENT[k].color}44` }}>{EQUIPMENT[k].label}</span>
             ))}
           </div>
         )}
-
-        <button onClick={onStart} style={{ width:'100%', padding:16, borderRadius:15, border:'none',
-          cursor:'pointer', color:'#04140a', fontSize:15, fontWeight:800,
-          fontFamily:'var(--cp-font)', letterSpacing:'.02em',
-          background:'linear-gradient(180deg,#e0457b,#b52f78)', boxShadow:'0 6px 26px rgba(224,69,123,.45)' }}>
+        <button onClick={onStart} style={{ width:'100%', padding:'clamp(16px,2.2vh,30px)', borderRadius:16, border:'none',
+          cursor:'pointer', color:'#fff', fontSize:'clamp(15px,2vh,26px)', fontWeight:800, fontFamily:'inherit', letterSpacing:'.02em',
+          background:'linear-gradient(135deg,#e0457b,#8b5cf6)', boxShadow:'0 8px 30px rgba(224,69,123,.35)' }}>
           ▶ ΕΝΑΡΞΗ ΠΡΟΠΟΝΗΣΗΣ
         </button>
-        <p style={{ fontSize:10, color:'rgba(255,255,255,.3)', marginTop:9 }}>
-          Πάτα το κουμπί του clicker για να ξεκινήσεις
-        </p>
+        <p style={{ fontSize:'clamp(10px,1.3vh,16px)', color:'#a1a1aa', marginTop:10 }}>Πάτα το κουμπί του clicker για να ξεκινήσεις</p>
       </div>
     </div>
   );
 }
 
-/* ── results preview (επεξεργάσιμο) ───────────────────────────────────── */
+/* ── results preview — λευκό (Cinema) ─────────────────────────────────── */
 function ResultsReview({ draft, onEdit, onConfirm, saving }) {
-  const inp = { width:'100%', background:'rgba(0,0,0,.5)', border:'1px solid rgba(255,255,255,.16)', borderRadius:9,
-    color:'#fff', padding:'7px 6px', fontSize:14, fontWeight:700, textAlign:'center', fontFamily:'inherit', outline:'none' };
+  const inp = { width:'100%', background:'#fcfcfd', border:'1px solid rgba(14,17,22,.14)', borderRadius:9,
+    color:'#0e1116', padding:'7px 6px', fontSize:'clamp(14px,1.8vh,22px)', fontWeight:700, textAlign:'center', fontFamily:'inherit', outline:'none' };
   return (
-    <div style={{ minHeight:'var(--lt-vh, 100vh)', position:'relative', zIndex:1, padding:'30px 16px 44px', maxWidth:600, margin:'0 auto' }}>
-      <p style={{ fontSize:10, letterSpacing:'.3em', color:ACCENT, fontWeight:800, textTransform:'uppercase', margin:'0 0 8px' }}>Αποτελέσματα προπόνησης</p>
-      <h1 style={{ fontSize:23, fontWeight:800, color:'#fff', margin:'0 0 6px', fontFamily:'var(--cp-font)' }}>Έλεγχος πριν την αποθήκευση</h1>
-      <p style={{ fontSize:12.5, color:'rgba(255,255,255,.5)', margin:'0 0 20px' }}>Αν κάτι δεν ισχύει, διόρθωσε επαναλήψεις ή κιλά — μετά πάτησε Επιβεβαίωση.</p>
-
+    <div style={{ minHeight:'var(--lt-vh, 100vh)', background:'#fcfcfd', color:'#0e1116', padding:'30px 16px 44px', maxWidth:680, margin:'0 auto' }}>
+      <p style={{ fontSize:'clamp(10px,1.3vh,17px)', letterSpacing:'.3em', color:ACCENT, fontWeight:800, textTransform:'uppercase', margin:'0 0 8px' }}>Αποτελέσματα προπόνησης</p>
+      <h1 style={{ fontSize:'clamp(23px,3.2vh,40px)', fontWeight:900, letterSpacing:'-.02em', margin:'0 0 6px' }}>Έλεγχος πριν την αποθήκευση</h1>
+      <p style={{ fontSize:'clamp(12.5px,1.7vh,20px)', color:'#6b7280', margin:'0 0 20px' }}>Αν κάτι δεν ισχύει, διόρθωσε επαναλήψεις ή κιλά — μετά πάτησε Επιβεβαίωση.</p>
       {draft.map((exd, i) => (
-        <div key={i} style={{ background:'rgba(0,0,0,.55)', backdropFilter:'blur(8px)', border:'1px solid rgba(255,255,255,.1)', borderRadius:16, padding:'14px 14px 10px', marginBottom:12 }}>
-          <p style={{ margin:'0 0 10px', fontSize:14.5, fontWeight:800, color:'#fff' }}>{i+1}. {exd.name}</p>
+        <div key={i} style={{ background:'#fff', border:'1px solid rgba(14,17,22,.09)', borderRadius:16, padding:'14px 14px 10px', marginBottom:12 }}>
+          <p style={{ margin:'0 0 10px', fontSize:'clamp(14.5px,2vh,24px)', fontWeight:900 }}>{i+1}. {exd.name}</p>
           <div style={{ display:'grid', gridTemplateColumns:'44px 1fr 64px 1fr 40px', gap:8, marginBottom:6 }}>
             {['ΣΕΤ','ΕΠΑΝ.','ΣΤΟΧΟΣ','ΚΙΛΑ',''].map(h=>(
-              <span key={h} style={{ fontSize:8.5, letterSpacing:'.12em', color:'rgba(255,255,255,.35)', fontWeight:800, textAlign:'center' }}>{h}</span>
+              <span key={h} style={{ fontSize:'clamp(8.5px,1.1vh,14px)', letterSpacing:'.12em', color:'#a1a1aa', fontWeight:800, textAlign:'center' }}>{h}</span>
             ))}
           </div>
           {exd.rows.map((r, si) => {
             const rd = parseInt(r.reps_done) || 0;
             const hit = r.target ? rd >= r.target : rd > 0;
-            const badge = rd === 0 ? ['✗','#f87171'] : hit ? ['✓','#4ade80'] : ['↓','#fbbf24'];
+            const badge = rd === 0 ? ['✗','#dc2626'] : hit ? ['✓','#16a34a'] : ['↓','#d97706'];
             return (
               <div key={si} style={{ display:'grid', gridTemplateColumns:'44px 1fr 64px 1fr 40px', gap:8, alignItems:'center', marginBottom:7 }}>
-                <span style={{ fontSize:12.5, color:'rgba(255,255,255,.55)', fontWeight:800, textAlign:'center' }}>{si+1}</span>
+                <span style={{ fontSize:'clamp(12.5px,1.7vh,20px)', color:'#6b7280', fontWeight:800, textAlign:'center' }}>{si+1}</span>
                 <input style={inp} type="number" value={r.reps_done} onChange={e=>onEdit(i, si, 'reps_done', e.target.value)}/>
-                <span style={{ fontSize:12.5, color:'rgba(255,255,255,.45)', textAlign:'center' }}>/ {r.target || '—'}</span>
+                <span style={{ fontSize:'clamp(12.5px,1.7vh,20px)', color:'#a1a1aa', textAlign:'center' }}>/ {r.target || '—'}</span>
                 <input style={inp} type="number" step="0.5" value={r.weight_kg} onChange={e=>onEdit(i, si, 'weight_kg', e.target.value)}/>
-                <span style={{ fontSize:15, fontWeight:900, color:badge[1], textAlign:'center' }}>{badge[0]}</span>
+                <span style={{ fontSize:'clamp(15px,2vh,24px)', fontWeight:900, color:badge[1], textAlign:'center' }}>{badge[0]}</span>
               </div>
             );
           })}
         </div>
       ))}
-
-      <button onClick={onConfirm} disabled={saving} style={{ width:'100%', padding:15, borderRadius:14, border:'none', cursor:'pointer',
-        background:ACCENT, color:'#04140a', fontSize:14.5, fontWeight:800, opacity:saving?0.6:1, fontFamily:'inherit' }}>
+      <button onClick={onConfirm} disabled={saving} style={{ width:'100%', padding:'clamp(15px,2vh,26px)', borderRadius:15, border:'none', cursor:'pointer',
+        background:'linear-gradient(135deg,#e0457b,#8b5cf6)', color:'#fff', fontSize:'clamp(14.5px,1.9vh,24px)', fontWeight:800, opacity:saving?0.6:1, fontFamily:'inherit',
+        boxShadow:'0 8px 26px rgba(224,69,123,.3)' }}>
         {saving ? 'Αποθήκευση…' : 'Επιβεβαίωση'}
       </button>
     </div>
   );
 }
 
-/* ── finish ───────────────────────────────────────────────────────────── */
-function Finish({ plan, clientName, totals, deduction, onClose }) {
+/* ── finish — λευκό (Cinema) ──────────────────────────────────────────── */
+function Finish({ plan, clientName, totals, deduction, charge, onCharge, onClose }) {
   return (
     <div style={{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', justifyContent:'center',
-      alignItems:'center', padding:'40px 20px', position:'relative', zIndex:1, textAlign:'center' }}>
-      <div style={{ maxWidth:400, width:'100%' }}>
-        <div style={{ fontSize:56, marginBottom:10 }}>🏆</div>
-        <h1 style={{ fontSize:27, fontWeight:800, color:'#fff', fontFamily:'var(--cp-font)', margin:'0 0 6px' }}>
-          Ολοκληρώθηκε!
-        </h1>
-        <p style={{ fontSize:14, color:'rgba(255,255,255,.5)', margin:'0 0 24px' }}>
-          Τέλεια δουλειά, <strong style={{ color:ACCENT }}>{clientName || 'Athlete'}</strong>.
+      alignItems:'center', padding:'40px 20px', background:'#fcfcfd', color:'#0e1116', textAlign:'center' }}>
+      <div style={{ maxWidth:480, width:'100%' }}>
+        <div style={{ fontSize:'clamp(56px,7vh,110px)', marginBottom:10 }}>🏆</div>
+        <h1 style={{ fontSize:'clamp(27px,4vh,52px)', fontWeight:900, letterSpacing:'-.02em', margin:'0 0 6px' }}>Ολοκληρώθηκε!</h1>
+        <p style={{ fontSize:'clamp(14px,1.9vh,24px)', color:'#6b7280', margin:'0 0 24px' }}>
+          Τέλεια δουλειά, <strong style={{ background:'linear-gradient(135deg,#e0457b,#8b5cf6)', WebkitBackgroundClip:'text', backgroundClip:'text', color:'transparent' }}>{clientName || 'Athlete'}</strong>.
         </p>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:24 }}>
           {[['💪', totals.exercises, 'ΑΣΚΗΣΕΙΣ'], ['📊', totals.sets, 'ΣΕΤ'],
             ['🔁', totals.reps, 'ΕΠΑΝΑΛΗΨΕΙΣ'],
             ['⚖️', totals.volume ? `${Math.round(totals.volume).toLocaleString()}kg` : '—', 'ΟΓΚΟΣ']].map(([e, v, k]) => (
-            <div key={k} style={{ background:'rgba(0,0,0,.55)', backdropFilter:'blur(8px)',
-              border:'1px solid rgba(255,255,255,.1)', borderRadius:15, padding:'15px 10px' }}>
-              <div style={{ fontSize:20 }}>{e}</div>
-              <div style={{ fontSize:19, fontWeight:900, color:'#fff', fontFamily:'var(--cp-font)',
-                margin:'3px 0 2px' }}>{v}</div>
-              <div style={{ fontSize:8.5, letterSpacing:'.12em', color:'rgba(255,255,255,.38)' }}>{k}</div>
+            <div key={k} style={{ background:'#fff', border:'1px solid rgba(14,17,22,.09)', borderRadius:16, padding:'clamp(15px,2vh,26px) 10px' }}>
+              <div style={{ fontSize:'clamp(20px,2.6vh,34px)' }}>{e}</div>
+              <div style={{ fontSize:'clamp(19px,2.8vh,38px)', fontWeight:900, fontFamily:'ui-monospace,monospace', letterSpacing:'-.03em', margin:'3px 0 2px' }}>{v}</div>
+              <div style={{ fontSize:'clamp(8.5px,1.1vh,14px)', letterSpacing:'.14em', color:'#a1a1aa', fontWeight:800 }}>{k}</div>
             </div>
           ))}
         </div>
-        <div style={{ background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.35)', borderRadius:15, padding:'14px 16px', marginBottom:18, textAlign:'left' }}>
-          <p style={{ margin:0, fontSize:12.5, color:'rgba(255,255,255,.85)', lineHeight:1.55 }}>✅ Τα δεδομένα της προπόνησης αποθηκεύτηκαν στην καρτέλα του πελάτη για μελλοντικά πλάνα.</p>
+        {charge?.status === 'ask' && (
+          <div style={{ background:'#fffbeb', border:'1.5px solid #fcd34d', borderRadius:15, padding:'14px 16px', marginBottom:14, textAlign:'left' }}>
+            <p style={{ margin:0, fontSize:'clamp(13px,1.8vh,21px)', color:'#92400e', fontWeight:800 }}>🎟 Χρέωση session</p>
+            <p style={{ margin:'5px 0 12px', fontSize:'clamp(12.5px,1.7vh,20px)', color:'#78350f', lineHeight:1.5 }}>
+              Να αφαιρεθεί <b>1 token προπόνησης</b> από {charge.group ? <>το κοινό υπόλοιπο του group{charge.name ? <> <b>{charge.name}</b></> : null}</> : <b>{charge.name}</b>};{' '}
+              Υπόλοιπο: <b>{charge.left}</b> → <b style={{ color:ACCENT }}>{charge.left - 1}</b>
+            </p>
+            <div style={{ display:'flex', gap:8 }}>
+              <button disabled={charge.busy} onClick={()=>onCharge(true)} style={{ flex:1, border:'none', borderRadius:12, padding:'clamp(11px,1.6vh,20px)', cursor:'pointer', background:'linear-gradient(135deg,#e0457b,#8b5cf6)', color:'#fff', fontSize:'clamp(12.5px,1.7vh,20px)', fontWeight:800, fontFamily:'inherit' }}>{charge.busy ? 'Χρέωση…' : '✓ Ναι, αφαίρεσε −1'}</button>
+              <button disabled={charge.busy} onClick={()=>onCharge(false)} style={{ border:'1px solid rgba(14,17,22,.16)', borderRadius:12, padding:'clamp(11px,1.6vh,20px) 18px', cursor:'pointer', background:'#fff', color:'#0e1116', fontSize:'clamp(12.5px,1.7vh,20px)', fontWeight:800, fontFamily:'inherit' }}>Όχι</button>
+            </div>
+          </div>
+        )}
+        <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:15, padding:'14px 16px', marginBottom:18, textAlign:'left' }}>
+          <p style={{ margin:0, fontSize:'clamp(12.5px,1.7vh,20px)', color:'#166534', lineHeight:1.55 }}>✅ Τα δεδομένα της προπόνησης αποθηκεύτηκαν στην καρτέλα του πελάτη για μελλοντικά πλάνα.</p>
           {deduction && (
-            <p style={{ margin:'8px 0 0', fontSize:12.5, color:'rgba(255,255,255,.85)', lineHeight:1.55 }}>🏋️ Αφαιρέθηκε <b>1 προπόνηση</b> — Νέο υπόλοιπο{deduction.group?' group':''}: <b style={{ color:ACCENT }}>{deduction.left} προπονήσεις</b></p>
+            <p style={{ margin:'8px 0 0', fontSize:'clamp(12.5px,1.7vh,20px)', color:'#166534', lineHeight:1.55 }}>🏋️ Αφαιρέθηκε <b>1 προπόνηση</b> — Νέο υπόλοιπο{deduction.group?' group':''}: <b style={{ color:ACCENT }}>{deduction.left} προπονήσεις</b></p>
+          )}
+          {charge?.status === 'no' && (
+            <p style={{ margin:'8px 0 0', fontSize:'clamp(12.5px,1.7vh,20px)', color:'#6b7280', lineHeight:1.55 }}>🎟 Δεν αφαιρέθηκε token — υπόλοιπο{charge.group?' group':''}: <b>{charge.left}</b></p>
           )}
         </div>
-        <button onClick={onClose} style={{ width:'100%', padding:14, borderRadius:14, border:'none',
-          cursor:'pointer', background:ACCENT, color:'#04140a', fontSize:14, fontWeight:800 }}>
+        <button onClick={onClose} style={{ width:'100%', padding:'clamp(14px,2vh,26px)', borderRadius:15, border:'none',
+          cursor:'pointer', background:'linear-gradient(135deg,#e0457b,#8b5cf6)', color:'#fff', fontSize:'clamp(14px,1.9vh,24px)', fontWeight:800,
+          boxShadow:'0 8px 26px rgba(224,69,123,.3)' }}>
           Τέλος
         </button>
       </div>
@@ -333,6 +394,7 @@ export default function LiveTraining() {
   const exercises = plan?.exercises || [];
 
   const [screen, setScreen] = useState('welcome');   // welcome | run | finish
+  const [showVid, setShowVid] = useState(false);
   const [exIdx, setExIdx] = useState(0);
   const [setIdx, setSetIdx] = useState(0);
   const [rep, setRep] = useState(0);
@@ -340,7 +402,22 @@ export default function LiveTraining() {
   const [logged, setLogged] = useState({});          // `${ex}-${set}` -> reps done
   const [resultsDraft, setResultsDraft] = useState([]);
   const [deduction, setDeduction] = useState(null);
+  const [charge, setCharge] = useState(null);       // { status:'ask'|'no'|'yes', group, id, name, left, busy }
   const [savingRes, setSavingRes] = useState(false);
+  const [vidOk, setVidOk] = useState(true);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [t0] = useState(() => Date.now());
+  useEffect(() => { setVidOk(true); }, [exIdx]);
+  useEffect(() => {
+    if (screen !== 'run') return;
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [screen]);
+  const clockLabel = (() => {
+    const d = new Date(nowMs);
+    const el = Math.floor((nowMs - t0) / 60000);
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')} · ${el}′`;
+  })();
 
   const ex = exercises[exIdx];
   const sets = ex ? setsOf(ex) : [];
@@ -426,22 +503,39 @@ export default function LiveTraining() {
     try {
       if (plan?.id) await db.TrainingPlan.update(plan.id, { completed: true, completed_date: new Date().toISOString(), session_results });
       if (plan?.client_id) {
+        // Ρωτάμε ΠΡΙΝ τη χρέωση — η αφαίρεση γίνεται μόνο με «Ναι» στην οθόνη τέλους
         const c = await db.Client.get(plan.client_id);
         if (c?.group_id) {
-          // Μέλος group → η προπόνηση αφαιρείται από το ΚΟΙΝΟ υπόλοιπο του group
           const g = await db.Group.get(c.group_id);
-          await addGroupCredit(c.group_id, -1, 'session', plan.id, plan.title || '');
           const left = g ? await getGroupTrainingBalance(g) : 0;
-          setDeduction({ left, group: true });
+          setCharge({ status:'ask', group:true, id:c.group_id, name:g?.name || '', left });
         } else {
-          await addCredit(plan.client_id, 'training', -1, 'session', plan.id, plan.title || '');
           const b = await getBalance(plan.client_id);
-          setDeduction({ left: b.training });
+          setCharge({ status:'ask', group:false, id:plan.client_id, name:c?.name || clientName || 'τον πελάτη', left:b.training });
         }
       }
     } catch {}
     setSavingRes(false);
     setScreen('finish');
+  };
+
+  const answerCharge = async (yes) => {
+    if (!charge || charge.busy || charge.status !== 'ask') return;
+    if (!yes) { setCharge(c => ({ ...c, status:'no' })); return; }
+    setCharge(c => ({ ...c, busy:true }));
+    try {
+      if (charge.group) {
+        await addGroupCredit(charge.id, -1, 'session', plan?.id || null, plan?.title || '');
+        const g = await db.Group.get(charge.id);
+        const left = g ? await getGroupTrainingBalance(g) : charge.left - 1;
+        setDeduction({ left, group:true });
+      } else {
+        await addCredit(charge.id, 'training', -1, 'session', plan?.id || null, plan?.title || '');
+        const b = await getBalance(charge.id);
+        setDeduction({ left: b.training });
+      }
+      setCharge(c => ({ ...c, status:'yes', busy:false }));
+    } catch (e) { setCharge(c => ({ ...c, busy:false })); }
   };
 
   const afterExRest = () => {
@@ -470,9 +564,9 @@ export default function LiveTraining() {
     <>
     <div style={{ minHeight:'var(--lt-vh, 100vh)', display:'flex', flexDirection:'column', gap:16,
       alignItems:'center', justifyContent:'center', position:'relative', zIndex:1 }}>
-      <p style={{ color:'#fff' }}>Δεν επιλέχθηκε πλάνο.</p>
+      <p style={{ color:'#0e1116', fontWeight:700 }}>Δεν επιλέχθηκε πλάνο.</p>
       <button onClick={() => nav(-1)} style={{ padding:'10px 24px', borderRadius:10, border:'none',
-        background:ACCENT, color:'#04140a', cursor:'pointer', fontWeight:700 }}>Πίσω</button>
+        background:'linear-gradient(135deg,#e0457b,#8b5cf6)', color:'#fff', cursor:'pointer', fontWeight:700 }}>Πίσω</button>
     </div>
     </>
   );
@@ -490,9 +584,7 @@ export default function LiveTraining() {
 
   return (
     <>
-    <div style={{ minHeight:'var(--lt-vh, 100vh)', position:'relative', overflowX:'hidden' }}>
-      <CubeBackground/>
-      <div style={{ position:'fixed', inset:0, zIndex:0, background:'rgba(0,0,0,.62)', pointerEvents:'none' }}/>
+    <div style={{ minHeight:'var(--lt-vh, 100vh)', position:'relative', overflowX:'hidden', background:'#fcfcfd', color:'#0e1116', fontFamily:'var(--cp-font)' }}>
 
       {screen === 'welcome' && (
         <Welcome plan={plan} clientName={clientName} onStart={() => setScreen('run')}/>
@@ -502,128 +594,147 @@ export default function LiveTraining() {
         <ResultsReview draft={resultsDraft} onEdit={editDraft} onConfirm={confirmResults} saving={savingRes}/>
       )}
       {screen === 'finish' && (
-        <Finish plan={plan} clientName={clientName} totals={totals} deduction={deduction} onClose={() => nav(-1)}/>
+        <Finish plan={plan} clientName={clientName} totals={totals} deduction={deduction} charge={charge} onCharge={answerCharge} onClose={() => nav(-1)}/>
       )}
 
       {screen === 'run' && ex && (
         <div style={{ position:'relative', zIndex:1, minHeight:'var(--lt-vh, 100vh)', display:'flex',
-          flexDirection:'column', padding:'14px 16px 0', background:PULSE_BG }}>
+          flexDirection:'column', padding:'calc(12px + env(safe-area-inset-top)) 16px 0',
+          background:'#fcfcfd', color:'#0e1116', fontFamily:'var(--cp-font)' }}>
 
-          {/* ── 1. every exercise with its set dots ── */}
-          <ExerciseStrip exercises={exercises} current={exIdx} doneMap={doneMap}/>
-
-          {/* ── 2. current exercise, highlighted ── */}
-          <div style={{ margin:'16px 0 14px' }}>
-            <span style={{ display:'inline-block',
-              background:'linear-gradient(135deg,#e0457b,#8b5cf6)', color:'#fff',
-              padding:'5px 14px 6px', borderRadius:8, fontFamily:'var(--cp-font)',
-              fontSize:'clamp(24px,6.4vw,34px)', fontWeight:800, letterSpacing:'-.02em',
-              lineHeight:1.15, boxShadow:'0 4px 20px rgba(224,69,123,.35)' }}>
-              {exIdx + 1}/{exercises.length} : {ex.name}
-            </span>
+          {/* ── 1. top bar ── */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <span style={{ fontWeight:900, letterSpacing:'.16em', fontSize:'clamp(11px,1.4vh,20px)' }}>THE <span style={{ color:ACCENT }}>CUBE</span> · LIVE</span>
+            <span style={{ fontFamily:'ui-monospace,monospace', fontSize:'clamp(11px,1.5vh,21px)', fontWeight:700, fontVariantNumeric:'tabular-nums', letterSpacing:'.05em', background:'#0e1116', color:'#fff', borderRadius:10, padding:'.32em .85em' }}>{clockLabel}</span>
+            <span style={{ fontSize:'clamp(10px,1.3vh,18px)', fontWeight:800, padding:'.4em 1em', borderRadius:99, letterSpacing:'.06em', background:'#eef2ff', color:'#4f46e5', maxWidth:'22vw', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{(clientName || 'ATHLETE').toUpperCase()}</span>
           </div>
 
-          {/* ── 3. set dots with numbers underneath ── */}
-          <div style={{ display:'flex', gap:'clamp(10px,3vw,18px)', marginBottom:16 }}>
-            {sets.map((s, i) => {
-              const isDone = logged[`${exIdx}-${i}`] !== undefined;
-              const isNow = i === setIdx && phase !== 'restEx';
-              return (
-                <div key={i} style={{ textAlign:'center' }}>
-                  <div style={{ width:'clamp(26px,7vw,38px)', height:'clamp(26px,7vw,38px)',
-                    borderRadius:'50%',
-                    background: isDone ? DONE : 'transparent',
-                    border: isDone ? 'none' : `2px solid ${isNow ? ACCENT : 'rgba(255,255,255,.3)'}`,
-                    transition:'background .25s' }}/>
-                  <div style={{ fontSize:11, marginTop:4,
-                    color: isNow ? '#fff' : 'rgba(255,255,255,.42)',
-                    fontWeight: isNow ? 700 : 500 }}>{i + 1}</div>
-                </div>
-              );
-            })}
-          </div>
+          {/* ── 2. άσκηση ── */}
+          <p style={{ margin:'10px 0 0', fontSize:'clamp(10px,1.3vh,18px)', letterSpacing:'.22em', fontWeight:800, color:'#a1a1aa' }}>ΑΣΚΗΣΗ {exIdx + 1}/{exercises.length}</p>
+          <p style={{ margin:'1px 0 2px', fontSize:'clamp(24px,6.6vw,32px)', fontWeight:900, letterSpacing:'-.03em', lineHeight:1.08 }}>{ex.name}</p>
 
-          {/* ── 4. what this set asks for ── */}
-          <div style={{ fontSize:'clamp(18px,5vw,26px)', fontWeight:700, color:'#fff',
-            fontFamily:'var(--cp-font)', letterSpacing:'-.01em', marginBottom:18 }}>
-            Σετ {setIdx + 1}: {cur?.weight_kg || 0}kg / {target} επαν.
-          </div>
+          {/* ── 3. media: βίντεο ή rep-ring όταν δεν υπάρχει ── */}
+          {vidOk && exerciseVideoUrl(ex.name) ? (
+            <video key={`${exIdx}-${exerciseVideoUrl(ex.name)}`} src={exerciseVideoUrl(ex.name)}
+              autoPlay loop muted playsInline preload="metadata"
+              onError={() => setVidOk(false)} onClick={() => setShowVid(true)}
+              style={{ width:'100%', flex:'1 1 260px', minHeight:260, maxHeight:'58vmax', objectFit:'contain',
+                background:'#fcfcfd', mixBlendMode:'multiply', cursor:'zoom-in' }}/>
+          ) : (
+            <div style={{ flex:'1 1 auto', display:'grid', placeItems:'center', padding:'6px 0 2px' }}>
+              <RepRingLight target={target} done={phase === 'active' ? rep : (logged[`${exIdx}-${setIdx}`] ?? 0)}
+                pulseKey={rep} kg={cur?.weight_kg || 0}/>
+            </div>
+          )}
 
-          {/* ── 5. ο παλμός: δαχτυλίδι επαναλήψεων ── */}
-          <div style={{ margin:'8px 0 20px' }}>
-            <RepRing target={target} done={phase === 'active' ? rep : (logged[`${exIdx}-${setIdx}`] ?? 0)} pulseKey={rep}/>
-          </div>
+          {/* ── 4. πίνακας σετ: κιλά · επαν. · διάλειμμα ── */}
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'clamp(12.5px,1.9vh,25px)', marginTop:4 }}>
+            <thead><tr>
+              {['ΣΕΤ','ΚΙΛΑ','ΕΠΑΝ.','ΔΙΑΛΕΙΜΜΑ'].map((h, hi) => (
+                <th key={h} style={{ fontSize:'clamp(9px,1.2vh,16px)', letterSpacing:'.18em', color:'#a1a1aa', fontWeight:800,
+                  textAlign: hi === 3 ? 'right' : 'left', padding:'0 6px 5px' }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {sets.map((sd, i) => {
+                const isDone = logged[`${exIdx}-${i}`] !== undefined;
+                const isNow = i === setIdx && phase !== 'restEx';
+                const tdBase = { padding:'clamp(7px,1.1vh,16px) 6px', borderTop:'1px solid rgba(14,17,22,.09)', fontWeight:600,
+                  fontFamily:'ui-monospace,monospace', fontVariantNumeric:'tabular-nums' };
+                const col = isNow ? '#fff' : isDone ? '#9ca3af' : i > setIdx ? '#b6bcc6' : '#0e1116';
+                const rowBg = isNow ? { background:'linear-gradient(135deg,#e0457b,#8b5cf6)' } : {};
+                return (
+                  <tr key={i}>
+                    <td style={{ ...tdBase, ...rowBg, color: isNow ? '#fff' : isDone ? '#16a34a' : col, fontWeight:800,
+                      borderRadius: isNow ? '9px 0 0 9px' : 0, fontFamily:'inherit' }}>{isDone ? '✓ ' : isNow ? '▶ ' : ''}{i + 1}</td>
+                    <td style={{ ...tdBase, ...rowBg, color:col }}>{sd.weight_kg || 0} kg</td>
+                    <td style={{ ...tdBase, ...rowBg, color:col }}>{isDone ? `${logged[`${exIdx}-${i}`]}/${repTargetOf(sd)}` : repTargetOf(sd)}</td>
+                    <td style={{ ...tdBase, ...rowBg, color:col, textAlign:'right', borderRadius: isNow ? '0 9px 9px 0' : 0 }}>{parseInt(sd.rest_sec ?? ex.rest_between_sets ?? 60, 10)}″</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
-          {/* ── 6. what's coming ── */}
-          <div style={{ marginTop:'auto', paddingBottom:14 }}>
-            {phase === 'ready' && (
-              <p style={{ fontSize:14, color:'rgba(255,255,255,.62)', margin:'0 0 14px' }}>
-                Έτοιμος για το σετ {setIdx + 1} · {nextSetLabel.replace(/^Επόμενο σετ: /, '')}
+          {/* ── 5. μεγάλοι αριθμοί: επαναλήψεις + φορτίο ── */}
+          <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between', margin:'12px 2px 8px' }}>
+            <div>
+              <p style={{ margin:0, fontSize:'clamp(9.5px,1.3vh,17px)', letterSpacing:'.2em', fontWeight:800, color:'#a1a1aa' }}>ΣΕΤ {Math.min(setIdx + 1, sets.length)} · ΕΠΑΝΑΛΗΨΕΙΣ</p>
+              <p key={'bn' + rep} style={{ margin:'2px 0 0', fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em',
+                fontSize:'clamp(44px,7vmax,145px)', lineHeight:.95, fontVariantNumeric:'tabular-nums',
+                animation: phase === 'active' && rep ? 'ltBump .18s ease' : 'none' }}>
+                {phase === 'active' ? rep : (logged[`${exIdx}-${setIdx}`] ?? 0)}<span style={{ fontSize:'.42em', color:'#a1a1aa' }}>/{target}</span>
               </p>
-            )}
-            {phase === 'active' && (
-              <p style={{ fontSize:14, color:'rgba(255,255,255,.62)', margin:'0 0 14px' }}>
-                Μετά: {rest}s ξεκούραση · {nextSetLabel}
+            </div>
+            <div style={{ textAlign:'right' }}>
+              <p style={{ margin:0, fontSize:'clamp(9.5px,1.3vh,17px)', letterSpacing:'.2em', fontWeight:800, color:'#a1a1aa' }}>ΦΟΡΤΙΟ</p>
+              <p style={{ margin:'2px 0 0', fontFamily:'ui-monospace,monospace', fontWeight:700, letterSpacing:'-.04em',
+                fontSize:'clamp(28px,4.2vmax,88px)', lineHeight:1, color:ACCENT, fontVariantNumeric:'tabular-nums' }}>
+                {cur?.weight_kg || 0}<span style={{ fontSize:'.5em' }}>kg</span>
               </p>
-            )}
-
-            {/* ── 7. footer: ring + rest panel / actions ── */}
-            <div style={{ display:'flex', alignItems:'center', gap:12,
-              paddingBottom:'calc(16px + env(safe-area-inset-bottom))' }}>
-              <ProgressRing pct={pct}/>
-
-              {(phase === 'rest' || phase === 'restEx') && (
-                <div style={{ flex:1, minWidth:0, color:'rgba(255,255,255,.5)', fontSize:13, fontWeight:600 }}>
-                  Σε ξεκούραση…
-                </div>
-              )}
-
-              {phase === 'ready' && (
-                <button onClick={addRep} style={{ flex:1, padding:'16px 0', borderRadius:16,
-                  border:'none', cursor:'pointer', color:'#fff',
-                  fontSize:15, fontWeight:800, fontFamily:'var(--cp-font)',
-                  background:'linear-gradient(180deg,#e0457b,#b52f78)', boxShadow:'0 4px 20px rgba(224,69,123,.4)' }}>
-                  ▶ ΕΝΑΡΞΗ ΣΕΤ {setIdx + 1}
-                </button>
-              )}
-
-              {phase === 'active' && (
-                <div style={{ flex:1, display:'flex', alignItems:'center', gap:8 }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:10, letterSpacing:'.12em', textTransform:'uppercase',
-                      color:'rgba(255,255,255,.42)' }}>Επανάληψη</div>
-                    <div style={{ fontSize:26, fontWeight:900, color:ACCENT, fontFamily:'var(--cp-font)',
-                      lineHeight:1.05, fontVariantNumeric:'tabular-nums' }}>
-                      {rep}<span style={{ fontSize:13, color:'rgba(255,255,255,.35)' }}>/{target}</span>
-                    </div>
-                  </div>
-                  <button onClick={undoRep} aria-label="Undo"
-                    style={{ width:46, height:46, borderRadius:13, cursor:'pointer',
-                      border:'1px solid rgba(255,255,255,.18)', background:'rgba(255,255,255,.07)',
-                      color:'#fff', fontSize:17 }}>◀</button>
-                  <button onClick={endSet}
-                    style={{ height:46, padding:'0 13px', borderRadius:13, cursor:'pointer',
-                      border:'1px solid rgba(255,165,0,.42)', background:'rgba(255,140,0,.16)',
-                      color:'#ffa040', fontSize:10.5, fontWeight:800, whiteSpace:'nowrap' }}>
-                    ΤΕΛΟΣ ΣΕΤ
-                  </button>
-                  <button onClick={addRep} aria-label="Rep"
-                    style={{ width:58, height:46, borderRadius:13, border:'none', cursor:'pointer',
-                      background:'linear-gradient(180deg,#e0457b,#b52f78)', color:'#fff', fontSize:19, fontWeight:800,
-                      boxShadow:'0 3px 18px rgba(224,69,123,.5)' }}>▲</button>
-                </div>
-              )}
             </div>
           </div>
 
-          {phase === 'rest' && (
-            <RestTakeover key={`r${exIdx}-${setIdx}`} seconds={rest}
-              onDone={afterRest} onSkip={afterRest} nextLabel={nextSetLabel} isExChange={false}/>
-          )}
-          {phase === 'restEx' && (
-            <RestTakeover key={`re${exIdx}`} seconds={restEx}
-              onDone={afterExRest} onSkip={afterExRest} nextLabel={nextSetLabel} isExChange={true}/>
-          )}
+          {/* ── 6. controls + επόμενη άσκηση ── */}
+          <div style={{ marginTop:'auto', paddingBottom:'calc(14px + env(safe-area-inset-bottom))' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+              {phase === 'ready' && (
+                <button onClick={addRep} style={{ flex:1, padding:'clamp(15px,2vh,28px) 0', borderRadius:15,
+                  border:'none', cursor:'pointer', color:'#fff', fontSize:'clamp(14.5px,1.9vh,26px)', fontWeight:800, fontFamily:'inherit',
+                  background:'linear-gradient(135deg,#e0457b,#8b5cf6)', boxShadow:'0 6px 22px rgba(224,69,123,.35)' }}>
+                  ▶ ΕΝΑΡΞΗ ΣΕΤ {setIdx + 1}
+                </button>
+              )}
+              {phase === 'active' && (
+                <>
+                  <button onClick={undoRep} aria-label="Undo"
+                    style={{ width:48, height:48, borderRadius:13, cursor:'pointer',
+                      border:'1px solid rgba(14,17,22,.14)', background:'#fff', color:'#0e1116', fontSize:17 }}>◀</button>
+                  <button onClick={endSet}
+                    style={{ height:48, padding:'0 14px', borderRadius:13, cursor:'pointer',
+                      border:'1px solid rgba(234,140,8,.4)', background:'rgba(251,191,36,.14)',
+                      color:'#b45309', fontSize:10.5, fontWeight:800, whiteSpace:'nowrap' }}>ΤΕΛΟΣ ΣΕΤ</button>
+                  <button onClick={addRep} aria-label="Rep"
+                    style={{ flex:1, height:48, borderRadius:13, border:'none', cursor:'pointer',
+                      background:'linear-gradient(135deg,#e0457b,#8b5cf6)', color:'#fff', fontSize:19, fontWeight:800,
+                      boxShadow:'0 4px 18px rgba(224,69,123,.4)' }}>▲ ΕΠΑΝΑΛΗΨΗ</button>
+                </>
+              )}
+              {(phase === 'rest' || phase === 'restEx') && (
+                <div style={{ flex:1, color:'#a1a1aa', fontSize:12.5, fontWeight:700 }}>Σε διάλειμμα…</div>
+              )}
+            </div>
+            {exercises[exIdx + 1] && (
+              <div style={{ display:'flex', alignItems:'center', gap:9, borderTop:'1px solid rgba(14,17,22,.09)', paddingTop:9 }}>
+                <ExerciseMedia name={exercises[exIdx + 1].name} rounded={10}
+                  style={{ width:'clamp(40px,5vmax,140px)', height:'clamp(40px,5vmax,140px)', mixBlendMode:'multiply', background:'#fcfcfd' }}/>
+                <div>
+                  <p style={{ margin:0, fontSize:'clamp(9.5px,1.2vh,16px)', color:'#a1a1aa', fontWeight:700 }}>Επόμενη άσκηση</p>
+                  <p style={{ margin:0, fontSize:'clamp(12.5px,1.7vh,24px)', fontWeight:800 }}>{exercises[exIdx + 1].name} · {setsOf(exercises[exIdx + 1]).length} σετ</p>
+                </div>
+                <span style={{ marginLeft:'auto', fontFamily:'ui-monospace,monospace', fontSize:10, color:'#a1a1aa' }}>{exIdx + 2}/{exercises.length}</span>
+              </div>
+            )}
+          </div>
+
+          {phase === 'rest' && (() => {
+            const n = sets[setIdx + 1];
+            return <RestTakeover key={`r${exIdx}-${setIdx}`} seconds={rest}
+              onDone={afterRest} onSkip={afterRest} isExChange={false}
+              nextSub={`ΕΠΟΜΕΝΟ · ΣΕΤ ${setIdx + 2} ΑΠΟ ${sets.length}`}
+              nextKg={n?.weight_kg || 0} nextReps={repTargetOf(n)}
+              contName={ex.name} clientName={clientName} clockLabel={clockLabel}/>;
+          })()}
+          {phase === 'restEx' && (() => {
+            const nx = exercises[exIdx + 1];
+            const ns = nx ? setsOf(nx)[0] : null;
+            return <RestTakeover key={`re${exIdx}`} seconds={restEx}
+              onDone={afterExRest} onSkip={afterExRest} isExChange={true}
+              nextSub={nx ? `ΕΠΟΜΕΝΗ ΑΣΚΗΣΗ · ${exIdx + 2}/${exercises.length}` : 'ΤΕΛΟΣ ΠΡΟΠΟΝΗΣΗΣ 🏁'}
+              nextKg={ns ? (ns.weight_kg || 0) : null} nextReps={ns ? repTargetOf(ns) : null}
+              contName={nx ? nx.name : ex.name} clientName={clientName} clockLabel={clockLabel}/>;
+          })()}
+          {showVid && <ExerciseVideoOverlay name={ex.name} onClose={() => setShowVid(false)}/>}
         </div>
       )}
 

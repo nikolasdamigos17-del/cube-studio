@@ -81,14 +81,25 @@ export async function deleteGroup(group, clients) {
 
 /* Πελάτες με group_id που δείχνει σε ΣΒΗΣΜΕΝΟ group: αόρατοι στη σελίδα Clients
    αλλά μετρούσαν σε Calendar/Οικονομικά. Εδώ «ξε-ορφανεύουν». */
+/* Ένας πελάτης θεωρείται «ορφανός» όταν το group_id του:
+   (α) δείχνει σε group που δεν υπάρχει, ή
+   (β) δείχνει σε υπαρκτό group που όμως ΔΕΝ τον έχει στα member_ids
+       (μισοτελειωμένη παλιά μετακίνηση). Και στις δύο περιπτώσεις καθαρίζεται,
+       ώστε να εμφανίζεται σωστά ως «χωρίς group». */
+const isOrphan = (c, byId) => {
+  if (!c.group_id) return false;
+  const g = byId[c.group_id];
+  if (!g) return true;
+  return !(g.member_ids || []).includes(c.id);
+};
 export function unorphanClients(clients, groups) {
-  const gids = new Set((groups || []).map(g => g.id));
-  return (clients || []).map(c => (c.group_id && !gids.has(c.group_id)) ? { ...c, group_id: '' } : c);
+  const byId = Object.fromEntries((groups || []).map(g => [g.id, g]));
+  return (clients || []).map(c => isOrphan(c, byId) ? { ...c, group_id: '' } : c);
 }
 export async function repairOrphanGroupIds(db, clients, groups) {
-  const gids = new Set((groups || []).map(g => g.id));
+  const byId = Object.fromEntries((groups || []).map(g => [g.id, g]));
   for (const c of (clients || [])) {
-    if (c.group_id && !gids.has(c.group_id)) { try { await db.Client.update(c.id, { group_id: '' }); } catch {} }
+    if (isOrphan(c, byId)) { try { await db.Client.update(c.id, { group_id: '' }); } catch {} }
   }
 }
 

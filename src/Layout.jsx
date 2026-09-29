@@ -6,7 +6,7 @@ import logo from './assets/logo-cube.png';
 import BarbellNav, { BarbellDock, useBarColors } from './components/BarbellNav';
 import ThemeSwatch from './components/ThemeSwatch';
 import ApiSettingsModal from './components/ApiSettingsModal';
-import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, ChevronDown, MoreHorizontal, X, Settings, Globe, Key } from 'lucide-react';
+import { Home, Calendar, Users, Dumbbell, Salad, BarChart2, LogOut, MessageCircle, CreditCard, ChevronDown, MoreHorizontal, X, Settings, Globe, Key, Instagram } from 'lucide-react';
 import { useAppContext } from './lib/AppContext';
 import { db } from './lib/db';
 import { format } from 'date-fns';
@@ -22,6 +22,7 @@ const NAV = [
   { key:'nav_statistics', icon:BarChart2, path:'/Statistics' },
   { key:'nav_logistics', icon:CreditCard, path:'/Logistics' },
   { key:'nav_messages', icon:MessageCircle, path:'/Messages' },
+  { key:'nav_social', icon:Instagram, path:'/Social' },
 ];
 
 // Mobile bottom-bar: 4 primary tabs + a "More" button that opens the rest
@@ -36,6 +37,7 @@ const MORE_NAV = [
   { key:'nav_calendar', icon:Calendar, path:'/CalendarPage' },
   { key:'nav_statistics', icon:BarChart2, path:'/Statistics' },
   { key:'nav_logistics', icon:CreditCard, path:'/Logistics' },
+  { key:'nav_social', icon:Instagram, path:'/Social' },
 ];
 
 function Clock({ visible }) {

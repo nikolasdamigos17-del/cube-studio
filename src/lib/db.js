@@ -184,7 +184,8 @@ export const explainAiError = (status, bodyText) => {
   return `Σφάλμα AI (${status || '—'}): ${t.slice(0, 160)}`;
 };
 
-export async function callAI(prompt, systemPrompt) {
+export async function callAI(prompt, systemPrompt, opts = {}) {
+  const maxTokens = Math.min(Math.max(parseInt(opts.maxTokens) || 8192, 256), 16000);
   const lang = localStorage.getItem('cube_lang') || 'en';
   if (lang === 'el') systemPrompt = (systemPrompt || '') + GREEK_DIRECTIVE;
   const savedKey = (typeof localStorage !== 'undefined') ? localStorage.getItem('studio_api_key') : null;
@@ -202,7 +203,7 @@ export async function callAI(prompt, systemPrompt) {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-5',
-          max_tokens: 8192,
+          max_tokens: maxTokens,
           system: systemPrompt || 'You are a helpful fitness and nutrition assistant.',
           messages: [{ role: 'user', content: prompt }],
         }),
@@ -212,7 +213,7 @@ export async function callAI(prompt, systemPrompt) {
       response = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, system: systemPrompt || '' }),
+        body: JSON.stringify({ prompt, system: systemPrompt || '', max_tokens: maxTokens }),
       });
     }
     if (!response.ok) {

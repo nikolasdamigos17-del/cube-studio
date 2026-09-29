@@ -21,9 +21,13 @@ const EXERCISE_MAP = {
   'cable front raise':            'Cable_Front_Raise',
   'cable overhead press':         'Cable_Overhead_Tricep_Extension',
   'cable upright row':            'Cable_Upright_Row',
+  'cable upright row (single arm)': 'Cable_Upright_Row',
   'cable bicep curl':             'Cable_Curl',
   'cable hammer curl':            'Cable_Curl',
   'cable tricep pushdown':        'Cable_Pushdown_(with_Rope)',
+  'cable tricep kickback':        'Cable_Pushdown_(with_Rope)',
+  'cable crunch (seated)':        'Decline_Crunch',
+  'cable crunch (standing)':      'Decline_Crunch',
   'cable overhead tricep ext':    'Cable_Overhead_Tricep_Extension',
   'cable romanian deadlift':      'Romanian_Deadlift',
   'cable kickback':               'Cable_Hip_Abduction',
@@ -33,6 +37,7 @@ const EXERCISE_MAP = {
   'cable crunch':                 'Decline_Crunch',
   'cable woodchop':               'Dumbbell_Side_Bend',
   'cable pallof press':           'Decline_Crunch',
+  'cable squat':                  'Dumbbell_Squat',
   'cable squat to row':           'Cable_Seated_Row',
   'cable deadlift':               'Romanian_Deadlift',
   // ── Leg Machine ───────────────────────────────────────────────────────────
@@ -43,8 +48,10 @@ const EXERCISE_MAP = {
   // ── Dumbbells ─────────────────────────────────────────────────────────────
   'dumbbell bench press':         'Dumbbell_Bench_Press',
   'dumbbell incline press':       'Incline_Dumbbell_Press',
+  'dumbbell decline press':       'Incline_Dumbbell_Press',
   'dumbbell fly':                 'Dumbbell_Flyes',
   'dumbbell pullover':            'Dumbbell_Pullover',
+  'cable pullover':               'Dumbbell_Pullover',
   'dumbbell row':                 'Bent_Over_Dumbbell_Row_(Version_2)',
   'dumbbell shoulder press':      'Dumbbell_Shoulder_Press',
   'dumbbell lateral raise':       'Dumbbell_Lateral_Raise',
@@ -61,10 +68,14 @@ const EXERCISE_MAP = {
   'dumbbell walking lunge':       'Dumbbell_Lunges',
   'dumbbell rdl':                 'Romanian_Deadlift',
   'dumbbell sumo squat':          'Dumbbell_Squat',
+  'dumbbell overhead lunge':      'Dumbbell_Lunges',
+  'dumbbell lateral step-up':     'Dumbbell_Step_Ups',
   'dumbbell step-up':             'Dumbbell_Step_Ups',
   'dumbbell calf raise':          'Calf_Raise_on_a_Dumbbell',
   'dumbbell hip thrust':          'Barbell_Hip_Thrust',
+  'dumbbell split squat':         'Dumbbell_Lunges',
   'bulgarian split squat (db)':   'Dumbbell_Lunges',
+  'dumbbell sit-up':              'Russian_Twist',
   'dumbbell russian twist':       'Russian_Twist',
   'dumbbell farmer carry':        'Farmer_s_Walk',
   // ── Bench ─────────────────────────────────────────────────────────────────
@@ -78,6 +89,7 @@ const EXERCISE_MAP = {
   'reverse crunch on bench':      'Decline_Crunch',
   // ── Plyometric Box ────────────────────────────────────────────────────────
   'box jump':                     'Box_Jump',
+  'bench jump':                   'Box_Jump',
   'single leg box jump':          'Box_Jump',
   'lateral box jump':             'Box_Jump',
   'depth jump':                   'Box_Jump',
@@ -90,6 +102,7 @@ const EXERCISE_MAP = {
   'diamond push-up':              'Close-Grip_Push-Up',
   'pike push-up':                 'Pike_Push-Up',
   'plank':                        'Plank',
+  'plank hip twist':              'Plank',
   'side plank':                   'Side_Bridge',
   'mountain climber':             'Mountain_Climbers_(Cross-Body)',
   'burpee':                       'Burpees',
@@ -97,12 +110,26 @@ const EXERCISE_MAP = {
   'glute bridge':                 'Hip_Raise_(Glute_Bridge)',
   'ab bicycle':                   'Bicycle_Crunch',
   'leg raise':                    'Leg_Raises',
+  'sit-up':                       'Russian_Twist',
+  'reverse crunch':               'Leg_Raises',
+  'swimmers':                     'Superman',
+  'reverse lunge knee drive':     'Dumbbell_Lunges',
   'superman hold':                'Superman',
   'high knees':                   'Run_in_Place',
 };
 
 const BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises';
 const cache = {};
+
+/* ── Βίντεο ασκήσεων (Cloudinary / cube-exercises) ── */
+const VIDEO_BASE = 'https://res.cloudinary.com/pniqecfk/video/upload/';
+export const exerciseVideoUrl = (name) => {
+  const slug = (name || '').toLowerCase()
+    .replace(/[()]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug ? VIDEO_BASE + slug + '.mp4' : null;
+};
 
 const normalize = (str) =>
   str?.toLowerCase()

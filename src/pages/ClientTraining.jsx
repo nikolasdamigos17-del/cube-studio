@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ExerciseVideoOverlay } from '../components/ExerciseMedia';
 import { format, parseISO } from 'date-fns';
 import { Dumbbell, ChevronDown, ChevronRight, BarChart2 } from 'lucide-react';
 import ClientLayout from '../components/client-portal/ClientLayout';
@@ -11,6 +12,7 @@ const METRICS = [{key:'weight_kg',label:'Weight',unit:'kg',color:'#6366f1'},{key
 export default function ClientTraining() {
   const { clientUser } = useAppContext();
   const [plans, setPlans] = useState([]);
+  const [previewEx, setPreviewEx] = useState(null);
   const [progress, setProgress] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [activeMetric, setActiveMetric] = useState('weight_kg');
@@ -73,7 +75,12 @@ export default function ClientTraining() {
                     </div>
                     {plan.exercises.map((ex,i)=>(
                       <div key={i} className="grid grid-cols-4 gap-2 px-4 py-2.5 text-sm border-t" style={{borderColor:'var(--cp-border)'}}>
-                        <span className="col-span-2 font-medium" style={{color:'var(--cp-text)'}}>{ex.name}</span>
+                        <span className="col-span-2 font-medium" style={{color:'var(--cp-text)'}}>
+                          <span role="button" onClick={() => setPreviewEx(ex.name)} title="Δες την εκτέλεση"
+                            style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:20, height:20,
+                              borderRadius:6, fontSize:9, cursor:'pointer', marginRight:7, verticalAlign:'middle',
+                              color:'var(--cp-text-dim)', background:'rgba(127,127,127,.15)' }}>▶</span>
+                          {ex.name}</span>
                         <span className="text-center" style={{color:'var(--cp-text-dim)'}}>{ex.sets}×{ex.reps}</span>
                         <span className="text-center" style={{color:'var(--cp-text-dim)'}}>{ex.weight_kg?`${ex.weight_kg}kg`:'BW'}</span>
                       </div>
@@ -87,6 +94,7 @@ export default function ClientTraining() {
           </div>
         </div>
       </div>
+      {previewEx && <ExerciseVideoOverlay name={previewEx} onClose={() => setPreviewEx(null)}/>}
     </ClientLayout>
   );
 }
