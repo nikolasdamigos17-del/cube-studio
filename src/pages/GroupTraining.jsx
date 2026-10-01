@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../lib/db';
 import { addGroupCredit, getGroupTrainingBalance } from '../lib/credits';
-import CubeBackground from '../components/CubeBackground';
 
 /* ── Παλμός palette (ίδιο με Live Training) ── */
 const ACCENT = '#e0457b';
@@ -173,8 +172,6 @@ export default function GroupTraining() {
     <div style={{ ...S.page, background:PULSE_BG }}
       onMouseDown={screen === 'run' ? onMouseDown : undefined}
       onContextMenu={screen === 'run' ? (e)=>e.preventDefault() : undefined}>
-      <CubeBackground/>
-      <div style={{ position:'fixed', inset:0, zIndex:0, background:'rgba(6,4,14,.55)', pointerEvents:'none' }}/>
 
       {/* ── ΧΑΙΡΕΤΙΣΜΟΣ ── */}
       {screen === 'greet' && (

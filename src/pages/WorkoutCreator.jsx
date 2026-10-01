@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Loader2, Brain, ArrowLeft, Dumbbell, TrendingDown, CalendarDays, Clock, Plus, Sparkles, Save, Link2, Pencil } from 'lucide-react';
 import { db, callAI } from '../lib/db';
-import { EXERCISE_DB, EQUIPMENT, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
+import { EXERCISE_DB, EQUIPMENT, getExercisesForType, sortBySessionOrder } from '../lib/gymEquipment';
 import { ExerciseVideoOverlay } from '../components/ExerciseMedia';
 import { groupDisplayName, firstName } from '../lib/groups';
 
@@ -26,13 +26,6 @@ const ALL_SESSIONS = [
 ];
 const SESSIONS = { male: ALL_SESSIONS, female: ALL_SESSIONS };
 const TYPE_META = { upper:{label:'Upper Body',emoji:'💪'}, lower:{label:'Lower Body',emoji:'🦵'}, legs:{label:'Legs',emoji:'🦿'}, full_body:{label:'Full Body',emoji:'🏋️'}, glutes:{label:'Glutes',emoji:'🍑'} };
-const TYPE_GROUPS = {
-  upper: ['chest','back','shoulders','biceps','triceps','traps','forearms'],
-  lower: ['legs','glutes','calves','quads','hamstrings'],
-  legs:  ['legs','quads','hamstrings','calves'],
-  glutes: ['glutes','legs','hamstrings'],
-  full_body: ['chest','back','shoulders','legs','glutes','core','quads','hamstrings','biceps','triceps'],
-};
 const SCHEMES = {
   fat_loss:    { sets:3, reps:'12-15', rest:50 },
   muscle_gain: { sets:4, reps:'8-12',  rest:90 },
@@ -235,10 +228,9 @@ ${brief}
     setScreen('building'); setBuildPhase(0);
     const ph = setInterval(() => setBuildPhase(p => (p + 1) % 3), 3000);
     const { client, tplans } = data;
-    const groups = TYPE_GROUPS[sel] || [];
     const warmups = EXERCISE_DB.filter(x => x.cat === 'warmup');
     const seenC = new Set();
-    const candidates = [...sortBySessionOrder(getExercisesFor(groups)), ...warmups].filter(x => !seenC.has(x.name) && seenC.add(x.name));
+    const candidates = [...sortBySessionOrder(getExercisesForType(sel)), ...warmups].filter(x => !seenC.has(x.name) && seenC.add(x.name));
     const lifts = knownLiftsFrom(tplans);
     const candTxt = candidates.map(e => `- ${e.name} [${(e.muscles || []).join(',')}]${lifts[e.name] ? ` (τελευταίο βάρος: ${lifts[e.name]}kg)` : ''}`).join('\n');
     const sessLabel = TYPE_META[sel]?.label || sel;
@@ -701,7 +693,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
                   style={{ ...S.inp }}/>
                 {addOpen && (() => {
                   const q = addQuery.trim().toLowerCase();
-                  const rel = new Set(sortBySessionOrder(getExercisesFor(TYPE_GROUPS[chosen] || [])).map(x => x.name));
+                  const rel = new Set(sortBySessionOrder(getExercisesForType(chosen)).map(x => x.name));
                   const pool = EXERCISE_DB
                     .filter(c => !exercises.find(x => x.name === c.name))
                     .filter(c => !q || c.name.toLowerCase().includes(q) || (EQUIPMENT[c.eq]?.label || '').toLowerCase().includes(q))
