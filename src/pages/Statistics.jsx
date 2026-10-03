@@ -62,10 +62,10 @@ const TR_TYPES = {
 };
 const trTypeOf = (p) => p.session_type
   || (/(glute|γλουτ)/i.test(p.title||'') ? 'glutes'
-    : /(upper|πάνω κορμ|άνω)/i.test(p.title||'') ? 'upper'
+    : /(upper|άνω|πάνω κορμ|push|pull|στήθος|πλάτη|ώμ|χέρι|δικέφαλ|τρικέφαλ)/i.test(p.title||'') ? 'upper'
+    : /(leg|πόδι|τετρακέφαλ|μηριαί|γάμπ|quad|hamstring|calf|calves)/i.test(p.title||'') ? 'legs'
     : /(lower|κάτω)/i.test(p.title||'') ? 'lower'
-    : /(leg|πόδι)/i.test(p.title||'') ? 'legs'
-    : /full/i.test(p.title||'') ? 'full_body' : 'other');
+    : /(full|ολόσωμ)/i.test(p.title||'') ? 'full_body' : 'other');
 const parseReps = (r) => { const m = String(r ?? '').match(/\d+/g); if (!m) return 0; return m.length > 1 ? (parseInt(m[0]) + parseInt(m[1])) / 2 : parseInt(m[0]); };
 const planVolume = (p) => {
   if (p.session_results?.length) {

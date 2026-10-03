@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, X, Loader2, Brain, ArrowLeft, Dumbbell, TrendingDown, CalendarDays, Clock, Plus, Sparkles, Save, Link2, Pencil } from 'lucide-react';
 import { db, callAI } from '../lib/db';
-import { EXERCISE_DB, EQUIPMENT, getExercisesForType, sortBySessionOrder } from '../lib/gymEquipment';
+import { EXERCISE_DB, EQUIPMENT, getExercisesForType, getWarmupsForType, sortBySessionOrder } from '../lib/gymEquipment';
 import { ExerciseVideoOverlay } from '../components/ExerciseMedia';
 import { groupDisplayName, firstName } from '../lib/groups';
 
@@ -36,9 +36,10 @@ const SCHEMES = {
 
 export const typeOfPlan = (p) => p.session_type
   || (/(glute|γλουτ)/i.test(p.title||'') ? 'glutes'
-    : /(upper|πάνω κορμ|άνω)/i.test(p.title||'') ? 'upper'
-    : /(lower|κάτω|πόδι)/i.test(p.title||'') ? 'lower'
-    : /full/i.test(p.title||'') ? 'full_body' : null);
+    : /(upper|άνω|πάνω κορμ|push|pull|στήθος|πλάτη|ώμ|χέρι|δικέφαλ|τρικέφαλ)/i.test(p.title||'') ? 'upper'
+    : /(leg|πόδι|τετρακέφαλ|μηριαί|γάμπ|quad|hamstring|calf|calves)/i.test(p.title||'') ? 'legs'
+    : /(lower|κάτω)/i.test(p.title||'') ? 'lower'
+    : /(full|ολόσωμ)/i.test(p.title||'') ? 'full_body' : null);
 
 function parseJsonObj(txt) {
   if (!txt || txt.startsWith('__ERROR__')) return null;
@@ -228,7 +229,7 @@ ${brief}
     setScreen('building'); setBuildPhase(0);
     const ph = setInterval(() => setBuildPhase(p => (p + 1) % 3), 3000);
     const { client, tplans } = data;
-    const warmups = EXERCISE_DB.filter(x => x.cat === 'warmup');
+    const warmups = getWarmupsForType(sel);   // μόνο προθερμάνσεις που ταιριάζουν στον τύπο
     const seenC = new Set();
     const candidates = [...sortBySessionOrder(getExercisesForType(sel)), ...warmups].filter(x => !seenC.has(x.name) && seenC.add(x.name));
     const lifts = knownLiftsFrom(tplans);
@@ -238,7 +239,7 @@ ${brief}
     const groupNote = (groupId && draftsRef.current.length)
       ? `ΤΑΥΤΟΧΡΟΝΗ GROUP ΠΡΟΠΟΝΗΣΗ — γυμνάζονται ΜΑΖΙ, την ίδια ώρα, με: ${draftsRef.current.map(d => `${d.clientName}: ${(d.exercises || []).map((e, i) => `${i + 1}.${e.name}`).join(', ')}`).join(' | ')}. Κάθε μηχάνημα υπάρχει ΕΝΑ: σε κάθε χρονική θέση (ιδίως στην 1η άσκηση) ΜΗΝ βάλεις άσκηση στο ίδιο μηχάνημα/εξοπλισμό με το αντίστοιχο βήμα των παραπάνω — μοίρασε τη σειρά ώστε να μην συγκρούονται ποτέ.\n`
       : '';
-    const warmNote = 'Στη λίστα υπάρχουν και ασκήσεις ΠΡΟΘΕΡΜΑΝΣΗΣ (warmup) — προαιρετικά ξεκίνα με 1-2 (0 κιλά, reps π.χ. "30s" ή "20").\n';
+    const warmNote = `Στη λίστα υπάρχουν και ασκήσεις ΠΡΟΘΕΡΜΑΝΣΗΣ (warmup) — προαιρετικά ξεκίνα με 1-2 (0 κιλά, reps π.χ. "30s" ή "20"). ΟΛΕΣ οι υπόλοιπες ασκήσεις πρέπει να είναι αμιγώς ${sessLabel}.\n`;
     const who = trial
       ? `νέο ενδιαφερόμενο σε ΔΟΚΙΜΑΣΤΙΚΟ μάθημα (όνομα: ${trialName.trim() || 'επισκέπτης'}). ΔΕΝ υπάρχει ιστορικό/προφίλ — μέτριο, ασφαλές επίπεδο πρώτης γνωριμίας, τεχνικά απλές ασκήσεις, συντηρητικά κιλά (0/σωματικό βάρος όπου υπάρχει αμφιβολία).`
       : `${client.name} (${gender === 'female' ? 'γυναίκα' : 'άνδρας'}). Στόχος: ${GOAL_LABELS[goal] || 'γενική φυσική κατάσταση'}.`;
@@ -271,7 +272,7 @@ ${warmNote}${groupNote}ΚΙΛΑ: όπου δίνεται "τελευταίο β�
       const used = new Set(exs.map(e => e.name));
       for (const c of candidates) {
         if (exs.length >= 6) break;
-        if (used.has(c.name)) continue;
+        if (used.has(c.name) || c.cat === 'warmup') continue;
         exs.push({ name:c.name, eq:c.eq, sets:scheme.sets, reps:scheme.reps, weight_kg: lifts[c.name] || 0, rest_between_sets:scheme.rest, set_details:[] });
         used.add(c.name);
       }

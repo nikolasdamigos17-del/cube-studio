@@ -222,6 +222,42 @@ export const getExercisesForType = (type) => {
   return f ? pool.filter(f) : pool;
 };
 
+// ── Warmups που ταιριάζουν στον τύπο: σε Upper δεν προτείνονται squats/lunges,
+// σε Lower/Legs/Glutes δεν προτείνονται arm circles κ.λπ. Τα ουδέτερα
+// (full body / cardio / core) επιτρέπονται παντού.
+export const getWarmupsForType = (type) => {
+  const warm = EXERCISE_DB.filter(x => x.cat === 'warmup');
+  if (!type || type === 'full_body' || type === 'fullbody') return warm;
+  const want = type === 'upper' ? 'upper' : 'lower';   // lower/legs/glutes → κάτω σώμα
+  return warm.filter(w => {
+    const r = regionOf(w);
+    return r === want || r === 'full' || r === 'cardio' || r === 'core';
+  });
+};
+
+// ── Σωστό φίλτρο ανά μυϊκή ομάδα (επιλογές του γρήγορου workout) ─────────────
+const PART_FILTERS = {
+  chest:     (ex) => primaryMuscle(ex) === 'chest',
+  back:      (ex) => primaryMuscle(ex) === 'back',
+  shoulders: (ex) => primaryMuscle(ex) === 'shoulders',
+  biceps:    (ex) => primaryMuscle(ex) === 'biceps',
+  triceps:   (ex) => primaryMuscle(ex) === 'triceps',
+  legs:      (ex) => ['legs','quads','hamstrings','calves'].includes(primaryMuscle(ex)),
+  glutes:    (ex) => (ex.muscles || []).some(m => m === 'glutes' || m === 'hamstrings'),
+  core:      (ex) => regionOf(ex) === 'core',
+  calves:    (ex) => (ex.muscles || []).includes('calves'),
+  fullbody:  (ex) => ['upper','lower','core','full'].includes(regionOf(ex)),
+  full_body: (ex) => ['upper','lower','core','full'].includes(regionOf(ex)),
+};
+export const getExercisesForParts = (parts) => {
+  const pool = EXERCISE_DB.filter(x => x.cat !== 'warmup' && x.cat !== 'cardio');
+  if (!parts?.length) return pool;
+  return pool.filter(ex => parts.some(pt => {
+    const f = PART_FILTERS[pt];
+    return f ? f(ex) : (ex.muscles || []).includes(pt);
+  }));
+};
+
 // Get exercises relevant to selected muscle groups
 export const getExercisesFor = (muscleGroups) => {
   if (!muscleGroups?.length) return EXERCISE_DB;

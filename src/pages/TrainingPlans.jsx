@@ -3,7 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, ChevronRight, Check, AlertCircle, RotateCcw, Edit2, Play, ArrowLeft, Search, Users, Users2, Brain, CalendarDays } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { db, callAI } from '../lib/db';
-import { EQUIPMENT, EXERCISE_DB, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
+import { EQUIPMENT, EXERCISE_DB, getExercisesForParts, sortBySessionOrder } from '../lib/gymEquipment';
 import { isIndividual, isGroupService, groupDisplayName, firstName, GROUP_CAP, ensureTrials, unorphanClients, repairOrphanGroupIds } from '../lib/groups';
 import GroupsPanel from '../components/GroupsPanel';
 
@@ -179,7 +179,7 @@ function AITrainingWizard({ clients, onSaved, onClose }) {
     }
 
     // Get exercises from our DB that match selected muscle groups
-    const candidates = getExercisesFor(answers.bodyParts);
+    const candidates = getExercisesForParts(answers.bodyParts);
     const numEx = Math.max(4, Math.round(answers.duration / 13));
 
     setLoadingMsg(`Selecting ${numEx} exercises from your equipment...`);
@@ -199,11 +199,23 @@ Return ONLY a JSON array of exercise names (exact spelling from the list above):
       const parsed = parseJSON(result);
       if (!Array.isArray(parsed) || !parsed.length) throw new Error('empty');
 
-      // Match back to our DB to get equipment info, then sort by optimal session order
+      // Δεκτές ΜΟΝΟ ασκήσεις από τους υποψήφιους των επιλεγμένων μυϊκών ομάδων —
+      // ό,τι εκτός λίστας επιστρέψει ο εγκέφαλος απορρίπτεται και αναπληρώνεται σωστά.
+      const candByName = Object.fromEntries(candidates.map(e => [e.name.toLowerCase(), e]));
+      const seenM = new Set();
       const matched = parsed.map(name => {
-        const dbEx = EXERCISE_DB.find(e => e.name.toLowerCase() === name.toLowerCase().trim()) || { name, eq: 'bodyweight', cat: 'push' };
+        const dbEx = candByName[String(name || '').toLowerCase().trim()];
+        if (!dbEx || seenM.has(dbEx.name)) return null;
+        seenM.add(dbEx.name);
         return { id: Math.random().toString(36).slice(2), name: dbEx.name, eq: dbEx.eq, cat: dbEx.cat, keep: true, rerolling: false };
-      });
+      }).filter(Boolean);
+      for (const c of candidates) {
+        if (matched.length >= numEx) break;
+        if (seenM.has(c.name)) continue;
+        seenM.add(c.name);
+        matched.push({ id: Math.random().toString(36).slice(2), name: c.name, eq: c.eq, cat: c.cat, keep: true, rerolling: false });
+      }
+      if (!matched.length) throw new Error('empty');
       const sorted = sortBySessionOrder(matched);
       setPreview(sorted);
       setStep(3);
@@ -215,11 +227,13 @@ Return ONLY a JSON array of exercise names (exact spelling from the list above):
   const reroll = async id => {
     setPreview(p => p.map(ex => ex.id === id ? { ...ex, rerolling: true } : ex));
     const existing = preview.filter(ex => ex.id !== id).map(ex => ex.name).join(', ');
-    const candidates = getExercisesFor(answers.bodyParts).filter(e => !existing.toLowerCase().includes(e.name.toLowerCase()));
+    const candidates = getExercisesForParts(answers.bodyParts).filter(e => !existing.toLowerCase().includes(e.name.toLowerCase()));
     const candidateNames = candidates.map(e => `${e.name} (${e.eq})`).slice(0, 30).join(', ');
-    const r = await callAI(`Pick ONE different exercise for ${answers.bodyParts.join('/')} from: ${candidateNames}. Return ONLY the exercise name.`, 'Return ONLY the exercise name string.');
-    const name = r?.trim().replace(/^["'\-\d\.\s]+|["']+$/g, '').trim() || 'Cable Row';
-    const dbEx = EXERCISE_DB.find(e => e.name.toLowerCase() === name.toLowerCase()) || { name, eq: 'bodyweight', cat: 'push' };
+    const r = await callAI(`Pick ONE different exercise for ${answers.bodyParts.join('/')} from: ${candidateNames}. Return ONLY the exercise name, exactly as written in the list.`, 'Return ONLY the exercise name string.');
+    const name = r?.trim().replace(/^["'\-\d\.\s]+|["']+$/g, '').trim() || '';
+    // Δεκτή ΜΟΝΟ άσκηση από τους υποψήφιους — αλλιώς η πρώτη διαθέσιμη σωστή
+    const dbEx = candidates.find(e => e.name.toLowerCase() === name.toLowerCase()) || candidates[0];
+    if (!dbEx) { setPreview(p => p.map(ex => ex.id === id ? { ...ex, rerolling: false } : ex)); return; }
     setPreview(p => p.map(ex => ex.id === id ? { ...ex, name: dbEx.name, eq: dbEx.eq, cat: dbEx.cat, rerolling: false } : ex));
   };
 
@@ -528,12 +542,13 @@ function PlanModal({ clients, plan, onClose, onSaved }) {
 /* ═══════════════ TRAINING CENTER ═══════════════ */
 
 const hasTrainingSvc = (c) => c.services !== 'nutrition_only';
-const TC_TYPES = { upper:{label:'Upper',emoji:'💪',color:'#818cf8'}, lower:{label:'Lower',emoji:'🦵',color:'#34d399'}, full_body:{label:'Full Body',emoji:'🏋️',color:'#f59e0b'}, glutes:{label:'Glutes',emoji:'🍑',color:'#f472b6'} };
+const TC_TYPES = { upper:{label:'Upper',emoji:'💪',color:'#818cf8'}, lower:{label:'Lower',emoji:'🦵',color:'#34d399'}, legs:{label:'Legs',emoji:'🦿',color:'#60a5fa'}, glutes:{label:'Glutes',emoji:'🍑',color:'#f472b6'}, full_body:{label:'Full Body',emoji:'🏋️',color:'#f59e0b'} };
 const planType = (p) => p.session_type
   || (/(glute|γλουτ)/i.test(p.title||'') ? 'glutes'
-    : /(upper|άνω)/i.test(p.title||'') ? 'upper'
-    : /(lower|κάτω|πόδι)/i.test(p.title||'') ? 'lower'
-    : /full/i.test(p.title||'') ? 'full_body' : null);
+    : /(upper|άνω|πάνω κορμ|push|pull|στήθος|πλάτη|ώμ|χέρι|δικέφαλ|τρικέφαλ)/i.test(p.title||'') ? 'upper'
+    : /(leg|πόδι|τετρακέφαλ|μηριαί|γάμπ|quad|hamstring|calf|calves)/i.test(p.title||'') ? 'legs'
+    : /(lower|κάτω)/i.test(p.title||'') ? 'lower'
+    : /(full|ολόσωμ)/i.test(p.title||'') ? 'full_body' : null);
 const tcDaysAgo = (n) => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; };
 const resultTotals = (p) => {
   let planned=0, done=0, miss=0;
