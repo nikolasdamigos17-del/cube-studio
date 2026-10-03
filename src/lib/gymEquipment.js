@@ -19,7 +19,7 @@ export const EXERCISE_DB = [
   { name:'Single Arm Cable Press',       eq:'imbody',     muscles:['chest','triceps'],            cat:'push'     },
   { name:'Cable Row',                    eq:'imbody',     muscles:['back','biceps'],              cat:'pull'     },
   { name:'Cable Lat Pulldown',           eq:'imbody',     muscles:['back','biceps'],              cat:'pull'     },
-  { name:'Cable Pullover',               eq:'imbody',     muscles:['chest','back'],               cat:'pull'     },
+  { name:'Cable Pullover',               eq:'imbody',     muscles:['back','chest'],               cat:'pull'     },
   { name:'Straight Arm Pulldown',        eq:'imbody',     muscles:['back'],                       cat:'pull'     },
   { name:'Cable Face Pull',              eq:'imbody',     muscles:['shoulders','back'],           cat:'pull'     },
   { name:'Single Arm Cable Row',         eq:'imbody',     muscles:['back','biceps'],              cat:'pull'     },
@@ -43,7 +43,7 @@ export const EXERCISE_DB = [
   { name:'Cable Crunch (Standing)',      eq:'imbody',     muscles:['core'],                       cat:'core'     },
   { name:'Cable Woodchop',               eq:'imbody',     muscles:['core','obliques'],            cat:'core'     },
   { name:'Cable Pallof Press',           eq:'imbody',     muscles:['core'],                       cat:'core'     },
-  { name:'Cable Deadlift',               eq:'imbody',     muscles:['back','legs','glutes'],       cat:'fullbody' },
+  { name:'Cable Deadlift',               eq:'imbody',     muscles:['hamstrings','glutes','back'], cat:'legs'     },
   // ── Leg Machine ───────────────────────────────────────────────────────────
   { name:'Leg Extension',                eq:'legmachine', muscles:['quads'],                      cat:'legs'     },
   { name:'Leg Curl',                     eq:'legmachine', muscles:['hamstrings'],                 cat:'legs'     },
@@ -52,7 +52,7 @@ export const EXERCISE_DB = [
   { name:'Dumbbell Bench Press',         eq:'dumbbells',  muscles:['chest','triceps'],            cat:'push'     },
   { name:'Dumbbell Incline Press',       eq:'dumbbells',  muscles:['chest','triceps'],            cat:'push'     },
   { name:'Dumbbell Fly',                 eq:'dumbbells',  muscles:['chest'],                      cat:'push'     },
-  { name:'Dumbbell Pullover',            eq:'dumbbells',  muscles:['chest','back'],               cat:'pull'     },
+  { name:'Dumbbell Pullover',            eq:'dumbbells',  muscles:['back','chest'],               cat:'pull'     },
   { name:'Dumbbell Row',                 eq:'dumbbells',  muscles:['back','biceps'],              cat:'pull'     },
   { name:'Dumbbell Shoulder Press',      eq:'dumbbells',  muscles:['shoulders','triceps'],        cat:'push'     },
   { name:'Dumbbell Lateral Raise',       eq:'dumbbells',  muscles:['shoulders'],                  cat:'push'     },
@@ -69,13 +69,13 @@ export const EXERCISE_DB = [
   { name:'Dumbbell Walking Lunge',       eq:'dumbbells',  muscles:['legs','glutes'],              cat:'legs'     },
   { name:'Dumbbell RDL',                 eq:'dumbbells',  muscles:['hamstrings','glutes'],        cat:'legs'     },
   { name:'Dumbbell Sumo Squat',          eq:'dumbbells',  muscles:['legs','glutes'],              cat:'legs'     },
-  { name:'Dumbbell Overhead Lunge',       eq:'dumbbell',   muscles:['legs','glutes','shoulders'],  cat:'legs'     },
-  { name:'Dumbbell Lateral Step-Up',      eq:'dumbbell',   muscles:['legs','glutes'],              cat:'legs'     },
+  { name:'Dumbbell Overhead Lunge',       eq:'dumbbells',   muscles:['legs','glutes','shoulders'],  cat:'legs'     },
+  { name:'Dumbbell Lateral Step-Up',      eq:'dumbbells',   muscles:['legs','glutes'],              cat:'legs'     },
   { name:'Dumbbell Step-Up',             eq:'dumbbells',  muscles:['legs','glutes'],              cat:'legs'     },
   { name:'Dumbbell Calf Raise',          eq:'dumbbells',  muscles:['calves'],                     cat:'legs'     },
   { name:'Dumbbell Hip Thrust',          eq:'dumbbells',  muscles:['glutes','hamstrings'],        cat:'legs'     },
   { name:'Bulgarian Split Squat (DB)',   eq:'dumbbells',  muscles:['legs','glutes'],              cat:'legs'     },
-  { name:'Dumbbell Sit-Up',               eq:'dumbbell',   muscles:['core'],                       cat:'core'     },
+  { name:'Dumbbell Sit-Up',               eq:'dumbbells',   muscles:['core'],                       cat:'core'     },
   { name:'Dumbbell Russian Twist',       eq:'dumbbells',  muscles:['core','obliques'],            cat:'core'     },
   { name:'Dumbbell Farmer Carry',        eq:'dumbbells',  muscles:['core','traps','forearms'],    cat:'fullbody' },
   // ── Bench ─────────────────────────────────────────────────────────────────
@@ -98,11 +98,11 @@ export const EXERCISE_DB = [
   { name:'Plank',                        eq:'bodyweight', muscles:['core'],                       cat:'core'     },
   { name:'Side Plank',                   eq:'bodyweight', muscles:['core','obliques'],            cat:'core'     },
   { name:'Mountain Climber',             eq:'bodyweight', muscles:['core','legs'],                cat:'core'     },
-  { name:'Burpee',                       eq:'bodyweight', muscles:['fullbody'],                   cat:'power'    },
+  { name:'Burpee',                       eq:'bodyweight', muscles:['full_body'],                  cat:'power'    },
   { name:'Jump Squat',                   eq:'bodyweight', muscles:['legs','glutes'],              cat:'power'    },
   { name:'Glute Bridge',                 eq:'bodyweight', muscles:['glutes','hamstrings'],        cat:'legs'     },
   { name:'Leg Raise',                    eq:'bodyweight', muscles:['core'],                       cat:'core'     },
-  { name:'Superman Hold',                eq:'bodyweight', muscles:['back','glutes'],              cat:'pull'     },
+  { name:'Superman Hold',                eq:'bodyweight', muscles:['core','back','glutes'],       cat:'core'     },
   { name:'High Knees',                   eq:'bodyweight', muscles:['legs','core'],                cat:'cardio'   },
   /* ── Προθέρμανση ── */
   { name:'Jumping Jacks',                eq:'bodyweight', muscles:['full_body','cardio'],         cat:'warmup'   },
@@ -136,7 +136,7 @@ export const EXERCISE_DB = [
   // ── Leg Machine ────────────────────────────────────────────────────────────
 
   // ── Dumbbells ──────────────────────────────────────────────────────────────
-  { name:'Dumbbell Split Squat',          eq:'dumbbell',   muscles:['legs','quads','glutes'],      cat:'legs'     },
+  { name:'Dumbbell Split Squat',          eq:'dumbbells',   muscles:['legs','quads','glutes'],      cat:'legs'     },
   { name:'Dumbbell Goblet Squat',        eq:'dumbbells',  muscles:['legs','quads','glutes'],      cat:'legs'     },
   { name:'Dumbbell Deadlift',            eq:'dumbbells',  muscles:['hamstrings','glutes','back'], cat:'legs'     },
   { name:'Dumbbell Single Leg RDL',      eq:'dumbbells',  muscles:['hamstrings','glutes'],        cat:'legs'     },
@@ -147,7 +147,7 @@ export const EXERCISE_DB = [
   { name:'Dumbbell Snatch',              eq:'dumbbells',  muscles:['full_body','shoulders'],      cat:'power'    },
   { name:'Dumbbell Push Press',          eq:'dumbbells',  muscles:['shoulders','triceps','legs'], cat:'power'    },
   { name:'Dumbbell Thruster',            eq:'dumbbells',  muscles:['full_body','legs','shoulders'], cat:'power'  },
-  { name:'Dumbbell Decline Press',        eq:'dumbbell',   muscles:['chest','triceps'],            cat:'push'     },
+  { name:'Dumbbell Decline Press',        eq:'dumbbells',   muscles:['chest','triceps'],            cat:'push'     },
   { name:'Dumbbell Floor Press',         eq:'dumbbells',  muscles:['chest','triceps'],            cat:'push'     },
   { name:'Dumbbell Upright Row',         eq:'dumbbells',  muscles:['shoulders','traps'],          cat:'pull'     },
   { name:'Dumbbell Shrug',               eq:'dumbbells',  muscles:['traps'],                      cat:'pull'     },
@@ -176,7 +176,7 @@ export const EXERCISE_DB = [
   { name:'Crunch',                       eq:'bodyweight', muscles:['core'],                       cat:'core'     },
   { name:'Sit-Up',                       eq:'bodyweight', muscles:['core'],                       cat:'core'     },
   { name:'Reverse Crunch',               eq:'bodyweight', muscles:['core'],                       cat:'core'     },
-  { name:'Swimmers',                     eq:'bodyweight', muscles:['back','glutes'],              cat:'pull'     },
+  { name:'Swimmers',                     eq:'bodyweight', muscles:['core','back','glutes'],       cat:'core'     },
   { name:'Reverse Lunge Knee Drive',     eq:'bodyweight', muscles:['legs','glutes'],              cat:'legs'     },
   { name:'Russian Twist',                eq:'bodyweight', muscles:['core','obliques'],            cat:'core'     },
   { name:'Plank Hip Twist',              eq:'bodyweight', muscles:['core','obliques'],            cat:'core'     },
@@ -192,6 +192,58 @@ export const EXERCISE_DB = [
   { name:'Single Leg Calf Raise',        eq:'bodyweight', muscles:['calves'],                     cat:'legs'     },
   { name:'Wall Push-Up',                 eq:'bodyweight', muscles:['chest','triceps'],            cat:'push'     },
 ];
+
+// ── Σωστή κατηγοριοποίηση ανά τύπο προπόνησης ────────────────────────────────
+// Κάθε άσκηση κατατάσσεται από τον ΠΡΩΤΕΥΟΝΤΑ μυ της (muscles[0]) — έτσι ένα
+// deadlift (hamstrings, glutes, back) ΔΕΝ εμφανίζεται στο Upper επειδή αγγίζει
+// πλάτη, και ένα push press ΔΕΝ εμφανίζεται στο Lower επειδή βοηθούν τα πόδια.
+const MUSCLE_REGION = {
+  chest:'upper', back:'upper', shoulders:'upper', biceps:'upper', triceps:'upper', traps:'upper', forearms:'upper',
+  legs:'lower', quads:'lower', hamstrings:'lower', glutes:'lower', calves:'lower',
+  core:'core', obliques:'core',
+  full_body:'full', cardio:'cardio',
+};
+export const primaryMuscle = (ex) => (ex.muscles && ex.muscles[0]) || '';
+export const regionOf = (ex) => MUSCLE_REGION[primaryMuscle(ex)] || 'other';
+
+const TYPE_FILTERS = {
+  upper:     (ex) => regionOf(ex) === 'upper',
+  lower:     (ex) => regionOf(ex) === 'lower',
+  legs:      (ex) => ['legs','quads','hamstrings','calves'].includes(primaryMuscle(ex)),
+  glutes:    (ex) => (ex.muscles || []).some(m => m === 'glutes' || m === 'hamstrings'),
+  full_body: (ex) => ['upper','lower','core','full'].includes(regionOf(ex)),
+};
+
+// Σωστή δεξαμενή ασκήσεων για έναν τύπο (upper/lower/legs/glutes/full_body).
+// Warmup & cardio μένουν εκτός — οι προθερμάνσεις προστίθενται ξεχωριστά.
+export const getExercisesForType = (type) => {
+  const pool = EXERCISE_DB.filter(x => x.cat !== 'warmup' && x.cat !== 'cardio');
+  const f = TYPE_FILTERS[type];
+  return f ? pool.filter(f) : pool;
+};
+
+// ── Σωστό φίλτρο ανά μυϊκή ομάδα (επιλογές του γρήγορου workout) ─────────────
+const PART_FILTERS = {
+  chest:     (ex) => primaryMuscle(ex) === 'chest',
+  back:      (ex) => primaryMuscle(ex) === 'back',
+  shoulders: (ex) => primaryMuscle(ex) === 'shoulders',
+  biceps:    (ex) => primaryMuscle(ex) === 'biceps',
+  triceps:   (ex) => primaryMuscle(ex) === 'triceps',
+  legs:      (ex) => ['legs','quads','hamstrings','calves'].includes(primaryMuscle(ex)),
+  glutes:    (ex) => (ex.muscles || []).some(m => m === 'glutes' || m === 'hamstrings'),
+  core:      (ex) => regionOf(ex) === 'core',
+  calves:    (ex) => (ex.muscles || []).includes('calves'),
+  fullbody:  (ex) => ['upper','lower','core','full'].includes(regionOf(ex)),
+  full_body: (ex) => ['upper','lower','core','full'].includes(regionOf(ex)),
+};
+export const getExercisesForParts = (parts) => {
+  const pool = EXERCISE_DB.filter(x => x.cat !== 'warmup' && x.cat !== 'cardio');
+  if (!parts?.length) return pool;
+  return pool.filter(ex => parts.some(pt => {
+    const f = PART_FILTERS[pt];
+    return f ? f(ex) : (ex.muscles || []).includes(pt);
+  }));
+};
 
 // Get exercises relevant to selected muscle groups
 export const getExercisesFor = (muscleGroups) => {

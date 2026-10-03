@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { portalTarget } from '../lib/tvMode';
 import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, X, Minus, ArrowLeft, ArrowRight, Loader2, Scale, RotateCcw, Pencil, Plus, CalendarDays, Clock } from 'lucide-react';
+import { Check, X, Minus, ArrowLeft, ArrowRight, Loader2, Scale, RotateCcw, Pencil, Plus, CalendarDays, Clock, Search } from 'lucide-react';
 import { db, callAI } from '../lib/db';
 import { calcBodyStats } from '../lib/bodyCalc';
 
@@ -291,7 +291,7 @@ const SLOT_STYLE = {
   postworkout: 'Μετα-προπονητικό: γρήγορη απορρόφηση πρωτεΐνης, ΟΧΙ βαρύ: protein shake, γιαούρτι στραγγιστό με μέλι, σοκολατούχο γάλα light, cottage, ασπράδια, smoothie πρωτεΐνης.',
 };
 
-async function genForSlot(slotKey, ctxData, avoid) {
+async function genForSlot(slotKey, ctxData, avoid, query = '') {
   const { profile } = ctxData;
   const banned = [
     ...(profile.excluded_auto || []), ...(profile.excluded_ingredients || []),
@@ -305,7 +305,8 @@ async function genForSlot(slotKey, ctxData, avoid) {
 
 ΟΝΟΜΑΣΙΑ — ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ: Φυσικά ελληνικά ονόματα, όπως θα τα έγραφε ελληνικό μενού ή Έλληνας διατροφολόγος. Καθιερωμένοι διεθνείς όροι μένουν ΑΥΤΟΥΣΙΟΙ στα αγγλικά (pancakes, smoothie, toast, wrap, bowl, tortilla, cottage, light, granola). ΑΠΑΓΟΡΕΥΟΝΤΑΙ αδέξιες κατά λέξη μεταφράσεις και τεχνητά ονόματα.
 
-Διατροφικό προφίλ (flags): ${flagsOn}.
+${query ? `ΕΙΔΙΚΟ ΑΙΤΗΜΑ — προτεραιότητα πάνω από το ύφος κατηγορίας: «${query}». Κατάλαβε τι ζητάει (συγκεκριμένο πιάτο, βασικό υλικό, κατηγορία γεύματος, τρόπο μαγειρέματος ή στυλ) και ΟΛΕΣ οι 10 προτάσεις να είναι πάνω σε αυτό — εκδοχές, παραλλαγές και στενά συγγενικές ιδέες, πάντα κατάλληλες για τη συγκεκριμένη κατηγορία και τους κανόνες.
+` : ''}Διατροφικό προφίλ (flags): ${flagsOn}.
 ΑΠΑΓΟΡΕΥΜΕΝΑ υλικά/γεύματα (ΠΟΥΘΕΝΑ, ούτε παράγωγά τους): ${banned.join(', ') || 'κανένα'}.
 Αρέσουν στον πελάτη — ΧΑΛΑΡΗ έμπνευση μόνο: το πολύ 1-2 σχετικές προτάσεις στη δεκάδα, ΜΗΝ τα επαναλαμβάνεις παντού: ${(profile.liked || []).join(', ') || '—'}.
 ΜΗΝ επαναλάβεις αυτά: ${avoid.join(', ') || '—'}.
@@ -320,10 +321,14 @@ async function genForSlot(slotKey, ctxData, avoid) {
     lastGenErr = 'Το AI επέστρεψε μόνο γεύματα που έχουν ήδη εμφανιστεί.';
   }
   const ban = banned.map(b => b.toLowerCase());
-  const ok = slotFallback(slotKey).filter(m =>
+  let ok = slotFallback(slotKey).filter(m =>
     !ban.some(b => m.name.toLowerCase().includes(b) || m.main_ingredients.some(i => i.toLowerCase().includes(b))) &&
     !avoid.includes(m.name)
   );
+  if (query) {
+    const qs = query.toLowerCase().split(/\s+/).filter(Boolean);
+    ok = ok.filter(m => qs.some(t => m.name.toLowerCase().includes(t) || m.main_ingredients.some(i => i.toLowerCase().includes(t))));
+  }
   return ok.slice(0, 10);
 }
 
@@ -365,7 +370,7 @@ function useCountUp(target, dur = 1150) {
   return v;
 }
 
-function BigNum({ value, decimals = 1, size = 66, color = '#fff' }) {
+function BigNum({ value, decimals = 1, size = 66, color = '#111827' }) {
   const v = useCountUp(num(value) || 0);
   return (
     <span style={{ fontSize:size, fontWeight:800, letterSpacing:'-.035em', color, lineHeight:1, fontVariantNumeric:'tabular-nums' }}>
@@ -388,7 +393,7 @@ function RadialGauge({ label, value, max, unit, color, delta, dir, delay = 0 }) 
           <circle cx="80" cy="80" r={R} fill="none" stroke={color} strokeWidth="11" strokeDasharray={`${span} ${C}`} strokeDashoffset={off} strokeLinecap="round"
             style={{ transition:'stroke-dashoffset 1.35s cubic-bezier(.22,1,.36,1)', filter:`drop-shadow(0 0 9px ${color}66)` }}/>
         </g>
-        <text x="80" y="78" textAnchor="middle" fill="#fff" style={{ fontSize:30, fontWeight:800, fontVariantNumeric:'tabular-nums', fontFamily:'inherit' }}>{num(value) == null ? '—' : v.toFixed(1)}</text>
+        <text x="80" y="78" textAnchor="middle" fill="#111827" style={{ fontSize:30, fontWeight:800, fontVariantNumeric:'tabular-nums', fontFamily:'inherit' }}>{num(value) == null ? '—' : v.toFixed(1)}</text>
         <text x="80" y="98" textAnchor="middle" fill="rgba(17,24,39,0.55)" style={{ fontSize:11, fontFamily:'inherit' }}>{unit}</text>
       </svg>
       <p style={{ margin:'0 0 7px', fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 }}>{label}</p>
@@ -578,7 +583,7 @@ function CompositionDonut({ weight, fatPct, muscleKg, delay = 0 }) {
               style={{ transition:'stroke-dasharray 1.25s cubic-bezier(.22,1,.36,1)' }}/>;
           })}
         </g>
-        <text x="75" y="71" textAnchor="middle" fill="#fff" style={{ fontSize:24, fontWeight:800, fontVariantNumeric:'tabular-nums', fontFamily:'inherit' }}>{w.toFixed(1)}</text>
+        <text x="75" y="71" textAnchor="middle" fill="#111827" style={{ fontSize:24, fontWeight:800, fontVariantNumeric:'tabular-nums', fontFamily:'inherit' }}>{w.toFixed(1)}</text>
         <text x="75" y="90" textAnchor="middle" fill="rgba(17,24,39,0.55)" style={{ fontSize:10.5, fontFamily:'inherit' }}>kg σύνολο</text>
       </svg>
       <p style={{ margin:'0 0 8px', fontSize:10.5, letterSpacing:'.14em', textTransform:'uppercase', color:'rgba(17,24,39,0.55)', fontWeight:700 }}>Σύνθεση σώματος</p>
@@ -634,6 +639,10 @@ export default function NutritionMeeting() {
   const [activeSlot, setActiveSlot] = useState('');
   const [rerolling, setRerolling] = useState({});
   const shownRef = useRef({});
+  const [slotQuery, setSlotQuery] = useState({});   // ενεργό αίτημα-φίλτρο ανά κατηγορία
+  const [searchInput, setSearchInput] = useState('');
+  const [searching, setSearching] = useState(false);
+  const baseRef = useRef({});                       // η δεκάδα πριν το φίλτρο, για επιστροφή
 
   /* σύνοψη / ραντεβού */
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
@@ -751,18 +760,36 @@ const loadRecipes = async () => {
 
   const reroll = async (slotKey) => {
     setRerolling(p => ({ ...p, [slotKey]: true }));
+    const q = slotQuery[slotKey] || '';
     const avoid = [ ...(shownRef.current[slotKey] || []), ...cart.map(c => c.name) ].slice(-60);
-    const list = await genForSlot(slotKey, { profile, client }, avoid);
+    const list = await genForSlot(slotKey, { profile, client }, avoid, q);
     if (!list.length) {
       /* Το AI δεν έφερε νέες — ΚΡΑΤΑΜΕ τη δεκάδα που φαίνεται, δεν τη σβήνουμε */
       setRerolling(p => ({ ...p, [slotKey]: false }));
       alert('Δεν ήρθαν νέες προτάσεις — η τρέχουσα δεκάδα παραμένει.' + (lastGenErr ? '\n\nΑιτία: ' + lastGenErr : ''));
       return;
     }
-    const full = injectStudioRecipes(slotKey, list);
+    const full = q ? list : injectStudioRecipes(slotKey, list);
     shownRef.current[slotKey] = [ ...(shownRef.current[slotKey] || []), ...list.map(m => m.name) ];
     setSuggestions(p => ({ ...p, [slotKey]: full }));
     setRerolling(p => ({ ...p, [slotKey]: false }));
+  };
+
+  const searchSlot = async () => {
+    const q = searchInput.trim(); if (!q || searching) return;
+    const s2 = activeSlot;
+    setSearching(true);
+    if (!slotQuery[s2]) baseRef.current[s2] = { list: suggestions[s2] || [], shown: shownRef.current[s2] || [] };
+    const list = await genForSlot(s2, { profile, client }, cart.map(c => c.name), q);
+    setSlotQuery(p => ({ ...p, [s2]: q }));
+    shownRef.current[s2] = list.map(m => m.name);
+    setSuggestions(p => ({ ...p, [s2]: list }));
+    setSearchInput(''); setSearching(false);
+  };
+  const clearSearch = (s2 = activeSlot) => {
+    const base = baseRef.current[s2];
+    setSlotQuery(p => ({ ...p, [s2]: '' }));
+    if (base) { shownRef.current[s2] = base.shown; setSuggestions(p => ({ ...p, [s2]: base.list })); }
   };
 
   const togglePick = (slotKey, meal) => {
@@ -1110,7 +1137,7 @@ const loadRecipes = async () => {
                   <button key={s} onClick={() => setActiveSlot(s)}
                     style={{ padding:'9px 15px', borderRadius:999, fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
                       border:`1.5px solid ${activeSlot===s?ACC:'rgba(17,24,39,0.13)'}`,
-                      background: activeSlot===s ? ACC+'22' : 'transparent', color: activeSlot===s ? '#fff' : 'rgba(17,24,39,0.8)' }}>
+                      background: activeSlot===s ? ACC+'22' : 'transparent', color: activeSlot===s ? ACC : 'rgba(17,24,39,0.8)' }}>
                     {SLOT_META[s]?.emoji} {SLOT_META[s]?.label || s}
                     <span style={{ marginLeft:6, opacity:.6 }}>{cart.filter(c => c.slot === (SLOT_META[s]?.label || s)).length || ''}</span>
                   </button>
@@ -1121,7 +1148,30 @@ const loadRecipes = async () => {
                 </button>
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:12, opacity: rerolling[activeSlot] ? 0.45 : 1, transition:'opacity .25s' }}>
+              {/* αίτημα για την κατηγορία — γίνεται φίλτρο πάνω από τις προτάσεις */}
+              <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+                <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') searchSlot(); }}
+                  placeholder="Ζήτα κάτι συγκεκριμένο — πιάτο, υλικό ή κατηγορία (π.χ. κοτόπουλο, βραστά, wraps)…"
+                  style={{ ...S.inp, flex:1, minWidth:0 }}/>
+                <button onClick={searchSlot} disabled={searching || !searchInput.trim()}
+                  style={{ ...S.navBtn, opacity: searching || !searchInput.trim() ? 0.55 : 1 }}>
+                  {searching ? <Loader2 style={{ width:13, height:13, animation:'nmspin 1s linear infinite' }}/> : <Search style={{ width:13, height:13 }}/>} Εύρεση
+                </button>
+              </div>
+              {slotQuery[activeSlot] && (
+                <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:12, flexWrap:'wrap' }}>
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'7px 13px', borderRadius:999, fontSize:12.5, fontWeight:800,
+                    background:`${ACC}1c`, border:`1.5px solid ${ACC}`, color:'#111827' }}>
+                    🔎 {slotQuery[activeSlot]}
+                    <button onClick={() => clearSearch()} title="Αφαίρεση φίλτρου" style={{ background:'transparent', border:'none', cursor:'pointer', padding:0, display:'grid', placeItems:'center' }}>
+                      <X style={{ width:13, height:13, color:'#111827' }}/>
+                    </button>
+                  </span>
+                  <span style={{ ...S.dim, fontSize:11.5 }}>προτάσεις πάνω στο αίτημα — βγάλ' το ✕ για επιστροφή στην αρχική δεκάδα</span>
+                </div>
+              )}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:12, opacity: (rerolling[activeSlot] || searching) ? 0.45 : 1, transition:'opacity .25s' }}>
                 {(suggestions[activeSlot] || []).map(meal => {
                   const id = `ai::${activeSlot}::${meal.name}`;
                   const on = !!cart.find(x => x.id === id);
@@ -1147,7 +1197,9 @@ const loadRecipes = async () => {
                   );
                 })}
                 {!(suggestions[activeSlot] || []).length && (
-                  <p style={{ ...S.dim, fontSize:13 }}>Δεν ήρθαν προτάσεις (πιθανό πρόσκαιρο σφάλμα AI) — πάτα Reroll για νέα προσπάθεια.</p>
+                  <p style={{ ...S.dim, fontSize:13 }}>{slotQuery[activeSlot]
+                    ? `Καμία πρόταση για «${slotQuery[activeSlot]}» — πάτα Reroll για νέα προσπάθεια ή βγάλε το φίλτρο.`
+                    : 'Δεν ήρθαν προτάσεις — πάτα Reroll για νέα προσπάθεια.'}</p>
                 )}
               </div>
             </div>
@@ -1232,7 +1284,7 @@ const loadRecipes = async () => {
                               style={{ aspectRatio:'1', borderRadius:9, fontSize:12, fontWeight:700, cursor: past?'default':'pointer', fontFamily:'inherit',
                                 border: sel ? `1.6px solid ${ACC}` : isToday ? `1.4px dashed ${ACC}88` : '1px solid rgba(17,24,39,0.05)',
                                 background: sel ? ACC+'2a' : 'transparent',
-                                color: past ? 'rgba(17,24,39,0.13)' : '#fff' }}>
+                                color: past ? 'rgba(17,24,39,0.13)' : '#111827' }}>
                               {d}
                             </button>
                           );
@@ -1303,7 +1355,7 @@ const loadRecipes = async () => {
                 return (
                   <button key={k} onClick={() => updateProfile({ meal_slots: on ? profile.meal_slots.filter(x => x !== k) : [ ...(profile.meal_slots || []), k ] })}
                     style={{ padding:'8px 13px', borderRadius:999, fontSize:12.5, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
-                      border:`1.5px solid ${on?ACC:'rgba(17,24,39,0.13)'}`, background: on?ACC+'22':'transparent', color: on?'#fff':'rgba(17,24,39,0.55)' }}>
+                      border:`1.5px solid ${on?ACC:'rgba(17,24,39,0.13)'}`, background: on?ACC+'22':'transparent', color: on?ACC:'rgba(17,24,39,0.55)' }}>
                     {SLOT_META[k].emoji} {SLOT_META[k].label}
                   </button>
                 );

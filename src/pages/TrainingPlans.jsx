@@ -3,7 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { Plus, Trash2, CheckCircle2, Circle, X, Dumbbell, Sparkles, Loader2, ChevronRight, Check, AlertCircle, RotateCcw, Edit2, Play, ArrowLeft, Search, Users, Users2, Brain, CalendarDays } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { db, callAI } from '../lib/db';
-import { EQUIPMENT, EXERCISE_DB, getExercisesFor, sortBySessionOrder } from '../lib/gymEquipment';
+import { EQUIPMENT, EXERCISE_DB, getExercisesForParts, sortBySessionOrder } from '../lib/gymEquipment';
 import { isIndividual, isGroupService, groupDisplayName, firstName, GROUP_CAP, ensureTrials, unorphanClients, repairOrphanGroupIds } from '../lib/groups';
 import GroupsPanel from '../components/GroupsPanel';
 
@@ -179,7 +179,7 @@ function AITrainingWizard({ clients, onSaved, onClose }) {
     }
 
     // Get exercises from our DB that match selected muscle groups
-    const candidates = getExercisesFor(answers.bodyParts);
+    const candidates = getExercisesForParts(answers.bodyParts);
     const numEx = Math.max(4, Math.round(answers.duration / 13));
 
     setLoadingMsg(`Selecting ${numEx} exercises from your equipment...`);
@@ -215,7 +215,7 @@ Return ONLY a JSON array of exercise names (exact spelling from the list above):
   const reroll = async id => {
     setPreview(p => p.map(ex => ex.id === id ? { ...ex, rerolling: true } : ex));
     const existing = preview.filter(ex => ex.id !== id).map(ex => ex.name).join(', ');
-    const candidates = getExercisesFor(answers.bodyParts).filter(e => !existing.toLowerCase().includes(e.name.toLowerCase()));
+    const candidates = getExercisesForParts(answers.bodyParts).filter(e => !existing.toLowerCase().includes(e.name.toLowerCase()));
     const candidateNames = candidates.map(e => `${e.name} (${e.eq})`).slice(0, 30).join(', ');
     const r = await callAI(`Pick ONE different exercise for ${answers.bodyParts.join('/')} from: ${candidateNames}. Return ONLY the exercise name.`, 'Return ONLY the exercise name string.');
     const name = r?.trim().replace(/^["'\-\d\.\s]+|["']+$/g, '').trim() || 'Cable Row';
@@ -528,12 +528,13 @@ function PlanModal({ clients, plan, onClose, onSaved }) {
 /* ═══════════════ TRAINING CENTER ═══════════════ */
 
 const hasTrainingSvc = (c) => c.services !== 'nutrition_only';
-const TC_TYPES = { upper:{label:'Upper',emoji:'💪',color:'#818cf8'}, lower:{label:'Lower',emoji:'🦵',color:'#34d399'}, full_body:{label:'Full Body',emoji:'🏋️',color:'#f59e0b'}, glutes:{label:'Glutes',emoji:'🍑',color:'#f472b6'} };
+const TC_TYPES = { upper:{label:'Upper',emoji:'💪',color:'#818cf8'}, lower:{label:'Lower',emoji:'🦵',color:'#34d399'}, legs:{label:'Legs',emoji:'🦿',color:'#60a5fa'}, glutes:{label:'Glutes',emoji:'🍑',color:'#f472b6'}, full_body:{label:'Full Body',emoji:'🏋️',color:'#f59e0b'} };
 const planType = (p) => p.session_type
   || (/(glute|γλουτ)/i.test(p.title||'') ? 'glutes'
-    : /(upper|άνω)/i.test(p.title||'') ? 'upper'
-    : /(lower|κάτω|πόδι)/i.test(p.title||'') ? 'lower'
-    : /full/i.test(p.title||'') ? 'full_body' : null);
+    : /(upper|άνω|πάνω κορμ|push|pull|στήθος|πλάτη|ώμ|χέρι|δικέφαλ|τρικέφαλ)/i.test(p.title||'') ? 'upper'
+    : /(leg|πόδι|τετρακέφαλ|μηριαί|γάμπ|quad|hamstring|calf|calves)/i.test(p.title||'') ? 'legs'
+    : /(lower|κάτω)/i.test(p.title||'') ? 'lower'
+    : /(full|ολόσωμ)/i.test(p.title||'') ? 'full_body' : null);
 const tcDaysAgo = (n) => { const d = new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; };
 const resultTotals = (p) => {
   let planned=0, done=0, miss=0;
