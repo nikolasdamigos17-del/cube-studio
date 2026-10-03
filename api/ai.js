@@ -13,6 +13,8 @@ export default async function handler(req, res) {
   b = b || {};
   const prompt = String(b.prompt || '');
   const system = String(b.system || 'You are a helpful fitness and nutrition assistant.');
+  /* Ρυθμιζόμενο όριο εξόδου (π.χ. μεταφορά διατροφής = μεγάλο JSON), με ταβάνι */
+  const maxTokens = Math.min(Math.max(parseInt(b.max_tokens) || 8192, 256), 16000);
   if (!prompt) { res.status(400).json({ error: { message: 'Λείπει το prompt' } }); return; }
 
   try {
@@ -25,7 +27,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 8192,
+        max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: prompt }],
       }),
